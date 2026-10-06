@@ -1,0 +1,1076 @@
+<meta charset="utf-8">
+<title>Barber Paneli</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: the barber's day as one phone column of client cards in time order; the next client is lifted to the top; actions sit on the card itself. */
+:root {
+  --bg: #f3f1ee;
+  --card: #ffffff;
+  --sunken: #ebe6df;
+  --fg: #1d1a17;
+  --muted: #74695f;
+  --line: #e2dbd2;
+  --brass: #9a7433;
+  --brass-soft: #f4ecdd;
+  --brass-ink: #ffffff;
+  --ok: #2f7a4f; --on-ok: #ffffff;
+  --ok-soft: #e3f1e8;
+  --bad: #b2412f;
+  --bad-soft: #f8e5e1;
+  --display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121010; --card: #1c1917; --sunken: #26211e; --fg: #f0e9e0; --muted: #a39789; --line: #2f2925;
+    --brass: #d2ab66; --brass-soft: #2e2618; --brass-ink: #1a140f; --ok: #79c495; --on-ok: #10251a; --ok-soft: #1c2a21; --bad: #e88471; --bad-soft: #2f1d19;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121010; --card: #1c1917; --sunken: #26211e; --fg: #f0e9e0; --muted: #a39789; --line: #2f2925;
+  --brass: #d2ab66; --brass-soft: #2e2618; --brass-ink: #1a140f; --ok: #79c495; --on-ok: #10251a; --ok-soft: #1c2a21; --bad: #e88471; --bad-soft: #2f1d19;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.45 var(--body); }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+.app { max-width: 520px; margin: 0 auto; padding: 0 16px calc(96px + env(safe-area-inset-bottom, 0px)); }
+
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 4; background: var(--bg); margin: 0 -16px; padding: 16px 16px 10px; border-bottom: 1px solid var(--line); }
+.hello { display: flex; align-items: center; gap: 12px; }
+.av { width: 42px; height: 42px; border-radius: 50%; background: var(--brass); color: var(--brass-ink); display: grid; place-items: center; font: 800 20px var(--display); flex: none; }
+.hello .hi { flex: 1; min-width: 0; }
+.hello b { font: 800 clamp(19px, 6vw, 24px)/1.05 var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: .02em; display: block; }
+.hello small { color: var(--muted); font-size: 13px; }
+.badge { margin-left: auto; font-size: 10px; font-weight: 800; letter-spacing: .1em; color: var(--brass); border: 1px solid var(--brass); border-radius: 99px; padding: 2px 8px; }
+.tabs { display: flex; gap: 6px; overflow-x: auto; margin-top: 12px; scrollbar-width: none; }
+.tab { flex: none; min-height: 44px; border: 1px solid var(--line); background: var(--card); border-radius: 99px; padding: 7px 14px; font-weight: 700; font-size: 14px; white-space: nowrap; }
+.tab[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.tab small { font-weight: 600; opacity: .7; margin-left: 4px; }
+
+.summary { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin: 16px 0 6px; }
+.summary div { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 6px 10px 9px; min-width: 0; }
+.summary b { display: block; font: 800 clamp(18px, 5.6vw, 24px)/1.1 var(--display); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.summary span { display: block; font-size: clamp(11px, 3.3vw, 12px); color: var(--muted); overflow-wrap: anywhere; line-height: 1.25; }
+.section { font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 18px 0 8px; display: flex; justify-content: space-between; }
+
+.list { display: flex; flex-direction: column; gap: 10px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 4px 12px; }
+.card.next { border: 2px solid var(--brass); box-shadow: 0 6px 20px color-mix(in srgb, var(--brass) 18%, transparent); }
+.card.done { opacity: .78; }
+.card.cancelled { opacity: .55; }
+.time { grid-row: span 3; display: flex; flex-direction: column; align-items: flex-start; }
+.time b { font: 800 28px/1 var(--display); font-variant-numeric: tabular-nums; }
+.time small { color: var(--muted); font-size: 12px; font-weight: 700; margin-top: 4px; }
+.who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.who b { font-size: 17px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card.cancelled .who b { text-decoration: line-through; }
+.tag { font-size: 11px; font-weight: 800; letter-spacing: .04em; padding: 2px 8px; border-radius: 99px; white-space: nowrap; margin-left: auto; }
+.tag.next { background: var(--brass); color: var(--brass-ink); }
+.tag.completed { background: var(--ok-soft); color: var(--ok); }
+.tag.no_show { background: var(--bad-soft); color: var(--bad); }
+.tag.cancelled { background: var(--sunken); color: var(--muted); }
+.tag.phone { background: var(--sunken); color: var(--muted); }
+.svc { color: var(--muted); font-size: 14px; }
+.svc em { font-style: normal; color: var(--fg); font-weight: 700; }
+.note { font-size: 14px; background: var(--brass-soft); border-radius: 8px; padding: 6px 10px; }
+.phone-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; font-size: 14px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.phone-line .num { white-space: nowrap; }
+.copy { min-height: 44px; border: 1px solid var(--line); background: var(--sunken); border-radius: 8px; padding: 0 12px; font-size: 12px; font-weight: 700; }
+.call { margin-left: auto; min-height: 44px; display: inline-flex; align-items: center; gap: 6px; border-radius: 99px; padding: 6px 14px; font-size: 13px; font-weight: 800; background: var(--brass); color: var(--brass-ink); text-decoration: none; white-space: nowrap; }
+.call svg { width: 14px; height: 14px; }
+.acts { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; margin-top: 8px; }
+.btn { border-radius: 12px; padding: 13px 10px; font-weight: 800; border: 1px solid var(--line); background: var(--card); }
+.btn.ok { background: var(--ok); border-color: var(--ok); color: var(--on-ok); }
+.btn.bad { color: var(--bad); border-color: var(--bad); background: none; }
+.btn.more { padding-inline: 14px; color: var(--muted); }
+.btn:disabled { opacity: .55; cursor: default; }
+.acts.two { grid-template-columns: 1fr 1fr; }
+.acts.one { grid-template-columns: 1fr auto; margin-top: 4px; }
+.btn.mini { min-height: 44px; padding: 8px 12px; font-size: 13px; }
+.confirm { grid-column: 1 / -1; background: var(--bad-soft); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.confirm .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.gap { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; padding: 0 4px; }
+.gap::before, .gap::after { content: ""; flex: 1; border-top: 1px dashed var(--line); }
+.empty { text-align: center; color: var(--muted); background: var(--card); border: 1px dashed var(--line); border-radius: 16px; padding: 28px 16px; }
+.empty b { display: block; color: var(--fg); font: 800 22px var(--display); text-transform: uppercase; margin-bottom: 4px; }
+.notice { background: var(--bad-soft); color: var(--bad); border-radius: 10px; padding: 10px 12px; margin-top: 12px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); top: calc(16px + env(safe-area-inset-top, 0px)); z-index: 40; background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 700; width: max-content; max-width: calc(100vw - 32px); display: flex; align-items: center; gap: 4px 12px; flex-wrap: wrap; box-shadow: 0 8px 24px rgb(0 0 0 / .25); }
+.toast button { min-height: 44px; border: 0; background: none; color: var(--bg); font-weight: 800; text-decoration: underline; text-underline-offset: 3px; padding: 0 4px; }
+/* finished visits fold to one line; breaks sit on the time line */
+.row1 { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto auto; align-items: center; gap: 8px; width: 100%; min-height: 48px; padding: 6px 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; text-align: left; opacity: .8; }
+.row1 b { font: 800 20px/1 var(--display); font-variant-numeric: tabular-nums; }
+.row1 > span:nth-of-type(1) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; }
+.row1 .tag { margin-left: 0; }
+.row1 em { font-style: normal; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.row1.cancelled > span:nth-of-type(1) { text-decoration: line-through; }
+@media (max-width: 359px) { .row1 em { display: none; } }
+.brk { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 0 0 0 14px; border-radius: 12px; color: var(--muted); font-size: 13px; font-weight: 700;
+  background: repeating-linear-gradient(-45deg, var(--sunken) 0 8px, transparent 8px 16px); border: 1px dashed var(--line); }
+.x { flex: none; width: 44px; height: 44px; border: 0; background: none; color: var(--muted); font-size: 24px; line-height: 1; border-radius: 10px; }
+.notice.warn { display: flex; align-items: center; gap: 8px; background: var(--brass-soft); color: var(--fg); padding-right: 0; }
+.notice.warn span { flex: 1; }
+/* one-hand dock and bottom sheets */
+.dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; display: grid; grid-template-columns: 1.3fr 1fr; gap: 8px; max-width: 520px; margin: 0 auto; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(8px); border-top: 1px solid var(--line); }
+.scrim { position: fixed; inset: 0; z-index: 30; background: rgb(0 0 0 / .45); display: flex; align-items: flex-end; justify-content: center; }
+.sheet { background: var(--bg); width: 100%; max-width: 520px; max-height: 92dvh; overflow-y: auto; overscroll-behavior: contain; border-radius: 20px 20px 0 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 14px; }
+.sh-top { display: flex; align-items: flex-start; gap: 8px; }
+.sh-top > div { flex: 1; min-width: 0; }
+.sh-top h2 { margin: 0 0 2px; font: 800 26px/1.05 var(--display); text-transform: uppercase; }
+.sheet .tabs { margin-top: 0; }
+.chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }
+.chip { min-height: 44px; border: 1px solid var(--line); background: var(--card); border-radius: 10px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.chip.now { grid-column: span 2; }
+.chip[aria-pressed="true"], .opt[aria-pressed="true"] { background: var(--brass); color: var(--brass-ink); border-color: var(--brass); }
+.opts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.opt { min-height: 56px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 8px 12px; border: 1px solid var(--line); background: var(--card); border-radius: 12px; text-align: left; min-width: 0; }
+.opt b { font-size: 14px; }
+.opt span { font-size: 12px; opacity: .75; font-variant-numeric: tabular-nums; }
+.presets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.field input[type="time"] { min-height: 46px; }
+.ro .w { display: none !important; }
+@media (max-width: 359px) { .sheet .pgrid { grid-template-columns: 1fr; } .hello .badge { display: none; } .hello { gap: 10px; } }
+.acts .btn { padding-inline: 8px; white-space: nowrap; }
+.login { display: flex; flex-direction: column; gap: 14px; margin-top: 10vh; }
+.login h1 { font: 800 32px/1 var(--display); text-transform: uppercase; margin: 0; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 13px; font-weight: 700; }
+.field input { min-height: 46px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; width: 100%; }
+.hint { color: var(--muted); font-size: 13px; }
+.btn.primary { background: var(--brass); border-color: var(--brass); color: var(--brass-ink); }
+.out { min-height: 44px; flex: none; border: 1px solid var(--line); background: var(--card); border-radius: 99px; padding: 4px 10px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.salon-name { color: var(--brass); font-weight: 800; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
+/* tabs + profile editor */
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: var(--sunken); border-radius: 12px; padding: 4px; margin-top: 12px; }
+.seg button { min-height: 44px; border: 0; background: none; border-radius: 9px; padding: 8px 4px; font-weight: 800; font-size: 13px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--card); color: var(--fg); box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
+.psec { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+.phd { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.phd h3 { margin: 0; font: 800 24px/1.1 var(--display); text-transform: uppercase; }
+.pgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pgrid .wide { grid-column: 1 / -1; }
+.field textarea { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; width: 100%; resize: vertical; font: inherit; color: inherit; }
+.prow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.prow .btn.primary { flex: 1; }
+.pthumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.pthumb { position: relative; aspect-ratio: 1; max-width: 100%; border-radius: 10px; overflow: hidden; background: var(--sunken); }
+.pthumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pdel { position: absolute; top: 2px; right: 2px; width: 44px; height: 44px; border-radius: 50%; border: 0; background: rgb(0 0 0 / .65); color: #fff; }
+.pbtn { display: grid; place-items: center; min-height: 44px; padding: 8px 12px; border: 1.5px dashed var(--line); border-radius: 10px; font-weight: 800; font-size: 13px; color: var(--muted); text-align: center; cursor: pointer; }
+.pthumbs .pbtn { aspect-ratio: 1; }
+.pmaster { display: flex; flex-direction: column; gap: 12px; }
+.pface { display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: end; }
+.pface img, .pface > span { width: 120px; height: 120px; border-radius: 16px; object-fit: cover; background: var(--sunken); display: grid; place-items: center; font: 800 48px var(--display); color: var(--brass); }
+.pbody { display: flex; flex-direction: column; gap: 12px; }
+.star { color: var(--brass); }
+.previews { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.prev { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.prev p { margin: 0; }
+.prev.hidden-rv { opacity: .6; border-style: dashed; }
+.ptop { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; }
+.ptop .star { font-size: 18px; letter-spacing: 1px; }
+.pempty { text-align: center; color: var(--muted); background: var(--card); border: 1px dashed var(--line); border-radius: 16px; padding: 24px 16px; margin-top: 12px; }
+.demo-hint { background: var(--brass-soft); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+.demo-hint code { font-weight: 800; }
+</style>
+
+<div class="app">
+  <header class="top" id="top" hidden></header>
+  <main id="view"></main>
+</div>
+<div id="dock-slot"></div>
+<div id="sheet-slot"></div>
+<div id="toast-slot"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const som = (n) => n.toLocaleString("ru-RU").replace(/,/g, " ");
+const WEEK = ["Ya", "Du", "Se", "Ch", "Pa", "Ju", "Sh"];
+const MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr"];
+const TZ = "Asia/Tashkent", OPEN = 600, CLOSE = 1260;
+const parts = (d) => { const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(d).map((x) => [x.type, x.value])); return { date: `${p.year}-${p.month}-${p.day}`, min: +p.hour * 60 + +p.minute }; };
+const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+const minOf = (iso) => parts(new Date(iso)).min;
+const isoAt = (ymd, m) => `${ymd}T${hhmm(m)}:00+05:00`;
+const addDays = (ymd, n) => { const d = new Date(ymd + "T12:00:00+05:00"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const dinfo = (ymd) => { const d = new Date(ymd + "T12:00:00+05:00"); return { wd: WEEK[d.getUTCDay()], day: d.getUTCDate(), month: MONTHS[d.getUTCMonth()] }; };
+const today = () => parts(new Date()).date;
+class ApiError extends Error { constructor(s, m) { super(m); this.status = s; } }
+const TAG = { completed: "Keldi", no_show: "Kelmadi", cancelled: "Bekor qilingan" };
+
+// The salon comes from the address: /premium/panel -> "premium".
+const SLUG = location.pathname.split("/").filter(Boolean)[0] || "";
+const NET_MSG = "Internet aloqasi yo'q. Qayta urinib ko'ring.", SRV_MSG = "Serverda xatolik, birozdan keyin urinib ko'ring", GONE_MSG = "Sessiya tugadi, qaytadan kiring";
+const RO_MSG = "Obuna muddati tugagan. Panel faqat ko'rish rejimida ishlaydi.", TAKEN_MSG = "Bu vaqt hozirgina band bo'ldi. Iltimos, boshqa vaqtni tanlang.";
+const WALK_IN = "walk-in", noPhone = (p) => !p || p === WALK_IN;
+const detailMsg = (d) => (typeof d === "string" ? d : Array.isArray(d) && d[0]?.msg ? String(d[0].msg).replace(/^Value error, /, "") : "Xatolik yuz berdi");
+
+// ---------- real API ----------
+const realApi = {
+  async call(path, opts = {}) {
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 15000);
+    let res, text;
+    try {
+      res = await fetch(`/api/s/${SLUG}` + path, { ...opts, signal: ctl.signal, credentials: "same-origin", headers: { "Content-Type": "application/json", ...(opts.headers || {}) } });
+      text = await res.text();
+    } catch { throw new ApiError(0, NET_MSG); } finally { clearTimeout(timer); }
+    // Password changed elsewhere or account switched off: back to the login form.
+    if (res.status === 401 && path !== "/staff/login" && path !== "/staff/me") { resetSession(GONE_MSG); throw new ApiError(401, GONE_MSG); }
+    if (res.status === 204) return null;
+    let body; try { body = text ? JSON.parse(text) : null; } catch { body = undefined; }
+    if (res.status >= 500 || body === undefined) throw new ApiError(res.status, SRV_MSG);
+    if (!res.ok) throw new ApiError(res.status, detailMsg(body?.detail));
+    return body;
+  },
+  post(path, p, headers) { return this.call(path, { method: "POST", body: JSON.stringify(p), headers }); },
+  me() { return this.call("/staff/me").catch(() => null); },
+  login(login, password) { return this.post("/staff/login", { login, password }); },
+  logout() { return this.call("/staff/logout", { method: "POST" }); },
+  branches() { return this.call("/branches"); },
+  masters(b) { return this.call(`/branches/${b}/masters`); },
+  day(b, d) { return this.call(`/staff/bookings?branch_id=${b}&date=${d}`); },
+  setStatus(id, status) { return this.call(`/staff/bookings/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }); },
+  salonInfo() { return this.call(""); },
+  updateMaster(id, p) { return this.call(`/staff/masters/${id}`, { method: "PATCH", body: JSON.stringify(p) }); },
+  upload(kind, ref, blob) { return this.call(`/staff/photos?kind=${kind}${ref != null ? "&ref_id=" + ref : ""}`, { method: "POST", body: blob, headers: { "Content-Type": blob.type || "image/jpeg" } }); },
+  deletePhoto(id) { return this.call(`/staff/photos/${id}`, { method: "DELETE" }); },
+  reviews() { return this.call("/staff/reviews"); },
+  hideReview(id, hidden) { return this.call(`/staff/reviews/${id}`, { method: "PATCH", body: JSON.stringify({ is_hidden: hidden }) }); },
+  dayHours(b, d) { return this.call(`/staff/day-hours?branch_id=${b}&date=${d}`); },
+  exceptions(d) { return this.call(`/staff/exceptions?from=${d}&to=${d}`); },
+  addException(p) { return this.post("/staff/exceptions", p); },
+  delException(id) { return this.call(`/staff/exceptions/${id}`, { method: "DELETE" }); },
+  services(mid) { return this.call(`/masters/${mid}/services`); }, // this barber's own prices and pace
+  slots(b, mid, ids, d) { return this.call(`/staff/available-slots?branch_id=${b}&service_ids=${ids.join(",")}&date=${d}${mid != null ? "&master_id=" + mid : ""}`); },
+  create(p, key) { return this.post("/staff/bookings", p, { "Idempotency-Key": key }); },
+  move(id, starts_at) { return this.post(`/staff/bookings/${id}/move`, { starts_at }); },
+  password(old_password, new_password) { return this.post("/staff/password", { old_password, new_password }); },
+};
+
+// ---------- demo pictures: drawn barber portraits and haircut shots (the real site shows uploaded photos) ----------
+const DemoArt = (() => {
+  const svg = (w, h, body) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${body}</svg>`);
+  const SKIN = ["#e9c4a2", "#d9a77f", "#c58c63", "#a8714b"];
+  const HAIR = ["#1b1512", "#2b1d16", "#3a2a1f", "#15110f"];
+  const BG = [["#2a2420", "#4a3a2c"], ["#1f2a2a", "#365050"], ["#2b2230", "#4a3a52"], ["#30261c", "#6b5232"], ["#1e2430", "#3a4a66"]];
+  const hairTop = {
+    fade: (c) => `<path d="M58 92 Q60 46 100 42 Q140 46 142 92 Q138 70 100 66 Q62 70 58 92Z" fill="${c}"/><path d="M60 96 Q60 84 64 78 L64 104Z M140 96 Q140 84 136 78 L136 104Z" fill="${c}" opacity=".35"/>`,
+    pomp: (c) => `<path d="M56 96 Q52 40 100 30 Q150 34 146 92 Q140 62 112 58 Q84 52 62 72Z" fill="${c}"/><path d="M60 98 L62 80 M140 98 L138 80" stroke="${c}" stroke-width="5" opacity=".35"/>`,
+    crop: (c) => `<path d="M58 94 Q58 48 100 44 Q142 48 142 94 L136 78 Q120 74 100 78 Q80 74 64 80Z" fill="${c}"/><path d="M70 80 L78 72 M86 80 L92 70 M104 80 L110 70 M120 80 L126 72" stroke="${c}" stroke-width="4"/>`,
+    slick: (c) => `<path d="M58 96 Q56 44 100 40 Q146 44 142 96 Q140 66 126 60 Q100 54 74 62 Q60 70 58 96Z" fill="${c}"/><path d="M76 56 Q100 48 128 58" stroke="#ffffff" stroke-opacity=".12" stroke-width="3" fill="none"/>`,
+  };
+  const beard = {
+    full: (c) => `<path d="M64 112 Q66 160 100 168 Q134 160 136 112 Q130 138 100 142 Q70 138 64 112Z" fill="${c}"/><path d="M84 132 Q100 126 116 132 Q100 138 84 132Z" fill="${c}"/>`,
+    short: (c) => `<path d="M66 116 Q70 152 100 158 Q130 152 134 116 Q126 140 100 142 Q74 140 66 116Z" fill="${c}" opacity=".85"/><path d="M86 131 Q100 125 114 131" stroke="${c}" stroke-width="5" fill="none"/>`,
+    stubble: (c) => `<path d="M66 114 Q70 154 100 160 Q130 154 134 114 Q126 142 100 146 Q74 142 66 114Z" fill="${c}" opacity=".3"/>`,
+    none: () => "",
+  };
+  function portrait(seed, look = {}) {
+    let h = 0; for (const ch of String(seed)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    const pick = (arr) => arr[(h = (h * 1103515245 + 12345) >>> 0) % arr.length];
+    const skin = look.skin || pick(SKIN), hair = look.hairColor || pick(HAIR), [bg1, bg2] = look.bg || pick(BG);
+    const top = hairTop[look.hair || pick(Object.keys(hairTop))](hair), chin = beard[look.beard || pick(Object.keys(beard))](hair);
+    return svg(200, 200, `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${bg2}"/><stop offset="1" stop-color="${bg1}"/></linearGradient></defs>
+      <rect width="200" height="200" fill="url(#g)"/>
+      <path d="M24 200 Q30 160 72 152 L128 152 Q170 160 176 200Z" fill="#141110"/><path d="M88 152 L100 176 L112 152Z" fill="#e8e1d8"/>
+      <rect x="86" y="132" width="28" height="26" rx="8" fill="${skin}"/>
+      <ellipse cx="60" cy="104" rx="7" ry="11" fill="${skin}"/><ellipse cx="140" cy="104" rx="7" ry="11" fill="${skin}"/>
+      <ellipse cx="100" cy="102" rx="40" ry="50" fill="${skin}"/>
+      ${top}
+      <path d="M78 94 Q86 90 94 94 M106 94 Q114 90 122 94" stroke="${hair}" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+      <ellipse cx="86" cy="103" rx="3.2" ry="3.6" fill="#1a1412"/><ellipse cx="114" cy="103" rx="3.2" ry="3.6" fill="#1a1412"/>
+      <path d="M100 106 Q96 118 101 120" stroke="#000" stroke-opacity=".18" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      ${chin}
+      <path d="M90 134 Q100 139 110 134" stroke="#5a2e22" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="${look.beard === "full" ? 0 : 0.7}"/>`);
+  }
+  // A haircut seen from behind or the side, as on a barber's Instagram grid.
+  function work(seed, style) {
+    let h = 7; for (const ch of String(seed)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    const skin = SKIN[h % SKIN.length], hair = HAIR[(h >> 3) % HAIR.length], [bg1, bg2] = BG[(h >> 5) % BG.length];
+    const back = style === "beard"
+      ? `<ellipse cx="110" cy="112" rx="48" ry="58" fill="${skin}"/><path d="M70 92 Q74 40 116 38 Q160 44 158 96 Q150 70 120 66 Q88 66 70 92Z" fill="${hair}"/>
+         <path d="M72 120 Q76 176 118 184 Q150 176 158 120 Q150 150 120 154 Q90 150 72 120Z" fill="${hair}"/><path d="M96 142 Q118 134 140 142" stroke="${hair}" stroke-width="7"/>
+         <ellipse cx="96" cy="108" rx="4" ry="4.5" fill="#1a1412"/><ellipse cx="128" cy="108" rx="4" ry="4.5" fill="#1a1412"/>`
+      : `<ellipse cx="100" cy="112" rx="56" ry="64" fill="${skin}"/>
+         <defs><linearGradient id="f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${hair}"/><stop offset="${style === "fade" ? 0.48 : 0.7}" stop-color="${hair}"/><stop offset="${style === "fade" ? 0.78 : 0.9}" stop-color="${hair}" stop-opacity="0"/></linearGradient></defs>
+         <path d="M44 120 Q38 44 100 40 Q162 44 156 120 L156 168 Q100 182 44 168Z" fill="url(#f)"/>
+         ${style === "line" ? `<path d="M60 96 Q100 84 140 98" stroke="${skin}" stroke-width="3" fill="none"/>` : ""}
+         <ellipse cx="44" cy="118" rx="9" ry="15" fill="${skin}"/><ellipse cx="156" cy="118" rx="9" ry="15" fill="${skin}"/>`;
+    return svg(200, 200, `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${bg2}"/><stop offset="1" stop-color="${bg1}"/></linearGradient></defs>
+      <rect width="200" height="200" fill="url(#g)"/><path d="M30 200 Q40 168 100 166 Q160 168 170 200Z" fill="#141110"/>${back}`);
+  }
+  // Salon cover: a barber pole stripe across a warm interior tone.
+  function cover(seed) {
+    return svg(800, 360, `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b2d22"/><stop offset="1" stop-color="#14100d"/></linearGradient>
+      <pattern id="p" width="40" height="40" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)"><rect width="40" height="40" fill="#efe6d8"/><rect width="13" height="40" fill="#a33a2c"/><rect x="20" width="13" height="40" fill="#2c4a7a"/></pattern></defs>
+      <rect width="800" height="360" fill="url(#g)"/>
+      <rect x="640" y="40" width="44" height="280" rx="22" fill="url(#p)"/><rect x="632" y="28" width="60" height="18" rx="9" fill="#b98f4d"/><rect x="632" y="314" width="60" height="18" rx="9" fill="#b98f4d"/>
+      <circle cx="140" cy="70" r="120" fill="#d9a85c" opacity=".14"/><circle cx="420" cy="40" r="80" fill="#d9a85c" opacity=".08"/>
+      <path d="M60 300 L340 300 L330 250 Q300 200 240 200 L160 200 Q100 200 80 250Z" fill="#0d0a08" opacity=".7"/><rect x="180" y="300" width="40" height="60" fill="#0d0a08" opacity=".7"/>`);
+  }
+  return { portrait, work, cover };
+})();
+
+// ---------- demo profile store (used only when there is no server) ----------
+const DemoProfile = (() => {
+  const wait = (v) => new Promise((r) => setTimeout(() => r(JSON.parse(JSON.stringify(v))), 120));
+  let n = 0; const pid = () => `demo${++n}`;
+  const W = (seed, style, caption) => ({ id: pid(), url: DemoArt.work(seed, style), caption });
+  const salon = { slug: "premium", name: "Premium Barber", phone: "+998712000000", active: true, paid_until: "2026-12-31",
+    description: "Erkaklar uchun premium barbershop: qahva, issiq sochiq va shoshilmasdan ishlaydigan ustalar.", instagram: "premiumbarber.uz", cover_url: DemoArt.cover("premium"), logo_url: null };
+  const branches = [{ id: 1, name: "Chilonzor", address: "Chilonzor 9-kvartal, Bunyodkor shoh ko'chasi", landmark: "Chilonzor metrosi yonida, Korzinka ro'parasida", hours_text: "Har kuni 10:00–21:00", phone: "+998712000000", lat: 41.2756, lng: 69.2034, photo_url: null, photos: [] }];
+  const prof = {
+    1: { photo_url: DemoArt.portrait("Jasur", { hair: "pomp", beard: "full", skin: "#d9a77f" }), experience_years: 9, specialties: ["Fade", "Soqol dizayni", "Klassika"], bio: "Toshkent va Istanbul akademiyalarida o'qigan. Zamonaviy fade va aniq soqol konturi bo'yicha ustoz.", works: [W("j1", "fade", "Skin fade"), W("j2", "beard", "Soqol konturi"), W("j3", "fade", "Mid fade"), W("j4", "line", "Chiziq bilan")] },
+    2: { photo_url: DemoArt.portrait("Bekzod", { hair: "slick", beard: "short", skin: "#e9c4a2" }), experience_years: 5, specialties: ["Klassik qirqim", "Qaychi bilan"], bio: "Biznes uslubidagi klassik qirqimlar. Qaychi bilan ishlashni yaxshi ko'radi.", works: [W("b1", "classic", "Klassika"), W("b3", "beard", "Qisqa soqol")] },
+    3: { photo_url: null, experience_years: 3, specialties: ["Crop", "Tekstura"], bio: "", works: [] },
+  };
+  const reviews = [
+    { id: 1, master_id: 1, rating: 5, client_name: "Aziz K.", services: "Soch + soqol", comment: "Fade juda toza chiqdi, soqol konturini ham zo'r qildi.", is_hidden: false },
+    { id: 2, master_id: 1, rating: 5, client_name: "Bobur T.", services: "Soch olish", comment: "Vaqtida qabul qildi, natija rasmdagidek.", is_hidden: false },
+    { id: 3, master_id: 2, rating: 4, client_name: "Sherzod A.", services: "Soqol olish", comment: "Yaxshi, faqat biroz uzoq davom etdi.", is_hidden: false },
+    { id: 4, master_id: 1, rating: 1, client_name: "Nodir E.", services: "Soch olish", comment: "Reklama: arzon telefonlar @spam_shop", is_hidden: true },
+    { id: 5, master_id: 3, rating: 5, client_name: "Javohir R.", services: "Soch olish", comment: "Bolamning sochini sabr bilan oldi. Rahmat!", is_hidden: false },
+  ];
+  const byPhoto = (id) => { for (const [mid, p] of Object.entries(prof)) { if (p.photo_url && p._face === id) return ["master", +mid]; const w = p.works.findIndex((x) => x.id === id); if (w >= 0) return ["work", +mid, w]; } const b = branches[0].photos.findIndex((x) => x.id === id); return b >= 0 ? ["branch", 1, b] : null; };
+  const enrich = (m) => {
+    const p = prof[m.id] || (prof[m.id] = { photo_url: null, experience_years: null, specialties: [], bio: "", works: [] });
+    const vis = reviews.filter((r) => r.master_id === m.id && !r.is_hidden);
+    return { ...m, ...p, rating: vis.length ? vis.reduce((a, r) => a + r.rating, 0) / vis.length : null, reviews_count: vis.length };
+  };
+  return {
+    enrich,
+    salonInfo: () => wait(salon),
+    updateSalon(p) { Object.assign(salon, p); return wait(salon); },
+    branches: () => wait(branches),
+    updateBranch(id, p) { Object.assign(branches.find((b) => b.id === id), p); return wait(branches.find((b) => b.id === id)); },
+    updateMaster(id, p) { const x = prof[id]; for (const k of ["bio", "experience_years", "specialties", "instagram"]) if (k in p) x[k] = p[k]; return wait({ id, ...x }); },
+    upload(kind, ref, blob) {
+      const ph = { id: pid(), url: URL.createObjectURL(blob), caption: "" };
+      if (kind === "cover") salon.cover_url = ph.url;
+      else if (kind === "branch") { branches[0].photos.unshift(ph); branches[0].photo_url ||= ph.url; }
+      else if (kind === "master") { prof[ref].photo_url = ph.url; prof[ref]._face = ph.id; }
+      else prof[ref].works.unshift(ph);
+      return wait(ph);
+    },
+    deletePhoto(id) {
+      const hit = byPhoto(id); if (!hit) return wait(null);
+      if (hit[0] === "work") prof[hit[1]].works.splice(hit[2], 1);
+      else if (hit[0] === "branch") { branches[0].photos.splice(hit[2], 1); branches[0].photo_url = branches[0].photos[0]?.url || null; }
+      return wait(null);
+    },
+    reviews: (masterId) => wait(reviews.filter((r) => masterId == null || r.master_id === masterId).map((r) => ({ ...r, master_name: ["", "Jasur", "Bekzod", "Sardor"][r.master_id] || "Usta", created_at: new Date(Date.now() - r.id * 3 * 86400e3).toISOString() }))),
+    hideReview(id, hidden) { const r = reviews.find((x) => x.id === id); r.is_hidden = hidden; return wait(r); },
+  };
+})();
+
+// ---------- demo API with sample bookings, hours and breaks ----------
+const DEMO_SALON = { slug: "premium", name: "Premium Barber", active: true };
+const DEMO_ACCOUNTS = {
+  jasur: { password: "barber123", user: { id: 3, login: "jasur", name: "Jasur", role: "barber", master_id: 1, branch_id: 1 } },
+  bekzod: { password: "barber123", user: { id: 4, login: "bekzod", name: "Bekzod", role: "barber", master_id: 2, branch_id: 1 } },
+  sardor: { password: "barber123", user: { id: 5, login: "sardor", name: "Sardor", role: "barber", master_id: 3, branch_id: 1 } },
+  malika: { password: "admin123", user: { id: 2, login: "malika", name: "Malika", role: "admin", master_id: null, branch_id: null } },
+};
+let demoUser = null;
+const toMin = (s) => +String(s).slice(0, 2) * 60 + +String(s).slice(3, 5);
+const demoApi = (() => {
+  const services = [
+    { id: 1, name: "Soch olish", price: 120000, duration_min: 30 },
+    { id: 2, name: "Soqol olish", price: 80000, duration_min: 20 },
+    { id: 3, name: "Soch + soqol", price: 180000, duration_min: 50 },
+    { id: 4, name: "Kompleks", price: 300000, duration_min: 90 },
+  ];
+  const masters = [{ id: 1, name: "Jasur", rank: "Top-master", k: 1.2 }, { id: 2, name: "Bekzod", rank: "Master", k: 1 }, { id: 3, name: "Sardor", rank: "Master", k: 1 }];
+  const names = ["Aziz Karimov", "Bobur Tursunov", "Sherzod Aliyev", "Javohir Rahimov", "Doniyor Yusupov", "Ulug'bek Nazarov", "Farrux Ismoilov", "Islom Qodirov", "Akmal Saidov", "Nodir Ergashev", "Rustam Xolmatov", "Temur Abdullayev", "Sardorbek Mirzayev", "Otabek Hasanov"];
+  const comments = ["Fade, tepasi 4 sm", "Soqolni qisqa, kontur aniq", "", "", "Birinchi marta keladi", "", "Klassik qirqim", ""];
+  const book = [], exc = [], keys = {}; let nextId = 1001, nextExc = 1;
+  const now = parts(new Date());
+  const isActive = (b) => b.status === "confirmed" || b.status === "pending";
+  // Everyone has a lunch break today, so the demo shows how breaks look.
+  for (const m of masters) exc.push({ id: nextExc++, master_id: m.id, date: now.date, kind: "break", start: "14:00", end: "14:30", note: "Tushlik" });
+  // Working time left after breaks; a day off leaves nothing.
+  const work = (mid, ymd) => {
+    const ex = exc.filter((e) => e.master_id === mid && e.date === ymd);
+    if (ex.some((e) => e.kind === "day_off")) return [];
+    let iv = [[OPEN, CLOSE]];
+    for (const e of ex.filter((x) => x.kind === "break")) {
+      const s = toMin(e.start), z = toMin(e.end);
+      iv = iv.flatMap(([a, b]) => (z <= a || s >= b ? [[a, b]] : [...(s > a ? [[a, s]] : []), ...(z < b ? [[z, b]] : [])]));
+    }
+    return iv;
+  };
+  const priced = (svc, m) => svc.map((x) => ({ service_id: x.id, service_name: x.name, price: Math.round(x.price * m.k), duration_min: x.duration_min }));
+  let h = 7;
+  const rnd = (n) => { h = (h * 1103515245 + 12345) >>> 0; return h % n; };
+  for (let d = -1; d <= 6; d++) {
+    const ymd = addDays(now.date, d);
+    for (const m of masters) for (const [a, z] of work(m.id, ymd)) {
+      let t = a + rnd(3) * 15;
+      while (t < z - 30) {
+        if (rnd(10) < 3) { t += 30 + rnd(4) * 15; continue; } // gap
+        const svc = [services[rnd(4)]];
+        const end = t + svc[0].duration_min;
+        if (end > z) break;
+        const past = d < 0 || (d === 0 && end <= now.min);
+        let status = "confirmed";
+        if (past) status = rnd(9) === 0 ? "no_show" : "completed";
+        else if (rnd(14) === 0) status = "cancelled";
+        const walk = rnd(12) === 0, nm = names[rnd(names.length)];
+        book.push({ id: nextId++, master_id: m.id, master_name: m.name, date: ymd, s: t, e: end, client_name: walk ? "Telefonsiz mijoz" : nm, client_phone: walk ? WALK_IN : `+99890${String(1000000 + rnd(8999999)).slice(0, 7)}`,
+          items: priced(svc, m), total_price: Math.round(svc[0].price * m.k), status, source: walk || rnd(5) === 0 ? "admin" : "web", comment: walk ? nm.split(" ")[0] : comments[rnd(comments.length)] });
+        t = end + rnd(3) * 15;
+      }
+    }
+  }
+  // The latest finished visit of each barber today is still waiting for Keldi/Kelmadi.
+  for (const m of masters) { const last = book.filter((b) => b.master_id === m.id && b.date === now.date && b.e <= now.min && b.status === "completed").pop(); if (last) last.status = "confirmed"; }
+  const out = (b) => ({ ...b, starts_at: isoAt(b.date, b.s), ends_at: isoAt(b.date, b.e) });
+  const wait = (v) => new Promise((r) => setTimeout(() => r(v), 120));
+  const fail = (s, m) => Promise.reject(new ApiError(s, m));
+  const ro = () => demoUser?.salon?.active === false;
+  const own = (mid) => (demoUser.role === "barber" ? demoUser.master_id : mid);
+  // Like the server's staff slots: no lead time, so a walk-in can sit down right now.
+  const freeStarts = (mid, ymd, dur, skip) => {
+    const busy = book.filter((b) => b.master_id === mid && b.date === ymd && b.id !== skip && isActive(b));
+    const t0 = ymd === today() ? parts(new Date()).min : ymd < today() ? 9999 : 0;
+    const res = [];
+    for (const [a, z] of work(mid, ymd)) for (let t = a; t + dur <= z; t += 15) if (t >= t0 && !busy.some((b) => t < b.e && b.s < t + dur)) res.push({ start: isoAt(ymd, t), master_ids: [mid] });
+    return res;
+  };
+  const conflicts = (e) => { const s = e.start ? toMin(e.start) : 0, z = e.end ? toMin(e.end) : 1440; return book.filter((b) => b.master_id === e.master_id && b.date === e.date && isActive(b) && b.s < z && b.e > s).length; };
+  return {
+    me: () => wait(demoUser),
+    login(login, password) {
+      const acc = DEMO_ACCOUNTS[login.trim().toLowerCase()];
+      if (!acc || acc.password !== password) return fail(401, "Login yoki parol noto'g'ri");
+      demoUser = { ...acc.user, salon: DEMO_SALON }; return wait(demoUser);
+    },
+    logout() { demoUser = null; return wait(null); },
+    masters: () => wait(masters.map(DemoProfile.enrich)),
+    salonInfo: () => DemoProfile.salonInfo(),
+    branches: () => DemoProfile.branches(),
+    updateMaster: (id, p) => (ro() ? fail(402, RO_MSG) : DemoProfile.updateMaster(id, p).then((x) => DemoProfile.enrich({ ...masters.find((m) => m.id === id), ...x }))),
+    upload: (k, r, b) => (ro() ? fail(402, RO_MSG) : DemoProfile.upload(k, r, b)),
+    deletePhoto: (id) => (ro() ? fail(402, RO_MSG) : DemoProfile.deletePhoto(id)),
+    reviews: () => DemoProfile.reviews(demoUser.role === "barber" ? demoUser.master_id : null),
+    hideReview: (id, h) => (ro() ? fail(402, RO_MSG) : DemoProfile.hideReview(id, h)),
+    services: (mid) => { const m = masters.find((x) => x.id === mid) || masters[0]; return wait(services.map((x) => ({ ...x, description: "", category: "", price: Math.round(x.price * m.k) }))); },
+    day: (b, d) => wait(book.filter((x) => x.date === d && (demoUser.role !== "barber" || x.master_id === demoUser.master_id)).map(out)),
+    dayHours: (b, d) => wait(masters.filter((m) => demoUser.role !== "barber" || m.id === demoUser.master_id).map((m) => ({ master_id: m.id, intervals: work(m.id, d).map(([a, z]) => [hhmm(a), hhmm(z)]) }))),
+    exceptions: (d) => wait(exc.filter((e) => e.date === d && (demoUser.role !== "barber" || e.master_id === demoUser.master_id)).map((e) => ({ ...e, conflicts: 0 }))),
+    addException(p) {
+      if (ro()) return fail(402, RO_MSG);
+      if (demoUser.role === "barber" && p.master_id !== demoUser.master_id) return fail(403, "Faqat o'zingizning jadvalingizni o'zgartira olasiz");
+      if (p.date < today()) return fail(422, "O'tgan kunni o'zgartirib bo'lmaydi");
+      if (p.kind !== "day_off" && (!p.start || !p.end || p.end <= p.start)) return fail(422, "Boshlanish va tugash vaqtini to'g'ri kiriting");
+      if (p.kind === "day_off") for (let i = exc.length - 1; i >= 0; i--) if (exc[i].master_id === p.master_id && exc[i].date === p.date && exc[i].kind === "day_off") exc.splice(i, 1);
+      const e = { id: nextExc++, master_id: p.master_id, date: p.date, kind: p.kind, start: p.kind === "day_off" ? null : p.start, end: p.kind === "day_off" ? null : p.end, note: (p.note || "").trim() };
+      exc.push(e); return wait({ ...e, conflicts: conflicts(e) });
+    },
+    delException(id) { if (ro()) return fail(402, RO_MSG); const i = exc.findIndex((e) => e.id === id); if (i < 0) return fail(404, "Topilmadi"); exc.splice(i, 1); return wait(null); },
+    slots(b, mid, ids, d) { const dur = services.filter((x) => ids.includes(x.id)).reduce((a, x) => a + x.duration_min, 0); return wait({ date: d, timezone: TZ, duration_min: dur, slots: freeStarts(own(mid), d, dur) }); },
+    setStatus(id, status) {
+      if (ro()) return fail(402, RO_MSG);
+      const b = book.find((x) => x.id === id);
+      if (status === "cancelled") { if (!isActive(b)) return fail(422, "Faqat faol bronni bekor qilish mumkin"); }
+      else if (isActive(b)) { if (Date.parse(isoAt(b.date, b.s)) - 15 * 60e3 > Date.now()) return fail(422, "Tashrif vaqti hali kelmagan"); }
+      else if (b.status === "cancelled") return fail(422, "Bekor qilingan bronni o'zgartirib bo'lmaydi");
+      b.status = status; return wait(out(b));
+    },
+    create(p, key) {
+      if (ro()) return fail(402, RO_MSG);
+      if (key && keys[key]) return wait(out(keys[key])); // the same form sent twice: nothing new is booked
+      const m = masters.find((x) => x.id === own(p.master_id)), ymd = parts(new Date(p.starts_at)).date, s = minOf(p.starts_at);
+      const svc = services.filter((x) => p.service_ids.includes(x.id)), dur = svc.reduce((a, x) => a + x.duration_min, 0);
+      if (!svc.length) return fail(422, "Xizmatni tanlang");
+      if (!freeStarts(m.id, ymd, dur).some((x) => x.start === p.starts_at)) return fail(409, TAKEN_MSG);
+      const phone = (p.client_phone || "").trim(), name = (p.client_name || "").trim();
+      const b = { id: nextId++, master_id: m.id, master_name: m.name, date: ymd, s, e: s + dur, client_name: phone ? name || "Mijoz" : "Telefonsiz mijoz", client_phone: phone || WALK_IN,
+        items: priced(svc, m), total_price: svc.reduce((a, x) => a + Math.round(x.price * m.k), 0), status: "confirmed", source: "admin",
+        comment: phone || !name ? p.comment || "" : `${name}. ${p.comment || ""}`.replace(/\.\s*$/, "").trim() };
+      book.push(b); if (key) keys[key] = b; return wait(out(b));
+    },
+    move(id, starts_at) {
+      if (ro()) return fail(402, RO_MSG);
+      const b = book.find((x) => x.id === id);
+      if (!isActive(b)) return fail(422, "Faqat faol bronni ko'chirish mumkin");
+      const ymd = parts(new Date(starts_at)).date, dur = b.e - b.s;
+      if (!freeStarts(b.master_id, ymd, dur, b.id).some((x) => x.start === starts_at)) return fail(409, TAKEN_MSG);
+      Object.assign(b, { date: ymd, s: minOf(starts_at), e: minOf(starts_at) + dur }); return wait(out(b));
+    },
+    password(o, n) {
+      const acc = DEMO_ACCOUNTS[demoUser.login];
+      if (acc.password !== o) return fail(400, "Eski parol noto'g'ri");
+      if (n.length < 6) return fail(422, "Yangi parol kamida 6 belgi bo'lsin");
+      acc.password = n; return wait(null);
+    },
+  };
+})();
+
+// ---------- state ----------
+const S = { tab: "day", salonInfo: null, profBranches: [], profMasters: [], reviews: null, demo: false, user: null, branch: null, masters: [], master: null, date: today(), day: [], hoursAll: null, exc: [],
+  ask: null, more: null, open: new Set(), pending: new Set(), sheet: null, warn: "", undo: null, loadedAt: 0, error: "", login: { login: "", password: "" }, pw: { old: "", new1: "", new2: "" } };
+let api = realApi;
+const isAdmin = () => ["owner", "admin"].includes(S.user?.role);
+const ro = () => S.user?.salon?.active === false; // subscription ended: look, don't touch
+const ACTIVE = (b) => b.status === "confirmed" || b.status === "pending";
+const mine = () => S.day.filter((b) => S.master == null || b.master_id === S.master).sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+const myMaster = () => (isAdmin() ? S.master : S.user?.master_id);
+
+// ---------- profile editor: salon, branch and barber profiles, photos, reviews ----------
+// Photos are shrunk in the browser before upload, so a phone picture of 5 MB becomes ~200 KB.
+async function shrink(file, max) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(new Error("Rasmni o'qib bo'lmadi")); i.src = url; });
+    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas"); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.85));
+  } finally { URL.revokeObjectURL(url); }
+}
+const PHOTO_MAX = { cover: 1600, logo: 600, branch: 1400, master: 700, work: 1280 };
+const D = {}; // unsaved edits, keyed by input id, so a re-render keeps what was typed
+const dv = (id, saved) => esc(D[id] ?? saved ?? "");
+const stars = (n) => "★".repeat(n) + "☆".repeat(5 - n);
+const fileBtn = (label, kind, ref, multiple = false) => `<label class="pbtn w">${label}<input type="file" accept="image/*" data-upload="${kind}" data-ref="${ref ?? ""}" ${multiple ? "multiple" : ""} hidden></label>`;
+const thumb = (ph, alt) => `<div class="pthumb"><img src="${esc(ph.url)}" alt="${esc(alt)}" loading="lazy"><button class="pdel w" data-delphoto="${esc(ph.id)}" aria-label="Rasmni o'chirish">✕</button></div>`;
+
+function salonEditorHtml(x) {
+  return `<section class="psec"><div class="phd"><h3>Salon</h3><span class="hint">Mijoz saytining bosh qismi</span></div>
+    <div class="pcover">${x.cover_url ? `<img src="${esc(x.cover_url)}" alt="Muqova">` : `<span class="hint">Muqova rasmi yo'q</span>`}</div>
+    <div class="prow">${fileBtn(x.cover_url ? "Muqovani almashtirish" : "Muqova rasmi yuklash", "cover")}</div>
+    <div class="pgrid">
+      <div class="field wide"><label for="s-description">Salon haqida</label><textarea id="s-description" rows="3" maxlength="2000" placeholder="Masalan: erkaklar uchun premium barbershop, qahva va issiq sochiq">${dv("s-description", x.description)}</textarea></div>
+      <div class="field"><label for="s-instagram">Instagram</label><input id="s-instagram" value="${dv("s-instagram", x.instagram)}" placeholder="premiumbarber.uz"></div>
+      <div class="field"><label for="s-phone">Telefon</label><input id="s-phone" inputmode="tel" value="${dv("s-phone", x.phone)}"></div>
+    </div><div class="prow"><button class="btn primary w" data-save-salon="1">Saqlash</button></div></section>`;
+}
+
+function branchEditorHtml(b) {
+  const id = (f) => `b${b.id}-${f}`, lat = D[id("lat")] ?? b.lat ?? "", lng = D[id("lng")] ?? b.lng ?? "";
+  const links = lat !== "" && lng !== "" ? `<a href="https://yandex.uz/maps/?pt=${lng},${lat}&z=17&l=map" target="_blank" rel="noopener">Yandex'da tekshirish</a><a href="https://www.google.com/maps/search/?api=1&query=${lat},${lng}" target="_blank" rel="noopener">Google'da tekshirish</a>` : `<span class="hint">Joylashuv hali kiritilmagan</span>`;
+  return `<section class="psec"><div class="phd"><h3>Filial: ${esc(b.name)}</h3><span class="hint">Rasmlar va joylashuv</span></div>
+    <div class="pthumbs">${(b.photos || []).map((ph) => thumb(ph, b.name)).join("")}${fileBtn("+ Rasm", "branch", b.id, true)}</div>
+    <div class="pgrid">
+      <div class="field wide"><label for="${id("address")}">Manzil</label><input id="${id("address")}" value="${dv(id("address"), b.address)}"></div>
+      <div class="field wide"><label for="${id("landmark")}">Mo'ljal</label><input id="${id("landmark")}" value="${dv(id("landmark"), b.landmark)}" placeholder="Masalan: metro yonida, Korzinka ro'parasida"></div>
+      <div class="field"><label for="${id("hours_text")}">Ish vaqti</label><input id="${id("hours_text")}" value="${dv(id("hours_text"), b.hours_text)}"></div>
+      <div class="field"><label for="${id("phone")}">Filial telefoni</label><input id="${id("phone")}" inputmode="tel" value="${dv(id("phone"), b.phone)}"></div>
+      <div class="field wide"><label for="${id("maplink")}">Xaritadagi joy</label><input id="${id("maplink")}" value="${dv(id("maplink"), "")}" placeholder="Google yoki Yandex xaritadan havolani shu yerga qo'ying">
+        <span class="hint">Xaritada salonni topib, "Ulashish" havolasini qo'ying, koordinata o'zi chiqadi.</span></div>
+      <div class="field"><label for="${id("lat")}">Kenglik</label><input id="${id("lat")}" inputmode="decimal" value="${esc(lat)}" placeholder="41.2756"></div>
+      <div class="field"><label for="${id("lng")}">Uzunlik</label><input id="${id("lng")}" inputmode="decimal" value="${esc(lng)}" placeholder="69.2034"></div>
+    </div><div class="prow">${links}<button class="btn primary w" data-save-branch="${b.id}">Saqlash</button></div></section>`;
+}
+
+function masterEditorHtml(m, { canRank }) {
+  const id = (f) => `m${m.id}-${f}`, spec = D[id("spec")] ?? (m.specialties || []).join(", ");
+  return `<section class="psec pmaster"><div class="pface">${m.photo_url ? `<img src="${esc(m.photo_url)}" alt="${esc(m.name)}">` : `<span>${esc(m.name[0])}</span>`}
+      ${fileBtn(m.photo_url ? "Rasmni almashtirish" : "Yuz rasmi yuklash", "master", m.id)}</div>
+    <div class="pbody"><div class="phd"><h3>${esc(m.name)}</h3><span class="hint">${m.reviews_count ? `<b class="star">★ ${m.rating.toFixed(1)}</b> · ${m.reviews_count} baho` : "Hali baho yo'q"}</span></div>
+      <div class="pgrid">
+        ${canRank ? `<div class="field"><label for="${id("rank")}">Darajasi</label><input id="${id("rank")}" value="${dv(id("rank"), m.rank)}"></div>` : ""}
+        <div class="field"><label for="${id("years")}">Tajriba, yil</label><input id="${id("years")}" type="number" min="0" max="60" inputmode="numeric" value="${dv(id("years"), m.experience_years)}"></div>
+        <div class="field"><label for="${id("ig")}">Instagram</label><input id="${id("ig")}" value="${dv(id("ig"), m.instagram)}" placeholder="@jasur.barber" autocapitalize="off"></div>
+        <div class="field wide"><label for="${id("spec")}">Yo'nalishlari (vergul bilan)</label><input id="${id("spec")}" value="${esc(spec)}" placeholder="Fade, Soqol dizayni, Klassika"></div>
+        <div class="field wide"><label for="${id("bio")}">O'zi haqida</label><textarea id="${id("bio")}" rows="3" maxlength="1500" placeholder="Qayerda o'qigan, qanday uslubda ishlaydi">${dv(id("bio"), m.bio)}</textarea></div>
+      </div>
+      <div class="field"><label>Ishlari (${(m.works || []).length}/30)</label><div class="pthumbs">${(m.works || []).map((w) => thumb(w, w.caption || "Ish")).join("")}${fileBtn("+ Ish rasmi", "work", m.id, true)}</div></div>
+      <div class="prow"><button class="btn primary w" data-save-master="${m.id}">Saqlash</button></div></div></section>`;
+}
+
+function reviewsListHtml(list, { canHide }) {
+  if (!list) return `<p class="hint">Yuklanmoqda…</p>`;
+  if (!list.length) return `<div class="pempty">Hali baho yo'q. Mijoz tashrifdan keyin "Bronlarim" bo'limida ustaga yulduzcha qo'yadi.</div>`;
+  return `<div class="previews">${list.map((r) => `<article class="prev${r.is_hidden ? " hidden-rv" : ""}"><div class="ptop"><b class="star">${stars(r.rating)}</b><span class="hint">${esc(r.client_name)} · ${esc(r.master_name)} · ${esc(r.services)}</span></div>
+    ${r.comment ? `<p>${esc(r.comment)}</p>` : ""}${r.is_hidden ? `<span class="hint">Yashirilgan: saytda ko'rinmaydi va reytingga qo'shilmaydi</span>` : ""}
+    ${canHide ? `<div class="prow"><button class="btn w" data-hide-review="${r.id}" data-hidden="${r.is_hidden ? 0 : 1}">${r.is_hidden ? "Qayta ko'rsatish" : "Yashirish"}</button></div>` : ""}</article>`).join("")}</div>`;
+}
+
+// "https://maps.google.com/?q=41.27,69.20", ".../@41.27,69.20,17z", yandex "?ll=69.20,41.27" -> {lat, lng}
+function parseMapLink(text) {
+  const t = decodeURIComponent(text || "");
+  let m = t.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || t.match(/[?&](?:q|query|daddr)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/) || t.match(/^\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*$/);
+  if (m) return { lat: +m[1], lng: +m[2] };
+  m = t.match(/[?&](?:ll|pt)=(-?\d+\.\d+),(-?\d+\.\d+)/); // Yandex puts longitude first
+  return m ? { lat: +m[2], lng: +m[1] } : null;
+}
+
+async function onProfileClick(d) {
+  if (d.saveSalon) {
+    S.salonInfo = await api.updateSalon({ description: D["s-description"] ?? S.salonInfo.description, instagram: (D["s-instagram"] ?? S.salonInfo.instagram).replace(/^@/, ""), phone: D["s-phone"] ?? S.salonInfo.phone });
+    for (const k of ["s-description", "s-instagram", "s-phone"]) delete D[k];
+    toast("Salon ma'lumoti saqlandi"); return true;
+  }
+  if (d.saveBranch) {
+    const b = S.profBranches.find((x) => x.id === +d.saveBranch), id = (f) => `b${b.id}-${f}`, val = (f) => D[id(f)] ?? b[f];
+    const lat = String(D[id("lat")] ?? b.lat ?? "").trim(), lng = String(D[id("lng")] ?? b.lng ?? "").trim();
+    const body = { address: val("address"), landmark: val("landmark"), hours_text: val("hours_text"), phone: val("phone") };
+    if (lat || lng) {
+      if (!/^-?\d+(\.\d+)?$/.test(lat) || !/^-?\d+(\.\d+)?$/.test(lng)) throw new Error("Kenglik va uzunlik raqam bo'lsin, masalan 41.2756 va 69.2034");
+      body.lat = +lat; body.lng = +lng;
+    }
+    const upd = await api.updateBranch(b.id, body);
+    S.profBranches = S.profBranches.map((x) => (x.id === upd.id ? upd : x));
+    for (const k of Object.keys(D)) if (k.startsWith(`b${b.id}-`)) delete D[k];
+    toast("Filial saqlandi"); return true;
+  }
+  if (d.saveMaster) {
+    const m = S.profMasters.find((x) => x.id === +d.saveMaster), id = (f) => `m${m.id}-${f}`;
+    const years = String(D[id("years")] ?? m.experience_years ?? "").trim();
+    const body = { bio: D[id("bio")] ?? m.bio, specialties: (D[id("spec")] ?? (m.specialties || []).join(", ")).split(",").map((x) => x.trim()).filter(Boolean), experience_years: years === "" ? null : +years, instagram: String(D[id("ig")] ?? m.instagram ?? "").trim().replace(/^@/, "") };
+    if (D[id("rank")] != null) body.rank = D[id("rank")];
+    const upd = await api.updateMaster(m.id, body);
+    S.profMasters = S.profMasters.map((x) => (x.id === upd.id ? { ...x, ...upd } : x));
+    for (const k of Object.keys(D)) if (k.startsWith(`m${m.id}-`)) delete D[k];
+    toast(`${m.name} profili saqlandi`); return true;
+  }
+  if (d.delphoto) { await api.deletePhoto(d.delphoto); await loadProfile(); toast("Rasm o'chirildi"); return true; }
+  if (d.hideReview) {
+    const upd = await api.hideReview(+d.hideReview, d.hidden === "1");
+    S.reviews = S.reviews.map((x) => (x.id === upd.id ? { ...x, is_hidden: upd.is_hidden } : x));
+    toast(upd.is_hidden ? "Fikr yashirildi" : "Fikr qayta ko'rsatildi"); return true;
+  }
+  return false;
+}
+
+async function onProfileUpload(input) {
+  const files = [...input.files], kind = input.dataset.upload, ref = input.dataset.ref ? +input.dataset.ref : null;
+  if (!files.length) return;
+  toast(files.length > 1 ? `${files.length} ta rasm yuklanmoqda…` : "Rasm yuklanmoqda…");
+  for (const f of files) await api.upload(kind, ref, await shrink(f, PHOTO_MAX[kind]));
+  await loadProfile(); toast("Rasm qo'shildi");
+}
+
+function onProfileInput(el) {
+  if (!el.id || !/^(s-|b\d+-|m\d+-)/.test(el.id)) return false;
+  D[el.id] = el.value;
+  const m = el.id.match(/^b(\d+)-maplink$/);
+  if (m) {
+    const pos = parseMapLink(el.value);
+    if (pos) { D[`b${m[1]}-lat`] = pos.lat.toFixed(6); D[`b${m[1]}-lng`] = pos.lng.toFixed(6); render(); toast("Koordinata topildi"); }
+    else if (/https?:\/\//.test(el.value)) toast("Bu havolada koordinata yo'q. Xaritadagi to'liq havolani yoki 41.31, 69.24 ko'rinishida yozing.");
+  }
+  return true;
+}
+
+async function loadProfile() {
+  const masters = await api.masters(S.branch.id);
+  S.masters = masters;
+  S.profMasters = isAdmin() ? masters : masters.filter((m) => m.id === S.user.master_id);
+  S.salonInfo = S.salonInfo || {}; render();
+}
+async function loadReviews() { S.reviews = null; render(); S.reviews = await api.reviews(); render(); }
+function profileTabHtml() {
+  if (!S.profMasters.length) return S.error ? `<div class="notice">${esc(S.error)}</div>${passwordHtml()}` : `<div class="pempty">Yuklanmoqda…</div>`;
+  return `${S.error ? `<div class="notice">${esc(S.error)}</div>` : ""}<p class="hint" style="margin:14px 0 0">Bu ma'lumot mijoz saytida ko'rinadi: yuzingiz, tajribangiz va ishlaringiz rasmlari.</p>
+    ${S.profMasters.map((m) => masterEditorHtml(m, { canRank: isAdmin() })).join("")}${passwordHtml()}`;
+}
+function reviewsTabHtml() {
+  const vis = (S.reviews || []).filter((r) => !r.is_hidden);
+  const avg = vis.length ? (vis.reduce((a, r) => a + r.rating, 0) / vis.length).toFixed(1) : "–";
+  return `${S.error ? `<div class="notice">${esc(S.error)}</div>` : ""}<div class="summary"><div><b><span class="star">★</span> ${avg}</b><span>o'rtacha</span></div><div><b>${vis.length}</b><span>baho</span></div><div><b>${vis.filter((r) => r.rating === 5).length}</b><span>besh yulduz</span></div></div>
+    ${reviewsListHtml(S.reviews, { canHide: isAdmin() })}`;
+}
+
+// The day is committed only after it loaded, so a failed switch never shows one day's label over another day's bookings.
+let loadSeq = 0;
+async function loadDay(date = S.date, quiet = false) {
+  const seq = ++loadSeq, b = S.branch.id;
+  const soft = (p) => p.catch((e) => { if (e.status === 0 || e.status === 401) throw e; return null; }); // hours and breaks are extras
+  const [day, hours, exc] = await Promise.all([api.day(b, date), soft(api.dayHours(b, date)), soft(api.exceptions(date))]);
+  if (seq !== loadSeq || !S.user) return;
+  if (quiet && date === S.date) {
+    const old = new Set(S.day.map((x) => x.id));
+    const fresh = day.filter((x) => !old.has(x.id) && ACTIVE(x) && (S.master == null || x.master_id === S.master)).sort((a, c) => a.starts_at.localeCompare(c.starts_at));
+    if (fresh.length) toast(`Yangi bron: ${hhmm(minOf(fresh[0].starts_at))} ${fresh[0].client_name.split(" ")[0]}${fresh.length > 1 ? ` va yana ${fresh.length - 1} ta` : ""}`);
+  } else { S.ask = null; S.more = null; }
+  Object.assign(S, { date, day, hoursAll: hours, exc: exc || [], error: "", loadedAt: Date.now() });
+  render();
+}
+let toastTimer;
+function toast(msg, undo) {
+  S.undo = undo || null;
+  $("#toast-slot").innerHTML = `<div class="toast" role="status"><span>${esc(msg)}</span>${undo ? `<button data-undo="1">${esc(undo.label)}</button>` : ""}</div>`;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { $("#toast-slot").innerHTML = ""; S.undo = null; }, undo ? 5000 : 2200);
+}
+function resetSession(error = "") {
+  Object.assign(S, { tab: "day", reviews: null, profMasters: [], user: null, branch: null, day: [], hoursAll: null, exc: [], sheet: null, ask: null, more: null, warn: "", undo: null, error, login: { login: error ? S.login.login : "", password: "" } });
+  S.open.clear(); S.pending.clear(); $("#toast-slot").innerHTML = ""; render();
+}
+
+// ---------- auto-refresh: new bookings show up without touching the phone ----------
+let refreshing = false;
+async function autoRefresh() {
+  if (refreshing || !S.user || !S.branch || S.tab !== "day" || S.sheet || S.ask || S.pending.size || document.visibilityState !== "visible") return;
+  refreshing = true;
+  try { await loadDay(S.date, true); } catch (err) { if (S.user) { S.error = err.message; render(); } } finally { refreshing = false; }
+}
+setInterval(autoRefresh, 60000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && Date.now() - S.loadedAt > 5000) autoRefresh(); });
+window.addEventListener("focus", () => { if (Date.now() - S.loadedAt > 5000) autoRefresh(); });
+
+// ---------- render ----------
+const dayName = (d) => (d === today() ? "Bugun" : d === addDays(today(), 1) ? "Ertaga" : `${dinfo(d).wd} ${dinfo(d).day}-${dinfo(d).month.slice(0, 3)}`);
+const money = (n) => (n >= 10e6 ? `${(n / 1e6).toFixed(1).replace(".", ",")} mln` : som(n));
+function headerHtml() {
+  const t = today(), m = S.masters.find((x) => x.id === S.master);
+  const name = S.user.name || (isAdmin() ? "Admin" : m?.name || "Barber");
+  const days = Array.from({ length: 8 }, (_, i) => addDays(t, i - 1));
+  const label = (d) => (d === t ? "Bugun" : d === addDays(t, 1) ? "Ertaga" : d === addDays(t, -1) ? "Kecha" : `${dinfo(d).wd} ${dinfo(d).day}`);
+  return `<div class="hello"><span class="av">${esc(name[0])}</span><span class="hi"><b>Salom, ${esc(name)}</b><small>${esc(S.user.salon?.name || "")} · ${isAdmin() ? "admin ko'rinishi" : "mijozlaringiz"}</small></span>${S.demo ? '<span class="badge">DEMO</span>' : ""}<button class="out" id="logout">Chiqish</button></div>
+    ${ro() ? `<div class="notice">${S.user.salon.paid_until && S.user.salon.paid_until >= today() ? "Salon vaqtincha to'xtatilgan" : "Salon obunasi tugagan"}. Panel faqat ko'rish rejimida.</div>` : ""}
+    ${isAdmin() ? `<div class="tabs">${S.masters.map((x) => `<button class="tab" data-m="${x.id}" aria-pressed="${S.master === x.id}">${esc(x.name)}</button>`).join("")}</div>` : ""}
+    <div class="seg" role="tablist"><button data-tab="day" aria-pressed="${S.tab === "day"}">Jadval</button><button data-tab="profile" aria-pressed="${S.tab === "profile"}">Profilim</button><button data-tab="reviews" aria-pressed="${S.tab === "reviews"}">Baholar</button></div>
+    ${S.tab !== "day" ? "" : `<div class="tabs">${days.map((d) => `<button class="tab" data-d="${d}" aria-pressed="${S.date === d}">${label(d)}${d === t || d === addDays(t, 1) || d === addDays(t, -1) ? `<small>${dinfo(d).day}-${dinfo(d).month.slice(0, 3)}</small>` : ""}</button>`).join("")}</div>`}`;
+}
+
+// Keldi/Kelmadi only from 15 minutes before the start, as the server allows.
+const canMark = (b) => Date.parse(b.starts_at) - 15 * 60e3 <= Date.now();
+const OPP = { completed: "no_show", no_show: "completed" };
+function cardHtml(b, isNext) {
+  const s = minOf(b.starts_at), e = minOf(b.ends_at), active = ACTIVE(b), dis = S.pending.has(b.id) ? " disabled" : "";
+  if (!active && !isNext && !S.open.has(b.id))
+    return `<button class="row1 ${b.status}" data-unfold="${b.id}" aria-expanded="false"><b>${hhmm(s)}</b><span>${esc(b.client_name)}</span><span class="tag ${b.status}">${TAG[b.status]}</span><em>${som(b.total_price)}</em></button>`;
+  const cls = ["card", isNext ? "next" : "", !active ? (b.status === "cancelled" ? "cancelled" : "done") : ""].join(" ");
+  const tag = isNext ? '<span class="tag next">Keyingi</span>' : !active ? `<span class="tag ${b.status}">${TAG[b.status]}</span>` : b.source === "admin" && !noPhone(b.client_phone) ? '<span class="tag phone">Telefon orqali</span>' : "";
+  const moveBtns = `<div class="acts two"><button class="btn w" data-sheet="move" data-id="${b.id}"${dis}>Ko'chirish</button><button class="btn bad w" data-ask="${b.id}"${dis}>Bekor qilish</button></div>`;
+  let acts = "";
+  if (ro()) acts = "";
+  else if (active && S.ask === b.id) acts = `<div class="confirm"><b>Bronni bekor qilasizmi?</b><span class="hint">Vaqt bo'shaydi, mijozga Telegramda xabar boradi.</span><div class="row"><button class="btn" data-keep="1">Yo'q</button><button class="btn bad w" data-act="cancelled" data-id="${b.id}"${dis}>Ha, bekor qilish</button></div></div>`;
+  else if (active && canMark(b)) acts = `<div class="acts"><button class="btn ok w" data-act="completed" data-id="${b.id}"${dis}>✓ Keldi</button><button class="btn bad w" data-act="no_show" data-id="${b.id}"${dis}>Kelmadi</button><button class="btn more" data-more="${b.id}" aria-expanded="${S.more === b.id}">${S.more === b.id ? "Yopish" : "Yana"}</button></div>${S.more === b.id ? moveBtns : ""}`;
+  else if (active) acts = moveBtns;
+  else acts = `<div class="acts one">${OPP[b.status] ? `<button class="btn mini w" data-act="${OPP[b.status]}" data-id="${b.id}"${dis}>O'zgartirish: ${TAG[OPP[b.status]].toLowerCase()}</button>` : "<span></span>"}<button class="btn mini more" data-fold="${b.id}">Yig'ish</button></div>`;
+  const phone = noPhone(b.client_phone) ? `<div class="phone-line">Telefonsiz</div>` : `<div class="phone-line"><span class="num">${esc(b.client_phone)}</span><button class="copy" data-copy="${esc(b.client_phone)}">Nusxa</button>${callLink(b.client_phone)}</div>`;
+  return `<article class="${cls}">
+    <div class="time"><b>${hhmm(s)}</b><small>${e - s} daq</small></div>
+    <div class="who"><b>${esc(b.client_name)}</b>${tag}</div>
+    <div class="svc"><em>${b.items.map((x) => esc(x.service_name)).join(" + ")}</em> · ${som(b.total_price)} so'm</div>
+    ${phone}
+    ${b.comment ? `<div class="note" style="grid-column:2">${esc(b.comment)}</div>` : ""}
+    ${acts}</article>`;
+}
+
+const PHONE_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg>';
+function callLink(phone) {
+  const tel = noPhone(phone) ? "" : String(phone).replace(/[^\d+]/g, "");
+  return tel ? `<a class="call" href="tel:${tel}">${PHONE_ICON}Qo'ng'iroq</a>` : "";
+}
+
+// The barber's working time for the shown day from /staff/day-hours: null = unknown (old server), [] = day off.
+function workOf() {
+  if (!S.hoursAll) return null;
+  const x = S.hoursAll.find((h) => h.master_id === myMaster()) || (!isAdmin() ? S.hoursAll[0] || { intervals: [] } : null);
+  return x ? x.intervals.map(([a, z]) => [toMin(a), toMin(z)]) : null;
+}
+const myExc = () => S.exc.filter((x) => x.master_id === myMaster());
+function brkHtml(s, z) {
+  const own = myExc().filter((x) => x.kind === "break" && toMin(x.start) < z && toMin(x.end) > s);
+  if (!own.length) return `<div class="brk"><span>Tanaffus ${hhmm(s)}–${hhmm(z)}</span></div>`;
+  return own.map((x) => `<div class="brk"><span>Tanaffus ${esc(x.start)}–${esc(x.end)}${x.note ? ` · ${esc(x.note)}` : ""}</span><button class="x w" data-delexc="${x.id}" aria-label="Tanaffusni olib tashlash">×</button></div>`).join("");
+}
+
+function dayHtml() {
+  const list = mine(), act = list.filter((b) => b.status !== "cancelled");
+  const earned = list.filter((b) => b.status === "completed").reduce((a, b) => a + b.total_price, 0);
+  const isToday = S.date === today(), now = isToday ? parts(new Date()).min : S.date < today() ? 1e9 : -1;
+  const open = list.filter(ACTIVE);
+  const unmarked = open.filter((b) => minOf(b.ends_at) <= now);
+  const next = isToday ? open.find((b) => minOf(b.ends_at) > now) : null;
+  const work = workOf(), off = !!work && !work.length, offExc = myExc().find((x) => x.kind === "day_off");
+  let h = `${S.error ? `<div class="notice">${esc(S.error)}</div>` : ""}${S.warn ? `<div class="notice warn"><span>${esc(S.warn)}</span><button class="x" data-warnx="1" aria-label="Yopish">×</button></div>` : ""}
+    <div class="summary"><div><b>${money(earned)}</b><span>so'm ishlandi</span></div><div><b>${open.length - unmarked.length}</b><span>kutilmoqda</span></div><div><b>${act.length}</b><span>mijoz</span></div></div>`;
+  if (unmarked.length) h += `<div class="section"><span>Belgilanmagan: ${unmarked.length}</span><span>Keldimi?</span></div><div class="list">${unmarked.map((b) => cardHtml(b, false)).join("")}</div>`;
+  if (next) h += `<div class="section"><span>${minOf(next.starts_at) <= now ? "Hozir" : "Keyingi mijoz"}</span><span>${minOf(next.starts_at) > now ? `${Math.floor((minOf(next.starts_at) - now) / 60) ? Math.floor((minOf(next.starts_at) - now) / 60) + " soat " : ""}${(minOf(next.starts_at) - now) % 60} daqiqadan keyin` : ""}</span></div><div class="list">${cardHtml(next, true)}</div>`;
+  const segs = work ? work : [[OPEN, CLOSE]];
+  h += `<div class="section"><span>Kun bo'yi</span><span>${off ? "dam olish" : `${hhmm(segs[0][0])}–${hhmm(segs[segs.length - 1][1])}`}</span></div><div class="list">`;
+  if (off) h += `<div class="empty"><b>${isToday ? "Bugun dam olish kuni" : "Dam olish kuni"}</b>${offExc ? `O'zingiz belgilagansiz.<div class="prow" style="justify-content:center;margin-top:10px"><button class="btn w" data-delexc="${offExc.id}">Ish kuni qilish</button></div>` : "Jadval bo'yicha bu kun ishlamaysiz."}</div>`;
+  else if (!list.length) h += `<div class="empty"><b>Bron yo'q</b>Bu kunga hali hech kim yozilmagan.</div>`;
+  // Bookings and breaks on one time line; free windows of 30+ minutes show between them.
+  const ev = [...list.map((b) => ({ t: minOf(b.starts_at), b })), ...(off ? [] : segs.slice(1).map((x, i) => ({ t: segs[i][1], brk: [segs[i][1], x[0]] })))].sort((a, c) => a.t - c.t || (a.brk ? -1 : 1));
+  let cur = off ? 1e9 : segs[0][0];
+  const gap = (a, z) => { const from = isToday ? Math.max(a, Math.ceil(now / 5) * 5) : a; return S.date >= today() && z - from >= 30 ? `<div class="gap">Bo'sh ${hhmm(from)}–${hhmm(z)}</div>` : ""; };
+  for (const x of ev) {
+    if (x.brk) { h += gap(cur, x.brk[0]) + brkHtml(...x.brk); cur = Math.max(cur, x.brk[1]); continue; }
+    const b = x.b, s = x.t;
+    if (b.status !== "cancelled") h += gap(cur, s);
+    if (b !== next && !unmarked.includes(b)) h += cardHtml(b, false);
+    if (b.status !== "cancelled") cur = Math.max(cur, minOf(b.ends_at));
+  }
+  if (!off) h += gap(cur, segs[segs.length - 1][1]);
+  return h + "</div>";
+}
+
+// ---------- sheets: walk-in, move, block time ----------
+const sheetDays = () => Array.from({ length: 7 }, (_, i) => addDays(today(), i));
+const dayChips = (f) => `<div class="tabs">${sheetDays().map((d) => `<button class="tab" data-sd="${d}" aria-pressed="${f.date === d}">${dayName(d)}</button>`).join("")}</div>`;
+const isNowSlot = (f) => f.date === today() && f.slots?.length && Date.parse(f.slots[0].start) - Date.now() <= 15 * 60e3;
+function slotsHtml(f) {
+  if (f.kind === "walkin" && !f.svc.length) return `<p class="hint">Avval xizmatni tanlang.</p>`;
+  if (f.slots == null) return `<p class="hint">Bo'sh vaqtlar yuklanmoqda…</p>`;
+  if (!f.slots.length) return `<p class="hint">Bu kunda bo'sh vaqt yo'q. Boshqa kunni tanlang.</p>`;
+  const nowFirst = isNowSlot(f);
+  return `<div class="chips">${f.slots.map((x, i) => `<button class="chip${i === 0 && nowFirst ? " now" : ""}" data-slot="${esc(x.start)}" aria-pressed="${f.slot === x.start}">${i === 0 && nowFirst ? `Hozir · ${hhmm(minOf(x.start))}` : hhmm(minOf(x.start))}</button>`).join("")}</div>`;
+}
+const sheetHead = (title, sub) => `<div class="sh-top"><div><h2>${title}</h2>${sub ? `<span class="hint">${sub}</span>` : ""}</div><button class="x" data-close="1" aria-label="Yopish">×</button></div>`;
+const errHtml = (f) => (f.err ? `<div class="notice" role="alert">${esc(f.err)}</div>` : "");
+function walkinHtml(f) {
+  const chosen = (f.services || []).filter((x) => f.svc.includes(x.id)), total = chosen.reduce((a, x) => a + x.price, 0);
+  return `${sheetHead("Mijoz qo'shish", "O'zingizning kreslongizga")}
+    <div class="field"><label>Xizmat</label>${f.services == null ? `<p class="hint">Yuklanmoqda…</p>` : `<div class="opts">${f.services.map((x) => `<button class="opt" data-svc="${x.id}" aria-pressed="${f.svc.includes(x.id)}"><b>${esc(x.name)}</b><span>${x.duration_min} daq · ${som(x.price)}</span></button>`).join("")}</div>`}</div>
+    <div class="field"><label>Kun</label>${dayChips(f)}</div>
+    <div class="field"><label>Vaqt</label>${slotsHtml(f)}</div>
+    <div class="pgrid">
+      <div class="field"><label for="w-name">Ismi</label><input id="w-name" data-f="name" value="${esc(f.name)}" placeholder="Ixtiyoriy" autocomplete="off"></div>
+      <div class="field"><label for="w-phone">Telefon</label><input id="w-phone" data-f="phone" inputmode="tel" value="${esc(f.phone)}" placeholder="+998 90 123 45 67" autocomplete="off"></div>
+      <span class="hint wide">Raqam bo'lmasa, bo'sh qoldiring: mijoz "Telefonsiz" bo'lib yoziladi.</span>
+      <div class="field wide"><label for="w-comment">Izoh</label><input id="w-comment" data-f="comment" value="${esc(f.comment)}" placeholder="Masalan: fade, tepasi 4 sm" autocomplete="off"></div>
+    </div>${errHtml(f)}
+    <button class="btn primary w" data-save="walkin"${!f.slot || f.busy ? " disabled" : ""}>${f.busy ? "Saqlanmoqda…" : f.slot ? `Qo'shish · ${hhmm(minOf(f.slot))}${total ? ` · ${som(total)} so'm` : ""}` : "Vaqtni tanlang"}</button>`;
+}
+function moveHtml(f) {
+  const b = f.b;
+  return `${sheetHead("Ko'chirish", `${esc(b.client_name)} · hozir ${dayName(parts(new Date(b.starts_at)).date)} ${hhmm(minOf(b.starts_at))} · ${b.items.map((x) => esc(x.service_name)).join(" + ")}`)}
+    <div class="field"><label>Yangi kun</label>${dayChips(f)}</div>
+    <div class="field"><label>Yangi vaqt</label>${slotsHtml(f)}</div>${errHtml(f)}
+    <span class="hint">Mijozga Telegramda yangi vaqt haqida xabar boradi.</span>
+    <button class="btn primary w" data-save="move"${!f.slot || f.busy ? " disabled" : ""}>${f.busy ? "Ko'chirilmoqda…" : f.slot ? `${dayName(f.date)} ${hhmm(minOf(f.slot))} ga ko'chirish` : "Yangi vaqtni tanlang"}</button>`;
+}
+function blockHtml(f) {
+  const isToday = f.date === today(), dis = f.busy ? " disabled" : "";
+  const list = f.list == null ? `<p class="hint">Yuklanmoqda…</p>` : !f.list.length ? `<p class="hint">Bu kunda band qilingan vaqt yo'q.</p>`
+    : f.list.map((x) => `<div class="brk"><span>${x.kind === "day_off" ? "Dam olish kuni" : x.kind === "extra" ? `Qo'shimcha ish ${esc(x.start)}–${esc(x.end)}` : `Tanaffus ${esc(x.start)}–${esc(x.end)}`}${x.note ? ` · ${esc(x.note)}` : ""}</span><button class="x w" data-delexc="${x.id}" aria-label="Olib tashlash"${dis}>×</button></div>`).join("");
+  return `${sheetHead("Vaqtni band qilish", "Bu vaqtga mijoz yozila olmaydi")}
+    <div class="field"><label>Kun</label>${dayChips(f)}</div>
+    ${isToday ? `<div class="presets"><button class="btn w" data-save="p30"${dis}>30 daqiqa tanaffus</button><button class="btn w" data-save="p60"${dis}>1 soat tanaffus</button></div><span class="hint">Tanaffus hozirdan boshlanadi.</span>` : ""}
+    ${f.off ? `<div class="confirm" style="margin:0"><b>${isToday ? "Bugun" : dayName(f.date) + ""} ishlamaysizmi?</b><span class="hint">Bu kunga yangi bron olinmaydi. Bor bronlar o'zida qoladi, mijozlarga qo'ng'iroq qiling.</span><div class="row"><button class="btn" data-save="offno">Yo'q</button><button class="btn bad w" data-save="off"${dis}>Ha, ishlamayman</button></div></div>`
+      : `<button class="btn bad w" data-save="offask"${dis}>${isToday ? "Bugun ishlamayman" : "Shu kuni ishlamayman"}</button>`}
+    <div class="field"><label>Boshqa vaqt</label><div class="pgrid">
+      <div class="field"><label for="k-from" class="hint">Boshlanishi</label><input id="k-from" type="time" step="300" data-f="from" value="${esc(f.from)}"></div>
+      <div class="field"><label for="k-to" class="hint">Tugashi</label><input id="k-to" type="time" step="300" data-f="to" value="${esc(f.to)}"></div>
+      <div class="field wide"><label for="k-note" class="hint">Izoh</label><input id="k-note" data-f="note" value="${esc(f.note)}" placeholder="Masalan: tushlik" autocomplete="off"></div>
+    </div></div>${errHtml(f)}
+    <button class="btn primary w" data-save="custom"${dis}>${f.busy ? "Saqlanmoqda…" : "Band qilish"}</button>
+    <div class="field"><label>${dayName(f.date)} band qilingan</label>${list}</div>`;
+}
+function sheetHtml() {
+  const f = S.sheet;
+  return `<div class="scrim"><div class="sheet" role="dialog" aria-modal="true">${f.kind === "walkin" ? walkinHtml(f) : f.kind === "move" ? moveHtml(f) : blockHtml(f)}</div></div>`;
+}
+const dockHtml = () => (S.user && S.branch && S.tab === "day" && !ro() && myMaster() != null ? `<div class="dock"><button class="btn primary w" data-sheet="walkin">+ Mijoz</button><button class="btn w" data-sheet="block">Band qilish</button></div>` : "");
+
+const newKey = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+async function openSheet(kind, id) {
+  const base = { kind, mid: myMaster(), date: S.date < today() ? today() : S.date, err: "", busy: false, q: 0 };
+  let f;
+  if (kind === "walkin") f = { ...base, key: newKey(), services: null, svc: [], slots: null, slot: null, name: "", phone: "", comment: "" };
+  if (kind === "move") { const b = S.day.find((x) => x.id === id); f = { ...base, b, ids: b.items.map((x) => x.service_id), slots: null, slot: null }; }
+  if (kind === "block") f = { ...base, from: "", to: "", note: "", list: null, off: false };
+  S.sheet = f; S.more = null; render();
+  if (kind === "walkin") {
+    try { f.services = await api.services(f.mid); if (f.services.length === 1) { f.svc = [f.services[0].id]; await loadSlots(f); } } catch (e) { f.services = []; f.err = e.message; }
+    render();
+  }
+  if (kind === "move") await loadSlots(f);
+  if (kind === "block") await loadExc(f);
+}
+async function loadSlots(f) {
+  const ids = f.kind === "move" ? f.ids : f.svc, q = ++f.q;
+  f.slot = null; f.slots = ids.length ? null : []; render();
+  if (!ids.length) return;
+  try {
+    const r = await api.slots(S.branch.id, f.mid, ids, f.date);
+    if (S.sheet !== f || q !== f.q) return;
+    f.slots = r.slots;
+    if (f.kind === "walkin" && isNowSlot(f)) f.slot = r.slots[0].start; // the chair is free now: one tap to seat him
+  } catch (e) { if (S.sheet === f && q === f.q) { f.slots = []; f.err = e.message; } }
+  render();
+}
+async function loadExc(f) {
+  f.list = null; render();
+  try { const all = await api.exceptions(f.date); if (S.sheet === f) f.list = all.filter((x) => x.master_id === f.mid); } catch (e) { f.list = []; f.err = e.message; }
+  render();
+}
+// Breaks start now (rounded up to 5 minutes), not before the barber's first working minute.
+function presetRange(len) {
+  const work = workOf() || [[OPEN, CLOSE]];
+  let s = Math.ceil(parts(new Date()).min / 5) * 5;
+  if (work.length && s < work[0][0]) s = work[0][0];
+  if (s + len > 1439) throw new Error("Bugungi ish vaqti tugagan");
+  return { start: hhmm(s), end: hhmm(s + len) };
+}
+async function saveSheet(f, what) {
+  if (what === "offask" || what === "offno") { f.off = what === "offask"; return render(); }
+  f.err = "";
+  if (what === "walkin") {
+    if (!f.slot) throw new Error("Vaqtni tanlang");
+    const phone = f.phone.trim();
+    if (phone && phone.replace(/\D/g, "").length < 9) throw new Error("Telefon raqamini to'liq yozing yoki bo'sh qoldiring");
+    f.busy = true; render();
+    const b = await api.create({ branch_id: S.branch.id, master_id: f.mid, service_ids: f.svc, starts_at: f.slot, client_phone: phone, client_name: f.name.trim(), comment: f.comment.trim() }, f.key);
+    S.sheet = null; await loadDay(f.date);
+    return toast(`Mijoz qo'shildi: ${dayName(f.date)} ${hhmm(minOf(b.starts_at))}`);
+  }
+  if (what === "move") {
+    if (!f.slot) throw new Error("Yangi vaqtni tanlang");
+    f.busy = true; render();
+    const b = await api.move(f.b.id, f.slot);
+    S.sheet = null; await loadDay(f.date);
+    return toast(`Ko'chirildi: ${dayName(f.date)} ${hhmm(minOf(b.starts_at))}. Mijozga xabar boradi`);
+  }
+  let p;
+  if (what === "p30" || what === "p60") p = { kind: "break", ...presetRange(what === "p30" ? 30 : 60), note: "Tanaffus" };
+  else if (what === "off") p = { kind: "day_off", note: "" };
+  else {
+    if (!f.from || !f.to) throw new Error("Boshlanish va tugash vaqtini tanlang");
+    if (f.to <= f.from) throw new Error("Tugash vaqti boshlanishidan keyin bo'lsin");
+    p = { kind: "break", start: f.from, end: f.to, note: f.note.trim() };
+  }
+  f.busy = true; render();
+  const x = await api.addException({ master_id: f.mid, date: f.date, ...p });
+  const label = x.kind === "day_off" ? `${dayName(f.date)}: dam olish` : `Band: ${x.start}–${x.end}`;
+  S.sheet = null; S.warn = x.conflicts ? `${label}. ${x.conflicts} ta bron shu vaqtga to'g'ri keladi, mijozlarga qo'ng'iroq qiling` : "";
+  await loadDay(f.date);
+  toast(label);
+}
+async function delExc(id) {
+  await api.delException(id);
+  if (S.sheet?.kind === "block") await loadExc(S.sheet);
+  await loadDay(S.date);
+  toast("Olib tashlandi");
+}
+async function setStatus(id, status) {
+  S.pending.add(id);
+  try { const upd = await api.setStatus(id, status); S.day = S.day.map((x) => (x.id === upd.id ? upd : x)); S.ask = null; S.more = null; S.error = ""; }
+  finally { S.pending.delete(id); }
+  render();
+  const opp = OPP[status];
+  toast({ completed: "Keldi deb belgilandi", no_show: "Kelmadi deb belgilandi", cancelled: "Bron bekor qilindi" }[status], opp ? { label: `Xato: ${TAG[opp].toLowerCase()}`, run: () => setStatus(id, opp) } : null);
+}
+async function changePassword() {
+  const p = S.pw;
+  if (!p.old) throw new Error("Hozirgi parolni yozing");
+  if (p.new1.length < 6) throw new Error("Yangi parol kamida 6 belgi bo'lsin");
+  if (p.new1 !== p.new2) throw new Error("Yangi parollar bir xil emas");
+  await api.password(p.old, p.new1);
+  S.pw = { old: "", new1: "", new2: "" }; S.error = ""; render();
+  toast("Parol o'zgartirildi");
+}
+function passwordHtml() {
+  return `<section class="psec"><div class="phd"><h3>Parolni o'zgartirish</h3><span class="hint">Boshqa telefonlarda qaytadan kirish kerak bo'ladi</span></div>
+    <div class="pgrid">
+      <div class="field wide"><label for="pw-old">Hozirgi parol</label><input id="pw-old" type="password" autocomplete="current-password" value="${esc(S.pw.old)}"></div>
+      <div class="field"><label for="pw-new1">Yangi parol</label><input id="pw-new1" type="password" autocomplete="new-password" minlength="6" value="${esc(S.pw.new1)}"></div>
+      <div class="field"><label for="pw-new2">Yana bir marta</label><input id="pw-new2" type="password" autocomplete="new-password" value="${esc(S.pw.new2)}"></div>
+    </div><div class="prow"><button class="btn primary" data-pw="1">Parolni saqlash</button></div></section>`;
+}
+
+function loginHtml() {
+  const L = S.login;
+  return `<form class="login" id="lform"><span class="salon-name">${esc(S.salonName || SLUG)}</span><h1>Barber paneli</h1>
+    <p class="hint">Salon rahbari bergan login va parol bilan kiring.</p>${S.error ? `<div class="notice">${esc(S.error)}</div>` : ""}
+    <div class="field"><label for="llogin">Login</label><input id="llogin" autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(L.login)}" placeholder="masalan, jasur"></div>
+    <div class="field"><label for="lpass">Parol</label><input id="lpass" type="password" autocomplete="current-password" value="${esc(L.password)}"></div>
+    <button class="btn primary" type="submit">Kirish</button>
+    ${S.demo ? `<div class="demo-hint">Demo: <code>jasur</code>, <code>bekzod</code> yoki <code>sardor</code>, parol <code>barber123</code>. Admin: <code>malika</code> / <code>admin123</code></div>` : ""}</form>`;
+}
+
+function render() {
+  const top = $("#top"), sc = $(".sheet")?.scrollTop || 0;
+  document.body.classList.toggle("ro", ro());
+  top.hidden = !(S.user && S.branch);
+  if (!top.hidden) top.innerHTML = headerHtml();
+  $("#view").innerHTML = S.user && S.branch ? (S.tab === "profile" ? profileTabHtml() : S.tab === "reviews" ? reviewsTabHtml() : dayHtml())
+    : S.user ? (S.error ? `<div class="notice">${esc(S.error)}</div><div class="prow" style="margin-top:12px"><button class="btn primary" data-boot="1">Qayta urinish</button></div>` : `<p class="hint" style="margin-top:20vh;text-align:center">Yuklanmoqda…</p>`) : loginHtml();
+  $("#dock-slot").innerHTML = dockHtml();
+  $("#sheet-slot").innerHTML = S.sheet && S.user ? sheetHtml() : "";
+  if (S.sheet && sc) $(".sheet").scrollTop = sc; // picking a time low in the list must not jump back to the top
+  document.body.style.overflow = S.sheet ? "hidden" : "";
+}
+
+// ---------- events ----------
+async function onClick(t, d, f) {
+  if (d.m) { S.master = +d.m; S.ask = null; S.more = null; render(); }
+  else if (d.d) await loadDay(d.d);
+  else if (d.ask) { S.ask = +d.ask; S.more = null; render(); }
+  else if (d.keep) { S.ask = null; render(); }
+  else if (d.more) { S.more = S.more === +d.more ? null : +d.more; render(); }
+  else if (d.unfold) { S.open.add(+d.unfold); render(); }
+  else if (d.fold) { S.open.delete(+d.fold); render(); }
+  else if (d.act) await setStatus(+d.id, d.act);
+  else if (d.undo) { const u = S.undo; S.undo = null; $("#toast-slot").innerHTML = ""; if (u) await u.run(); }
+  else if (d.copy) { try { await navigator.clipboard.writeText(d.copy); toast("Raqam nusxalandi"); } catch { toast(d.copy); } }
+  else if (d.warnx) { S.warn = ""; render(); }
+  else if (d.sheet) await openSheet(d.sheet, +d.id);
+  else if (d.close) { S.sheet = null; render(); }
+  else if (d.svc && f) { const id = +d.svc; f.svc = f.svc.includes(id) ? f.svc.filter((x) => x !== id) : [...f.svc, id]; f.err = ""; await loadSlots(f); }
+  else if (d.sd && f) { f.date = d.sd; f.err = ""; f.off = false; await (f.kind === "block" ? loadExc(f) : loadSlots(f)); }
+  else if (d.slot && f) { f.slot = d.slot; f.err = ""; render(); }
+  else if (d.save && f) await saveSheet(f, d.save);
+  else if (d.delexc) await delExc(+d.delexc);
+  else if (d.pw) await changePassword();
+  else if (d.boot) { S.error = ""; render(); await boot(); }
+  else if (await onProfileClick(d)) { S.error = ""; render(); }
+  else if (d.tab) { S.tab = d.tab; S.error = ""; S.sheet = null; render(); if (d.tab === "profile") await loadProfile(); if (d.tab === "reviews") await loadReviews(); if (d.tab === "day") await loadDay(); }
+  else if (t.id === "logout") { await api.logout(); resetSession(); }
+}
+document.addEventListener("click", async (e) => {
+  if (e.target.classList?.contains("scrim") && !S.sheet?.busy) { S.sheet = null; return render(); }
+  const t = e.target.closest("button"); if (!t || t.disabled) return;
+  if (ro() && t.classList.contains("w")) return toast("Obuna tugagan: panel faqat ko'rish rejimida");
+  const d = t.dataset, f = S.sheet;
+  t.disabled = true; // a second tap while the first request runs does nothing
+  try { await onClick(t, d, f); }
+  catch (err) {
+    if (f && S.sheet === f) { f.err = err.message; f.busy = false; render(); if (err.status === 409 && f.kind !== "block") await loadSlots(f); }
+    else if (S.user || err.status !== 401) { S.error = err.message; render(); }
+  } finally { if (t.isConnected) t.disabled = false; }
+});
+document.addEventListener("submit", async (e) => {
+  if (e.target.id !== "lform") return;
+  e.preventDefault();
+  const b = e.target.querySelector("button"); if (b.disabled) return; b.disabled = true;
+  try { S.user = await api.login(S.login.login, S.login.password); S.login.password = ""; S.error = ""; await boot(); }
+  catch (err) { if (!S.user) S.login.password = ""; S.error = err.message; render(); }
+  finally { b.disabled = false; }
+});
+document.addEventListener("change", async (e) => { if (e.target.dataset.upload) { try { S.error = ""; await onProfileUpload(e.target); } catch (err) { S.error = err.message; render(); } } });
+document.addEventListener("input", (e) => {
+  const el = e.target;
+  if (el.dataset.f && S.sheet) { S.sheet[el.dataset.f] = el.value; return; }
+  if (el.id?.startsWith("pw-")) { S.pw[el.id.slice(3)] = el.value; return; }
+  if (onProfileInput(el)) return;
+  if (el.id === "llogin") S.login.login = el.value; if (el.id === "lpass") S.login.password = el.value;
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.sheet && !S.sheet.busy) { S.sheet = null; render(); } });
+
+async function boot() {
+  if (!S.user) return render();
+  const branches = await api.branches();
+  // A barber works in their own branch; owner and admin start with the first one.
+  S.branch = branches.find((b) => b.id === S.user.branch_id) || branches[0];
+  if (!S.branch) throw new Error("Filial topilmadi");
+  S.masters = await api.masters(S.branch.id);
+  // A barber's day comes back already filtered to them by the server; an admin picks a master.
+  S.master = isAdmin() ? S.masters[0]?.id ?? null : null;
+  await loadDay(today());
+}
+(async () => {
+  try {
+    const r = await fetch("/api/health"); if (!r.ok || !(await r.json()).ok) throw 0;
+    const info = await fetch(`/api/s/${SLUG}`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+    if (!info) { S.error = "Salon topilmadi. Manzilni tekshiring."; return render(); }
+    S.salonName = info.name; S.user = await realApi.me();
+  }
+  catch { S.demo = true; api = demoApi; S.salonName = DEMO_SALON.name; S.user = await api.me(); }
+  try { await boot(); } catch (err) { S.error = err.message; render(); }
+})();
+</script>

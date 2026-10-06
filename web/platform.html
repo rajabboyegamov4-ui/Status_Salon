@@ -1,0 +1,308 @@
+<title>Salonlar Platformasi</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: the platform owner's subscription desk. Header, three counters, then one row per salon with its paid-until date and quick actions. */
+:root {
+  --bg: #f3f1ee; --panel: #ffffff; --sunken: #f7f5f2; --fg: #1d1a17; --muted: #74695f; --line: #e4ded6;
+  --brass: #9a7433; --brass-soft: #f4ecdd; --brass-ink: #ffffff; --ok: #2f7a4f; --on-ok: #ffffff; --ok-soft: #e3f1e8; --bad: #b2412f; --bad-soft: #f8e5e1;
+  --warn: #9a6a12; --warn-soft: #fbf0d9;
+  --display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121010; --panel: #1c1917; --sunken: #231f1c; --fg: #f0e9e0; --muted: #a39789; --line: #2f2925;
+    --brass: #d2ab66; --brass-soft: #2e2618; --brass-ink: #1a140f; --ok: #79c495; --on-ok: #10251a; --ok-soft: #1c2a21; --bad: #e88471; --bad-soft: #2f1d19;
+    --warn: #e2b660; --warn-soft: #2d2414; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121010; --panel: #1c1917; --sunken: #231f1c; --fg: #f0e9e0; --muted: #a39789; --line: #2f2925;
+  --brass: #d2ab66; --brass-soft: #2e2618; --brass-ink: #1a140f; --ok: #79c495; --on-ok: #10251a; --ok-soft: #1c2a21; --bad: #e88471; --bad-soft: #2f1d19;
+  --warn: #e2b660; --warn-soft: #2d2414; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.45 var(--body); }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 20px 16px 48px; display: flex; flex-direction: column; gap: 16px; }
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.top h1 { font: 800 32px/1 var(--display); text-transform: uppercase; letter-spacing: .02em; margin: 0 auto 0 0; }
+.top h1 small { display: block; font: 700 11px/1.8 var(--body); letter-spacing: .14em; color: var(--muted); }
+.badge { font-size: 10px; font-weight: 800; letter-spacing: .1em; color: var(--brass); border: 1px solid var(--brass); border-radius: 99px; padding: 2px 8px; }
+.primary { background: var(--brass); color: var(--brass-ink); border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 800; }
+.ghost { background: none; border: 1px solid var(--line); border-radius: 10px; padding: 9px 14px; font-weight: 700; color: var(--muted); }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+.stat span { font-size: 12px; color: var(--muted); font-weight: 600; }
+.stat b { display: block; font: 800 30px/1.1 var(--display); font-variant-numeric: tabular-nums; }
+.filters { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.chip { border: 1px solid var(--line); background: var(--panel); border-radius: 99px; padding: 6px 12px; font-size: 13px; font-weight: 700; }
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.search { margin-left: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; min-width: 0; width: 220px; }
+.table-wrap { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 700; padding: 10px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.name b { display: block; font-weight: 800; }
+.name a { color: var(--muted); font-size: 13px; text-decoration: none; }
+.name a:hover { color: var(--brass); }
+.pill { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .04em; padding: 3px 9px; border-radius: 99px; white-space: nowrap; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.soon { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.off { background: var(--sunken); color: var(--muted); }
+.days { display: block; font-size: 12px; color: var(--muted); }
+.acts { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: nowrap; }
+.btn { border-radius: 10px; padding: 7px 11px; font-weight: 800; border: 1px solid var(--line); background: var(--panel); font-size: 13px; white-space: nowrap; }
+.btn.pay { background: var(--ok); border-color: var(--ok); color: var(--on-ok); }
+.btn.bad { color: var(--bad); border-color: var(--bad); background: none; }
+.btn.primary { background: var(--brass); border-color: var(--brass); color: var(--brass-ink); font-size: 15px; padding: 11px; }
+.btn[disabled] { opacity: .4; cursor: not-allowed; }
+.empty { padding: 40px; text-align: center; color: var(--muted); }
+.notice { background: var(--bad-soft); color: var(--bad); border-radius: 10px; padding: 10px 12px; }
+.hint { color: var(--muted); font-size: 13px; }
+.creds { background: var(--ok-soft); border-radius: 12px; padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; }
+.creds code { font: 800 17px var(--body); }
+.scrim { position: fixed; inset: 0; background: rgb(0 0 0 / .3); z-index: 20; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100%); background: var(--panel); z-index: 21; border-left: 1px solid var(--line); display: flex; flex-direction: column; box-shadow: -10px 0 30px rgb(0 0 0 / .12); }
+.drawer header { padding: 18px 20px; border-bottom: 1px solid var(--line); display: flex; align-items: flex-start; gap: 12px; }
+.drawer header h2 { margin: 0; font: 800 26px/1.05 var(--display); text-transform: uppercase; }
+.drawer .x { margin-left: auto; background: none; border: 1px solid var(--line); border-radius: 8px; width: 32px; height: 32px; flex: none; }
+.drawer .body { padding: 18px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; flex: 1; }
+.drawer footer { padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
+.group { font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 12px; font-weight: 700; color: var(--muted); }
+.field input { background: var(--sunken); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; }
+.slug { display: flex; align-items: center; background: var(--sunken); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.slug span { padding: 10px 0 10px 12px; color: var(--muted); white-space: nowrap; }
+.slug input { border: 0; background: none; padding-left: 2px; }
+.months { display: flex; gap: 6px; flex-wrap: wrap; }
+.login { max-width: 360px; margin: 12vh auto; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+.login h1 { font: 800 30px/1 var(--display); text-transform: uppercase; margin: 0; }
+.demo-hint { background: var(--brass-soft); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); top: calc(16px + env(safe-area-inset-top, 0px)); z-index: 40; background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 700; }
+@media (max-width: 760px) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .search { width: 100%; margin-left: 0; }
+  thead { display: none; }
+  table, tbody, tr, td { display: block; width: 100%; }
+  tr { border-bottom: 1px solid var(--line); padding: 12px 14px; display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; }
+  tr:last-child { border-bottom: 0; }
+  td { padding: 0; border: 0; }
+  td.c-stats { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
+  td.c-acts { grid-column: 1 / -1; }
+  .acts { justify-content: flex-start; flex-wrap: wrap; }
+  .drawer { top: auto; width: 100%; max-height: 92vh; border-radius: 16px 16px 0 0; border-left: 0; }
+}
+</style>
+
+<div id="root"></div>
+<div id="layer"></div>
+<div id="toast-slot"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr"];
+const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tashkent" }).format(new Date());
+const dayDiff = (ymd) => Math.round((new Date(ymd + "T00:00:00Z") - new Date(today() + "T00:00:00Z")) / 86400e3);
+const fmtDate = (ymd) => { const [y, m, d] = ymd.split("-").map(Number); return `${d}-${MONTHS[m - 1]} ${y}`; };
+const addMonths = (ymd, n) => { const [y, m, d] = ymd.split("-").map(Number); const t = new Date(Date.UTC(y, m - 1 + n, 1)); const last = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 0)).getUTCDate(); t.setUTCDate(Math.min(d, last)); return t.toISOString().slice(0, 10); };
+const newPassword = () => { const a = "abcdefghjkmnpqrstuvwxyz23456789"; let p = ""; for (let i = 0; i < 10; i++) p += a[Math.floor(Math.random() * a.length)]; return p; };
+const slugify = (s) => s.toLowerCase().replace(/[ʻʼ'`]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+class ApiError extends Error { constructor(s, m) { super(m); this.status = s; } }
+
+// ---------- real API ----------
+const realApi = {
+  async call(path, opts = {}) {
+    const res = await fetch("/api/platform" + path, { ...opts, credentials: "same-origin", headers: { "Content-Type": "application/json", ...(opts.headers || {}) } });
+    if (res.status === 204) return null;
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiError(res.status, typeof body.detail === "string" ? body.detail : Array.isArray(body.detail) ? "Maydonlarni tekshiring" : "Xatolik yuz berdi");
+    return body;
+  },
+  async me() { try { await this.call("/me"); return true; } catch { return false; } },
+  login(login, password) { return this.call("/login", { method: "POST", body: JSON.stringify({ login, password }) }); },
+  logout() { return this.call("/logout", { method: "POST" }); },
+  salons() { return this.call("/salons"); },
+  create(p) { return this.call("/salons", { method: "POST", body: JSON.stringify(p) }); },
+  update(id, p) { return this.call(`/salons/${id}`, { method: "PATCH", body: JSON.stringify(p) }); },
+};
+
+// ---------- demo API: a dozen salons in different subscription states ----------
+const demoApi = (() => {
+  const t = today(), at = (n) => { const d = new Date(t + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const rows = [
+    ["premium", "Premium Barber", 21, 5, 214], ["navruz", "Navruz Barber", 3, 4, 131], ["baraka", "Baraka Men's Club", 12, 6, 248],
+    ["oldtown", "Old Town Barbershop", -2, 3, 96], ["sultan", "Sultan Barber", 27, 8, 377], ["chilonzor-cut", "Chilonzor Cut", 6, 3, 88],
+    ["gentlemen", "Gentlemen Lounge", 44, 7, 302], ["yunusobod", "Yunusobod Barbers", -9, 2, 41], ["ustara", "Ustara", 15, 4, 159],
+    ["sergeli", "Sergeli Style", 1, 3, 72], ["boss", "Boss Barber", 18, 5, 201], ["mirzo", "Mirzo Barber", 9, 4, 117],
+  ];
+  const salons = rows.map(([slug, name, d, staff, b], i) => ({ id: i + 1, slug, name, phone: `+99871${2000000 + i * 1371}`, plan: "standard", paid_until: at(d), is_active: slug !== "yunusobod", staff_count: staff, bookings_30d: b, created_at: at(-120 + i * 7) }));
+  const live = (s) => ({ ...s, active: s.is_active && s.paid_until >= today() });
+  const wait = (v) => new Promise((r) => setTimeout(() => r(v), 140));
+  let signed = false;
+  return {
+    me: () => wait(signed),
+    login(login, password) { if (login.trim().toLowerCase() !== "platform" || password !== "platform123") return Promise.reject(new ApiError(401, "Login yoki parol noto'g'ri")); signed = true; return wait(null); },
+    logout() { signed = false; return wait(null); },
+    salons: () => wait(salons.map(live).sort((a, b) => a.paid_until.localeCompare(b.paid_until))),
+    create(p) {
+      const slug = p.slug.trim().toLowerCase();
+      if (!/^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/.test(slug)) return Promise.reject(new ApiError(422, "Manzil 3-40 ta lotin harf, raqam yoki '-' bo'lishi kerak"));
+      if (salons.some((s) => s.slug === slug)) return Promise.reject(new ApiError(409, "Bu manzil band. Boshqa nom tanlang."));
+      const s = { id: salons.length + 1, slug, name: p.name, phone: p.phone, plan: "standard", paid_until: addMonths(today(), p.months), is_active: true, staff_count: 1, bookings_30d: 0, created_at: new Date().toISOString() };
+      salons.push(s); return wait(live(s));
+    },
+    update(id, p) {
+      const s = salons.find((x) => x.id === id);
+      if (p.extend_months) s.paid_until = addMonths(s.paid_until > today() ? s.paid_until : today(), p.extend_months);
+      if (p.is_active != null) s.is_active = p.is_active;
+      return wait(live(s));
+    },
+  };
+})();
+
+// ---------- state ----------
+const S = { demo: false, signed: false, salons: [], filter: "all", q: "", form: null, creds: null, error: "", login: { login: "", password: "" }, stopAsk: null };
+let api = realApi;
+const state = (s) => !s.is_active ? "off" : dayDiff(s.paid_until) < 0 ? "bad" : dayDiff(s.paid_until) <= 7 ? "soon" : "ok";
+const STATE_LABEL = { ok: "Faol", soon: "Tugayapti", bad: "Muddati o'tgan", off: "To'xtatilgan" };
+function toast(msg) { $("#toast-slot").innerHTML = `<div class="toast" role="status">${esc(msg)}</div>`; setTimeout(() => { $("#toast-slot").innerHTML = ""; }, 2200); }
+async function load() { S.salons = await api.salons(); render(); }
+
+// ---------- views ----------
+function rowHtml(s) {
+  const st = state(s), dd = dayDiff(s.paid_until);
+  const left = !s.is_active ? "platforma to'xtatgan" : dd < 0 ? `${-dd} kun oldin tugagan` : dd === 0 ? "bugun oxirgi kun" : `${dd} kun qoldi`;
+  const acts = S.stopAsk === s.id
+    ? `<span class="hint">To'xtatilsinmi?</span><button class="btn" data-keep="1">Yo'q</button><button class="btn bad" data-stop="${s.id}">Ha</button>`
+    : `<button class="btn pay" data-extend="${s.id}">+1 oy</button><button class="btn" data-extend3="${s.id}">+3 oy</button>${s.is_active ? `<button class="btn bad" data-ask="${s.id}">To'xtatish</button>` : `<button class="btn" data-resume="${s.id}">Yoqish</button>`}`;
+  return `<tr><td class="name"><b>${esc(s.name)}</b><a href="/${esc(s.slug)}" target="_blank" rel="noopener">/${esc(s.slug)}</a></td>
+    <td><span class="pill ${st}">${STATE_LABEL[st]}</span></td>
+    <td class="num">${fmtDate(s.paid_until)}<span class="days">${left}</span></td>
+    <td class="num c-stats">${s.staff_count} xodim · ${s.bookings_30d} bron / 30 kun</td>
+    <td class="c-acts"><div class="acts">${acts}</div></td></tr>`;
+}
+
+function mainHtml() {
+  const c = { ok: 0, soon: 0, bad: 0, off: 0 }; S.salons.forEach((s) => c[state(s)]++);
+  const q = S.q.trim().toLowerCase();
+  const rows = S.salons.filter((s) => (S.filter === "all" || state(s) === S.filter || (S.filter === "ok" && state(s) === "soon")) && (!q || s.name.toLowerCase().includes(q) || s.slug.includes(q)));
+  const chip = (k, label) => `<button class="chip" data-filter="${k}" aria-pressed="${S.filter === k}">${label}</button>`;
+  return `<div class="wrap">
+    <div class="top"><h1><small>PLATFORMA</small>Salonlar</h1>${S.demo ? '<span class="badge">DEMO</span>' : ""}<button class="ghost" id="logout">Chiqish</button><button class="primary" id="add">+ Salon ulash</button></div>
+    ${S.creds ? `<div class="creds"><b>${esc(S.creds.name)} ulandi.</b><span>Admin panel <code>${esc(location.host)}/${esc(S.creds.slug)}/admin</code></span><span>Login <code>${esc(S.creds.login)}</code></span><span>Parol <code>${esc(S.creds.password)}</code></span><span class="hint">Salon egasiga hozir bering: parol keyin ko'rsatilmaydi.</span></div>` : ""}
+    ${S.error && !S.form ? `<div class="notice">${esc(S.error)}</div>` : ""}
+    <div class="stats">
+      <div class="stat"><span>Jami salon</span><b>${S.salons.length}</b></div>
+      <div class="stat"><span>Faol</span><b>${c.ok + c.soon}</b></div>
+      <div class="stat"><span>7 kunda tugaydi</span><b>${c.soon}</b></div>
+      <div class="stat"><span>To'lamagan yoki to'xtatilgan</span><b>${c.bad + c.off}</b></div>
+    </div>
+    <div class="filters">${chip("all", "Hammasi")}${chip("soon", "Tugayapti")}${chip("bad", "Muddati o'tgan")}${chip("off", "To'xtatilgan")}
+      <input class="search" id="q" type="search" placeholder="Qidirish" value="${esc(S.q)}" aria-label="Salon qidirish"></div>
+    <div class="table-wrap">${rows.length ? `<table><thead><tr><th>Salon</th><th>Holat</th><th>Obuna tugashi</th><th>Faollik</th><th></th></tr></thead><tbody>${rows.map(rowHtml).join("")}</tbody></table>` : `<div class="empty">Hech narsa topilmadi.</div>`}</div>
+    <p class="hint">Obuna tugasa: salon sayti bron qabul qilmaydi, SMS ketmaydi, panel faqat ko'rish rejimida. "+1 oy" bosilganda darhol tiklanadi.</p>
+  </div>`;
+}
+
+function loginHtml() {
+  return `<form class="login" id="lform"><h1>Platforma</h1><p class="hint">Salonlar va obunalarni boshqarish.</p>${S.error ? `<div class="notice">${esc(S.error)}</div>` : ""}
+    <div class="field"><label for="llogin">Login</label><input id="llogin" autocomplete="username" autocapitalize="none" value="${esc(S.login.login)}"></div>
+    <div class="field"><label for="lpass">Parol</label><input id="lpass" type="password" autocomplete="current-password" value="${esc(S.login.password)}"></div>
+    <button class="btn primary" type="submit">Kirish</button>
+    ${S.demo ? `<div class="demo-hint">Demo: <b>platform</b> / <b>platform123</b></div>` : ""}</form>`;
+}
+
+function formHtml() {
+  const F = S.form; if (!F) return "";
+  const field = (id, label, v, extra = "") => `<div class="field"><label for="${id}">${label}</label><input id="${id}" value="${esc(v)}" ${extra}></div>`;
+  return `<div class="scrim" data-close="1"></div><div class="drawer" role="dialog" aria-label="Salon ulash">
+    <header><div><small class="hint">Yangi mijoz</small><h2>Salon ulash</h2></div><button class="x" data-close="1" aria-label="Yopish">✕</button></header>
+    <div class="body">
+      ${field("fname", "Salon nomi", F.name, 'placeholder="Masalan, Navruz Barber"')}
+      <div class="field"><label for="fslug">Manzil</label><div class="slug"><span>${esc(location.host || "sayt.uz")}/</span><input id="fslug" value="${esc(F.slug)}" autocapitalize="none" spellcheck="false"></div></div>
+      ${field("fphone", "Salon telefoni", F.phone, 'inputmode="tel" placeholder="+998 71 200 00 00"')}
+      ${field("faddr", "Manzili (filial)", F.address, 'placeholder="Toshkent, ..."')}
+      <div class="field"><label>To'langan muddat</label><div class="months">${[1, 3, 6, 12].map((m) => `<button class="chip" data-months="${m}" aria-pressed="${F.months === m}">${m} oy</button>`).join("")}<button class="chip" data-months="0" aria-pressed="${F.months === 0}">Sinov (bugun)</button></div></div>
+      <div class="group">Salon egasining kirishi</div>
+      ${field("oname", "Ismi", F.owner_name, 'placeholder="Masalan, Aziz"')}
+      ${field("ologin", "Login", F.owner_login, 'autocapitalize="none" spellcheck="false"')}
+      ${field("opass", "Parol", F.owner_password, 'autocomplete="off"')}
+      <p class="hint">Salon 4 ta standart xizmat va bitta filial bilan ochiladi. Egasi o'zi barberlarni qo'shib, har biriga login-parol beradi.</p>
+      ${S.error ? `<div class="notice">${esc(S.error)}</div>` : ""}
+    </div>
+    <footer><button class="btn" data-close="1">Bekor</button><button class="btn primary" id="fsave">Ulash</button></footer></div>`;
+}
+
+function render() {
+  $("#root").innerHTML = S.signed ? mainHtml() : loginHtml();
+  $("#layer").innerHTML = S.signed ? formHtml() : "";
+}
+
+// ---------- events ----------
+document.addEventListener("click", async (e) => {
+  const t = e.target.closest("button, .scrim"); if (!t || t.disabled) return;
+  const d = t.dataset;
+  try {
+    if (d.close) { S.form = null; S.error = ""; render(); }
+    else if (d.filter) { S.filter = d.filter; render(); }
+    else if (t.id === "add") { S.error = ""; S.creds = null; S.form = { name: "", slug: "", slugTouched: false, phone: "", address: "", months: 1, owner_name: "", owner_login: "owner", owner_password: newPassword() }; render(); }
+    else if (d.months) { S.form.months = +d.months; render(); }
+    else if (t.id === "fsave") {
+      const F = S.form;
+      if (!F.name.trim() || !F.owner_name.trim()) throw new Error("Salon nomi va egasining ismini yozing");
+      const s = await api.create({ slug: F.slug, name: F.name.trim(), phone: F.phone.trim(), months: F.months, branch_address: F.address.trim(),
+        owner_name: F.owner_name.trim(), owner_login: F.owner_login.trim().toLowerCase(), owner_password: F.owner_password });
+      S.creds = { name: s.name, slug: s.slug, login: F.owner_login.trim().toLowerCase(), password: F.owner_password };
+      S.form = null; S.error = ""; await load(); toast("Salon ulandi");
+    }
+    else if (d.extend || d.extend3) {
+      if (S.busy) return;  // a double tap must not pay twice
+      const id = +(d.extend || d.extend3), n = d.extend ? 1 : 3;
+      S.busy = true; document.querySelectorAll("[data-extend],[data-extend3]").forEach((b) => (b.disabled = true));
+      let s; try { s = await api.update(id, { extend_months: n, is_active: true }); } finally { S.busy = false; }
+      S.salons = S.salons.map((x) => (x.id === s.id ? s : x)); S.error = ""; render(); toast(`${s.name}: ${fmtDate(s.paid_until)} gacha uzaytirildi`);
+    }
+    else if (d.ask) { S.stopAsk = +d.ask; render(); }
+    else if (d.keep) { S.stopAsk = null; render(); }
+    else if (d.stop || d.resume) {
+      const s = await api.update(+(d.stop || d.resume), { is_active: !!d.resume });
+      S.salons = S.salons.map((x) => (x.id === s.id ? s : x)); S.stopAsk = null; render(); toast(d.stop ? `${s.name} to'xtatildi` : `${s.name} qayta yoqildi`);
+    }
+    else if (t.id === "logout") { await api.logout(); S.signed = false; S.creds = null; S.login = { login: "", password: "" }; render(); }
+  } catch (err) { S.error = err.message; render(); }
+});
+document.addEventListener("submit", async (e) => {
+  if (e.target.id !== "lform") return;
+  e.preventDefault();
+  try { await api.login(S.login.login, S.login.password); S.signed = true; S.error = ""; S.login.password = ""; await load(); }
+  catch (err) { S.login.password = ""; S.error = err.message; render(); }
+});
+document.addEventListener("input", (e) => {
+  const id = e.target.id, v = e.target.value, F = S.form;
+  if (id === "llogin") S.login.login = v; if (id === "lpass") S.login.password = v;
+  if (id === "q") { S.q = v; const pos = e.target.selectionStart; render(); const q = $("#q"); q.focus(); q.setSelectionRange(pos, pos); }
+  if (!F) return;
+  if (id === "fname") { F.name = v; if (!F.slugTouched) { F.slug = slugify(v); const sl = $("#fslug"); if (sl) sl.value = F.slug; } }
+  if (id === "fslug") { F.slug = v; F.slugTouched = true; }
+  if (id === "fphone") F.phone = v; if (id === "faddr") F.address = v;
+  if (id === "oname") F.owner_name = v; if (id === "ologin") F.owner_login = v; if (id === "opass") F.owner_password = v;
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.form) { S.form = null; render(); } });
+
+(async () => {
+  try { const r = await fetch("/api/health"); if (!r.ok || !(await r.json()).ok) throw 0; S.signed = await realApi.me(); }
+  catch { S.demo = true; api = demoApi; }
+  try { if (S.signed) await load(); else render(); } catch (err) { S.error = err.message; render(); }
+})();
+</script>

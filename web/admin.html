@@ -1,0 +1,1478 @@
+<meta charset="utf-8">
+<title>Salon Boshqaruvi</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: desktop salon front-desk board. Sidebar | (toolbar, stats, schedule grid with one column per master). Detail opens as a right drawer (bottom sheet on phones). */
+:root {
+  --bg: #f3f1ee;
+  --panel: #ffffff;
+  --sunken: #f7f5f2;
+  --fg: #1d1a17;
+  --muted: #74695f;
+  --line: #e4ded6;
+  --grid: #efeae4;
+  --brass: #9a7433;
+  --brass-soft: #f4ecdd;
+  --brass-ink: #ffffff;
+  --ok: #2f7a4f; --on-ok: #ffffff;
+  --ok-soft: #e3f1e8;
+  --bad: #b2412f;
+  --bad-soft: #f8e5e1;
+  --side: #1d1a17;
+  --side-fg: #efe8df;
+  --side-muted: #9c9186;
+  --display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121010; --panel: #1b1816; --sunken: #171412; --fg: #f0e9e0; --muted: #a39789; --line: #2e2824; --grid: #241f1c;
+    --brass: #d2ab66; --brass-soft: #2e2618; --brass-ink: #1a140f; --ok: #79c495; --on-ok: #10251a; --ok-soft: #1c2a21; --bad: #e88471; --bad-soft: #2f1d19;
+    --side: #0c0a09; --side-fg: #efe8df; --side-muted: #8f8478; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121010; --panel: #1b1816; --sunken: #171412; --fg: #f0e9e0; --muted: #a39789; --line: #2e2824; --grid: #241f1c;
+  --brass: #d2ab66; --brass-soft: #2e2618; --brass-ink: #1a140f; --ok: #79c495; --on-ok: #10251a; --ok-soft: #1c2a21; --bad: #e88471; --bad-soft: #2f1d19;
+  --side: #0c0a09; --side-fg: #efe8df; --side-muted: #8f8478; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 var(--body); }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+.shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100%; }
+aside { background: var(--side); color: var(--side-fg); padding: 22px 16px; display: flex; flex-direction: column; gap: 22px; position: sticky; top: 0; height: 100vh; }
+.logo { font: 800 24px/1 var(--display); letter-spacing: .05em; text-transform: uppercase; }
+.logo small { display: block; font: 600 10px/1.6 var(--body); letter-spacing: .16em; color: var(--side-muted); margin-top: 4px; }
+.branch-pick { background: rgb(255 255 255 / .06); border: 1px solid rgb(255 255 255 / .1); border-radius: 10px; padding: 10px 12px; }
+.branch-pick small { display: block; font-size: 11px; color: var(--side-muted); text-transform: uppercase; letter-spacing: .1em; }
+.branch-pick b { font-weight: 700; }
+.branch-pick select { display: block; width: 100%; background: transparent; border: 0; color: var(--side-fg); font-weight: 700; padding: 2px 0 0; cursor: pointer; }
+.branch-pick option { color: #1d1a17; background: #fff; }
+nav { display: flex; flex-direction: column; gap: 4px; position: relative; min-width: 0; }
+nav button { background: none; border: 0; color: var(--side-muted); text-align: left; padding: 10px 12px; border-radius: 8px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+nav button[aria-current="page"] { background: rgb(255 255 255 / .08); color: var(--side-fg); }
+nav button svg { flex: none; }
+.me { margin-top: auto; display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.me .av { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--brass); color: var(--brass-ink); display: grid; place-items: center; font-weight: 800; }
+.me small { display: block; color: var(--side-muted); }
+.me > span:not(.av) { min-width: 0; }
+.me .demo { display: block; width: max-content; margin: 2px 0 0; }
+.me .out { flex: none; }
+.demo { font-size: 10px; font-weight: 800; letter-spacing: .1em; color: var(--brass); border: 1px solid var(--brass); border-radius: 99px; padding: 1px 7px; margin-left: 6px; vertical-align: 2px; }
+
+.content { padding: 20px 24px 40px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.toolbar h1 { font: 800 30px/1 var(--display); text-transform: uppercase; letter-spacing: .02em; margin: 0; margin-right: auto; }
+.toolbar h1 small { display: block; font: 600 12px/1.6 var(--body); letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
+.daynav { display: flex; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.daynav button { background: none; border: 0; padding: 8px 12px; font-weight: 700; }
+.daynav button + button { border-left: 1px solid var(--line); }
+.daynav input { border: 0; border-left: 1px solid var(--line); background: none; padding: 7px 10px; }
+.primary { background: var(--brass); color: var(--brass-ink); border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 800; }
+
+.stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+.stat span { font-size: 12px; color: var(--muted); font-weight: 600; }
+.stat { container-type: inline-size; }
+.stat b { display: block; font: 800 28px/1.1 var(--display); font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+.stat b small { font-size: .7em; color: var(--muted); }
+.stat.money b { font-size: clamp(18px, 6vw, 28px); font-size: clamp(18px, 19cqi, 28px); overflow-wrap: anywhere; }
+.stat .bar { height: 4px; background: var(--grid); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+.stat .bar i { display: block; height: 100%; background: var(--brass); }
+
+.board { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: auto; max-height: calc(100vh - 230px); min-height: 420px; }
+.grid { display: grid; position: relative; min-width: max-content; }
+.ghead { position: sticky; top: 0; z-index: 3; background: var(--panel); border-bottom: 1px solid var(--line); padding: 10px 12px; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ghead.corner { left: 0; z-index: 4; }
+.ghead .av { width: 32px; height: 32px; border-radius: 50%; background: var(--brass-soft); color: var(--brass); display: grid; place-items: center; font-weight: 800; flex: none; }
+.ghead b { display: block; font-weight: 800; }
+.ghead small { color: var(--muted); font-size: 12px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ghead > span:last-child { min-width: 0; }
+.ghead.gone .av { background: var(--sunken); color: var(--muted); }
+.times { position: sticky; left: 0; z-index: 2; background: var(--panel); border-right: 1px solid var(--line); }
+.times span { position: absolute; right: 8px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; transform: translateY(-50%); }
+.col { position: relative; border-right: 1px solid var(--grid); cursor: copy; }
+.col:last-child { border-right: 0; }
+.col.off { background: repeating-linear-gradient(135deg, var(--sunken) 0 8px, var(--panel) 8px 16px); cursor: default; }
+.offhrs { position: absolute; left: 0; right: 0; pointer-events: none; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--muted) 13%, transparent) 0 6px, color-mix(in srgb, var(--muted) 5%, transparent) 6px 12px); }
+.hline { position: absolute; left: 0; right: 0; border-top: 1px solid var(--grid); pointer-events: none; }
+.hline.half { border-top-style: dashed; opacity: .7; }
+.hover-slot { position: absolute; left: 4px; right: 4px; border: 1.5px dashed var(--brass); border-radius: 8px; color: var(--brass); font-size: 12px; font-weight: 700; padding: 2px 8px; pointer-events: none; }
+.bk { position: absolute; left: 4px; right: 4px; border-radius: 8px; padding: 5px 8px 5px 10px; text-align: left; overflow: hidden; cursor: pointer; z-index: 1;
+  background: var(--brass-soft); border: 1px solid color-mix(in srgb, var(--brass) 45%, transparent); border-left: 4px solid var(--brass); display: flex; flex-direction: column; }
+.bk:hover { filter: brightness(.97); }
+.bk .t { font-size: 11px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bk .n { font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bk .s { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bk.tiny { flex-direction: row; gap: 6px; align-items: center; padding-block: 0; }
+.bk.completed { background: var(--ok-soft); border-color: color-mix(in srgb, var(--ok) 40%, transparent); border-left-color: var(--ok); }
+.bk.no_show { background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 40%, transparent); border-left-color: var(--bad); }
+.bk.cancelled { background: var(--sunken); border: 1px dashed var(--line); border-left: 4px solid var(--line); opacity: .75; }
+.bk.cancelled .n { text-decoration: line-through; }
+.bk.sel { outline: 2px solid var(--fg); outline-offset: 1px; }
+.now { position: absolute; left: 0; right: 0; border-top: 2px solid var(--bad); z-index: 2; pointer-events: none; }
+.now b { position: absolute; left: 4px; top: -10px; background: var(--bad); color: #fff; font-size: 11px; padding: 1px 6px; border-radius: 99px; font-variant-numeric: tabular-nums; }
+
+.pill { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .04em; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+.pill.confirmed, .pill.pending { background: var(--brass-soft); color: var(--brass); }
+.pill.completed { background: var(--ok-soft); color: var(--ok); }
+.pill.no_show { background: var(--bad-soft); color: var(--bad); }
+.pill.cancelled { background: var(--sunken); color: var(--muted); }
+
+.table-wrap { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 760px; }
+th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 700; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--sunken); }
+td { padding: 11px 14px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: var(--sunken); }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.empty { padding: 40px; text-align: center; color: var(--muted); }
+
+.drawer-scrim { position: fixed; inset: 0; background: rgb(0 0 0 / .3); z-index: 20; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 100%); background: var(--panel); z-index: 21; border-left: 1px solid var(--line); display: flex; flex-direction: column; box-shadow: -10px 0 30px rgb(0 0 0 / .12); }
+.drawer header { padding: 18px 20px; border-bottom: 1px solid var(--line); display: flex; align-items: flex-start; gap: 12px; }
+.drawer header h2 { margin: 0; font: 800 26px/1.05 var(--display); text-transform: uppercase; }
+.drawer header small { color: var(--muted); }
+.drawer .x { margin-left: auto; background: none; border: 1px solid var(--line); border-radius: 8px; width: 32px; height: 32px; flex: none; }
+.drawer .body { padding: 18px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; flex: 1; }
+.drawer footer > .hint { grid-column: 1 / -1; margin: 0; text-align: center; }
+.drawer footer { padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.when { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.when b { font: 800 38px/1 var(--display); font-variant-numeric: tabular-nums; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 10px 16px; margin: 0; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; text-align: right; font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.copy { border: 1px solid var(--line); background: var(--sunken); border-radius: 6px; padding: 1px 8px; font-size: 12px; margin-left: 8px; }
+.btn { border-radius: 10px; padding: 11px; font-weight: 800; border: 1px solid var(--line); background: var(--panel); }
+a.btn { text-decoration: none; color: var(--fg); display: inline-block; }
+a.btn.call { margin-left: 8px; padding: 2px 10px; font-size: 12px; border-radius: 6px; }
+.btn.ok { background: var(--ok); border-color: var(--ok); color: var(--on-ok); }
+.btn.bad { color: var(--bad); border-color: var(--bad); }
+.btn.wide { grid-column: 1 / -1; }
+.btn.primary { background: var(--brass); border-color: var(--brass); color: var(--brass-ink); }
+.btn[disabled] { opacity: .4; cursor: not-allowed; }
+.confirm { background: var(--bad-soft); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; grid-column: 1 / -1; }
+.confirm .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 12px; font-weight: 700; color: var(--muted); }
+.field input, .field select { background: var(--sunken); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; min-width: 0; }
+.field input[type="checkbox"] { width: auto; padding: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); background: var(--sunken); border-radius: 99px; padding: 6px 12px; font-size: 13px; font-weight: 700; }
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.notice { background: var(--bad-soft); color: var(--bad); border-radius: 10px; padding: 10px 12px; }
+.hint { color: var(--muted); font-size: 13px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); top: calc(16px + env(safe-area-inset-top, 0px)); z-index: 40; background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 700;
+  display: flex; align-items: center; gap: 12px; width: max-content; max-width: calc(100vw - 32px); box-shadow: 0 8px 24px rgb(0 0 0 / .18); }
+.toast button { background: none; border: 1px solid currentColor; color: inherit; border-radius: 8px; padding: 4px 10px; font-weight: 800; font-size: 13px; white-space: nowrap; flex: none; }
+.warn { background: var(--brass-soft); color: var(--fg); border-left: 4px solid var(--brass); border-radius: 10px; padding: 10px 12px; font-weight: 700; }
+body.ro .w { display: none !important; }
+.login { max-width: 360px; margin: 10vh auto; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+.login h1 { font: 800 30px/1 var(--display); text-transform: uppercase; margin: 0; }
+.login .salon-name { color: var(--brass); font-weight: 800; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+.login input { background: var(--sunken); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; }
+.demo-hint { background: var(--brass-soft); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+.out { background: none; border: 1px solid rgb(255 255 255 / .15); color: var(--side-muted); border-radius: 8px; padding: 4px 10px; font-size: 12px; font-weight: 700; margin-left: auto; }
+.role { display: inline-block; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: var(--sunken); color: var(--muted); }
+.role.owner, .role.admin { background: var(--brass-soft); color: var(--brass); }
+.off-row td { opacity: .5; }
+.row-acts { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.row-acts .btn { padding: 6px 10px; font-size: 13px; }
+.creds { background: var(--ok-soft); color: var(--fg); border-radius: 12px; padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; }
+.creds code { font: 800 18px var(--body); font-variant-numeric: tabular-nums; }
+.pw-inline { display: flex; gap: 6px; }
+.pw-inline input { background: var(--sunken); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; width: 140px; }
+.sub-warn { background: var(--bad-soft); color: var(--bad); border-radius: 10px; padding: 10px 14px; font-weight: 700; }
+
+/* profile editor */
+.psec { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.phd { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.phd h3 { margin: 0; font: 800 22px/1.1 var(--display); text-transform: uppercase; letter-spacing: .02em; }
+.pgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.pgrid .wide { grid-column: 1 / -1; }
+.field textarea { background: var(--sunken); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; resize: vertical; font: inherit; color: inherit; }
+.prow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.prow .btn.primary { margin-left: auto; padding-inline: 22px; }
+.prow a { color: var(--brass); font-weight: 700; font-size: 13px; }
+.steps-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; color: var(--fg); }
+.pcover { border-radius: 12px; overflow: hidden; background: var(--sunken); aspect-ratio: 20 / 9; max-height: 220px; max-width: 100%; display: grid; place-items: center; }
+.pcover img { width: 100%; height: 100%; object-fit: cover; }
+.pthumbs { display: flex; flex-wrap: wrap; gap: 8px; }
+.pthumb { position: relative; width: 88px; height: 88px; border-radius: 10px; overflow: hidden; background: var(--sunken); }
+.pthumb img { width: 100%; height: 100%; object-fit: cover; }
+.pdel { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%; border: 0; background: rgb(0 0 0 / .65); color: #fff; font-size: 12px; }
+.pbtn { display: inline-grid; place-items: center; min-width: 88px; min-height: 40px; padding: 8px 12px; border: 1.5px dashed var(--line); border-radius: 10px; font-weight: 700; font-size: 13px; color: var(--muted); cursor: pointer; text-align: center; }
+.pthumbs .pbtn { height: 88px; }
+.pbtn:hover { border-color: var(--brass); color: var(--brass); }
+.pmaster { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; }
+.pface { display: flex; flex-direction: column; gap: 8px; }
+.pface img, .pface > span { width: 150px; height: 150px; border-radius: 14px; object-fit: cover; background: var(--sunken); display: grid; place-items: center; font: 800 54px var(--display); color: var(--brass); }
+.pbody { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.star { color: var(--brass); }
+.previews { display: flex; flex-direction: column; gap: 10px; }
+.prev { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.prev p { margin: 0; }
+.prev.hidden-rv { opacity: .6; border-style: dashed; }
+.ptop { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.ptop .star { font-size: 17px; letter-spacing: 1px; }
+.pempty { background: var(--panel); border: 1px dashed var(--line); border-radius: 12px; padding: 24px; color: var(--muted); text-align: center; }
+/* weekly hours, days off, services */
+.hrows { display: flex; flex-direction: column; }
+.hrow { display: grid; grid-template-columns: 34px 124px minmax(0, 1fr); align-items: center; gap: 8px 10px; padding: 8px 0; border-bottom: 1px solid var(--grid); min-height: 52px; }
+.hrow:last-child { border-bottom: 0; }
+.hrow > b { font-weight: 800; }
+.hrow.is-off > b { color: var(--muted); }
+.htimes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; }
+.htimes input { background: var(--sunken); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; width: 128px; font-variant-numeric: tabular-nums; }
+.sw { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 700; }
+.sw input { appearance: none; -webkit-appearance: none; width: 38px; height: 22px; border-radius: 99px; background: var(--line); position: relative; margin: 0; cursor: pointer; flex: none; transition: background .15s; }
+.sw input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--panel); transition: transform .15s; box-shadow: 0 1px 2px rgb(0 0 0 / .25); }
+.sw input:checked { background: var(--ok); }
+.sw input:checked::after { transform: translateX(16px); }
+.btn.mini { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
+.xlist { display: flex; flex-direction: column; }
+.xh { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); padding-bottom: 6px; }
+.xrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 10px 0; border-top: 1px solid var(--grid); }
+.xrow > .btn { margin-left: auto; }
+.pill.k-day_off { background: var(--bad-soft); color: var(--bad); }
+.pill.k-break { background: var(--sunken); color: var(--muted); border: 1px solid var(--line); }
+.pill.k-extra { background: var(--ok-soft); color: var(--ok); }
+.svc-list { display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.svc { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 0; border-bottom: 1px solid var(--grid); background: none; text-align: left; width: 100%; }
+.svc:last-child { border-bottom: 0; }
+.svc:hover { background: var(--sunken); }
+.svc.off { opacity: .6; }
+.svc-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.svc-main b { font-weight: 800; }
+.svc-main small { color: var(--muted); font-size: 12px; }
+.svc-price { font: 800 22px/1 var(--display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.svc-price small { font: 600 12px var(--body); color: var(--muted); }
+.cat-h { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-weight: 800; padding: 10px 16px 6px; background: var(--sunken); border-bottom: 1px solid var(--grid); }
+.mrows { display: flex; flex-direction: column; gap: 8px; }
+.mrow { display: grid; grid-template-columns: minmax(0, 1fr) 130px; gap: 8px; align-items: center; }
+.ck { display: flex; align-items: center; gap: 8px; font-weight: 700; min-width: 0; cursor: pointer; }
+.ck input { width: 18px; height: 18px; accent-color: var(--brass); flex: none; margin: 0; }
+.mrow input:disabled { opacity: .4; }
+.rsum { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+
+@media (max-width: 860px) {
+  .pmaster { grid-template-columns: 1fr; }
+  .shell { grid-template-columns: 1fr; }
+  aside { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px 16px; gap: 12px; }
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  aside { min-width: 0; padding-bottom: 8px; }
+  .branch-pick, .me .av, .me > span { display: none; }
+  .branch-pick.multi { display: block; order: 3; flex: 1 1 100%; padding: 6px 10px; }
+  .me { margin-top: 0; margin-left: auto; order: 2; }
+  /* tabs scroll sideways inside the strip, never the page */
+  nav { order: 4; flex: 1 1 100%; flex-direction: row; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; margin: 0 -16px; padding: 0 16px 4px; gap: 2px; }
+  nav::-webkit-scrollbar { display: none; }
+  nav button { padding: 8px 10px; flex: none; white-space: nowrap; }
+  .content { padding: 16px 16px 32px; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats .stat:last-child { grid-column: 1 / -1; }
+  .stat b { font-size: 24px; }
+  .board { max-height: 70vh; }
+  .drawer { top: auto; width: 100%; max-height: 88vh; border-radius: 16px 16px 0 0; border-left: 0; }
+}
+@media (max-width: 520px) {
+  .hrow { grid-template-columns: 34px minmax(0, 1fr); }
+  .hrow .htimes { grid-column: 1 / -1; }
+  .hrow.is-off .htimes { display: none; }
+  .htimes input { width: 118px; }
+  .mrow { grid-template-columns: minmax(0, 1fr) 112px; }
+  .svc { padding: 12px; }
+  .svc-price { font-size: 18px; }
+}
+</style>
+
+<div id="root"></div>
+<div id="layer"></div>
+<div id="toast-slot"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const som = (n) => n.toLocaleString("ru-RU").replace(/,/g, " ");
+const WEEK = ["Ya", "Du", "Se", "Ch", "Pa", "Ju", "Sh"];
+const WEEK_FULL = ["Yakshanba", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"];
+const MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr"];
+// The board's hours come from each master's working time (GET /staff/day-hours); 10:00–21:00 is only the fallback.
+const TZ = "Asia/Tashkent", DEF_OPEN = 600, DEF_CLOSE = 1260, PX = 2, COLW = 190, TIMEW = 64, HEADH = 54;
+let OPEN = DEF_OPEN, CLOSE = DEF_CLOSE;
+const WD = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"], WD_FULL = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"]; // weekday 0 = Monday, as the API
+const ACTIVE = ["confirmed", "pending"];
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+const toMin = (s) => +String(s).slice(0, 2) * 60 + +String(s).slice(3, 5);
+const parts = (d) => { const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(d).map((x) => [x.type, x.value])); return { date: `${p.year}-${p.month}-${p.day}`, min: +p.hour * 60 + +p.minute }; };
+const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+const minOf = (iso) => parts(new Date(iso)).min;
+const isoAt = (ymd, m) => `${ymd}T${hhmm(m)}:00+05:00`;
+const addDays = (ymd, n) => { const d = new Date(ymd + "T12:00:00+05:00"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const dinfo = (ymd) => { const d = new Date(ymd + "T12:00:00+05:00"); return { wd: WEEK[d.getUTCDay()], wdf: WEEK_FULL[d.getUTCDay()], day: d.getUTCDate(), month: MONTHS[d.getUTCMonth()] }; };
+const today = () => parts(new Date()).date;
+class ApiError extends Error { constructor(s, m) { super(m); this.status = s; } }
+const STATUS = { confirmed: "Kutilmoqda", pending: "Kutilmoqda", completed: "Keldi", no_show: "Kelmadi", cancelled: "Bekor" };
+const ICON = {
+  grid: '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="14" height="13" rx="2"/><path d="M2 7h14M7 7v9M12 7v9"/></svg>',
+  team: '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="6" r="3"/><path d="M1.5 16c.6-3 2.8-4.5 5.5-4.5s4.9 1.5 5.5 4.5M12 3.2a3 3 0 0 1 0 5.6M14 11.8c1.4.6 2.3 2 2.6 4.2"/></svg>',
+  user: '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="2.5" width="14" height="13" rx="2"/><circle cx="9" cy="7.5" r="2.5"/><path d="M4.5 15c.8-2.2 2.4-3.3 4.5-3.3s3.7 1.1 4.5 3.3"/></svg>',
+  star: '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M9 2l2.1 4.4 4.8.6-3.5 3.3.9 4.7L9 12.7 4.7 15l.9-4.7L2.1 7l4.8-.6z"/></svg>',
+  clock: '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="9" cy="9" r="7"/><path d="M9 5v4l2.8 1.8"/></svg>',
+  tag: '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M2.5 9.6V3.5a1 1 0 0 1 1-1h6.1l6 6-7.1 7.1z"/><circle cx="6.2" cy="6.2" r="1.3"/></svg>',
+  list: '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 4h10M6 9h10M6 14h10M2.5 4h.01M2.5 9h.01M2.5 14h.01"/></svg>',
+};
+
+// The salon comes from the address: /premium/admin -> "premium".
+const SLUG = location.pathname.split("/").filter(Boolean)[0] || "";
+const ROLE = { owner: "Salon rahbari", admin: "Administrator", barber: "Barber" };
+// ---------- real API ----------
+const NET_ERR = "Internet aloqasi yo'q. Qayta urinib ko'ring.", SRV_ERR = "Serverda xatolik, birozdan keyin urinib ko'ring", GONE = "Sessiya tugadi, qaytadan kiring";
+const errText = (d) => (typeof d === "string" ? d : Array.isArray(d) && d[0]?.msg ? String(d[0].msg).replace(/^Value error, /, "") : "Xatolik yuz berdi");
+const realApi = {
+  async call(path, opts = {}) {
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 15000);
+    let res, body;
+    try {
+      res = await fetch(`/api/s/${SLUG}` + path, { ...opts, signal: ctl.signal, credentials: "same-origin", headers: { "Content-Type": "application/json", ...(opts.headers || {}) } });
+      body = res.status === 204 ? null : await res.json().catch(() => undefined);
+    } catch { throw new ApiError(0, NET_ERR); } finally { clearTimeout(timer); }
+    if (res.status === 401 && path !== "/staff/login" && S.user) { sessionGone(); throw new ApiError(401, GONE); }
+    if (res.status >= 500 || body === undefined) throw new ApiError(res.status, SRV_ERR);
+    if (!res.ok) throw new ApiError(res.status, errText(body?.detail));
+    return body;
+  },
+  me() { return this.call("/staff/me").catch(() => null); },
+  login(login, password) { return this.call("/staff/login", { method: "POST", body: JSON.stringify({ login, password }) }); },
+  logout() { return this.call("/staff/logout", { method: "POST" }); },
+  password(old_password, new_password) { return this.call("/staff/password", { method: "POST", body: JSON.stringify({ old_password, new_password }) }); },
+  branches() { return this.call("/branches"); },
+  masters(b) { return this.call(`/branches/${b}/masters`); },
+  services(b) { return this.call(`/branches/${b}/services`); },
+  day(b, d) { return this.call(`/staff/bookings?date=${d}${b ? "&branch_id=" + b : ""}`); },
+  dayHours(b, d) { return this.call(`/staff/day-hours?branch_id=${b}&date=${d}`); },
+  setStatus(id, status) { return this.call(`/staff/bookings/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }); },
+  // staff slots: no 30-minute lead, so a walk-in can sit down now
+  slots(b, sids, d, m) { return this.call(`/staff/available-slots?branch_id=${b}&service_ids=${sids.join(",")}&date=${d}${m ? "&master_id=" + m : ""}`); },
+  move(id, p) { return this.call(`/staff/bookings/${id}/move`, { method: "POST", body: JSON.stringify(p) }); },
+  hours(mid) { return this.call(`/staff/masters/${mid}/hours`); },
+  setHours(mid, days) { return this.call(`/staff/masters/${mid}/hours`, { method: "PUT", body: JSON.stringify({ days }) }); },
+  exceptions(from, to) { return this.call(`/staff/exceptions?from=${from}&to=${to}`); },
+  addException(p) { return this.call("/staff/exceptions", { method: "POST", body: JSON.stringify(p) }); },
+  delException(id) { return this.call(`/staff/exceptions/${id}`, { method: "DELETE" }); },
+  staffServices(b) { return this.call(`/staff/services?branch_id=${b}`); },
+  addService(b, p) { return this.call(`/staff/services?branch_id=${b}`, { method: "POST", body: JSON.stringify(p) }); },
+  updateService(b, id, p) { return this.call(`/staff/services/${id}?branch_id=${b}`, { method: "PATCH", body: JSON.stringify(p) }); },
+  team() { return this.call("/staff/team"); },
+  salonInfo() { return this.call(""); },
+  updateSalon(p) { return this.call("/staff/salon", { method: "PATCH", body: JSON.stringify(p) }); },
+  botState() { return this.call("/staff/telegram"); },
+  botConnect(token) { return this.call("/staff/telegram", { method: "PUT", body: JSON.stringify({ token }) }); },
+  botDisconnect() { return this.call("/staff/telegram", { method: "DELETE" }); },
+  updateBranch(id, p) { return this.call(`/staff/branches/${id}`, { method: "PATCH", body: JSON.stringify(p) }); },
+  updateMaster(id, p) { return this.call(`/staff/masters/${id}`, { method: "PATCH", body: JSON.stringify(p) }); },
+  upload(kind, ref, blob) { return this.call(`/staff/photos?kind=${kind}${ref != null ? "&ref_id=" + ref : ""}`, { method: "POST", body: blob, headers: { "Content-Type": blob.type || "image/jpeg" } }); },
+  deletePhoto(id) { return this.call(`/staff/photos/${id}`, { method: "DELETE" }); },
+  reviews() { return this.call("/staff/reviews"); },
+  hideReview(id, hidden) { return this.call(`/staff/reviews/${id}`, { method: "PATCH", body: JSON.stringify({ is_hidden: hidden }) }); },
+  addMember(p) { return this.call("/staff/team", { method: "POST", body: JSON.stringify(p) }); },
+  updateMember(id, p) { return this.call(`/staff/team/${id}`, { method: "PATCH", body: JSON.stringify(p) }); },
+  // one key per opened form: a retry after a timeout or a double tap never books twice
+  create(p, key) { return this.call("/staff/bookings", { method: "POST", body: JSON.stringify(p), headers: { "Idempotency-Key": key || uuid() } }); },
+};
+
+
+// ---------- demo pictures: drawn barber portraits and haircut shots (the real site shows uploaded photos) ----------
+const DemoArt = (() => {
+  const svg = (w, h, body) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${body}</svg>`);
+  const SKIN = ["#e9c4a2", "#d9a77f", "#c58c63", "#a8714b"];
+  const HAIR = ["#1b1512", "#2b1d16", "#3a2a1f", "#15110f"];
+  const BG = [["#2a2420", "#4a3a2c"], ["#1f2a2a", "#365050"], ["#2b2230", "#4a3a52"], ["#30261c", "#6b5232"], ["#1e2430", "#3a4a66"]];
+  const hairTop = {
+    fade: (c) => `<path d="M58 92 Q60 46 100 42 Q140 46 142 92 Q138 70 100 66 Q62 70 58 92Z" fill="${c}"/><path d="M60 96 Q60 84 64 78 L64 104Z M140 96 Q140 84 136 78 L136 104Z" fill="${c}" opacity=".35"/>`,
+    pomp: (c) => `<path d="M56 96 Q52 40 100 30 Q150 34 146 92 Q140 62 112 58 Q84 52 62 72Z" fill="${c}"/><path d="M60 98 L62 80 M140 98 L138 80" stroke="${c}" stroke-width="5" opacity=".35"/>`,
+    crop: (c) => `<path d="M58 94 Q58 48 100 44 Q142 48 142 94 L136 78 Q120 74 100 78 Q80 74 64 80Z" fill="${c}"/><path d="M70 80 L78 72 M86 80 L92 70 M104 80 L110 70 M120 80 L126 72" stroke="${c}" stroke-width="4"/>`,
+    slick: (c) => `<path d="M58 96 Q56 44 100 40 Q146 44 142 96 Q140 66 126 60 Q100 54 74 62 Q60 70 58 96Z" fill="${c}"/><path d="M76 56 Q100 48 128 58" stroke="#ffffff" stroke-opacity=".12" stroke-width="3" fill="none"/>`,
+  };
+  const beard = {
+    full: (c) => `<path d="M64 112 Q66 160 100 168 Q134 160 136 112 Q130 138 100 142 Q70 138 64 112Z" fill="${c}"/><path d="M84 132 Q100 126 116 132 Q100 138 84 132Z" fill="${c}"/>`,
+    short: (c) => `<path d="M66 116 Q70 152 100 158 Q130 152 134 116 Q126 140 100 142 Q74 140 66 116Z" fill="${c}" opacity=".85"/><path d="M86 131 Q100 125 114 131" stroke="${c}" stroke-width="5" fill="none"/>`,
+    stubble: (c) => `<path d="M66 114 Q70 154 100 160 Q130 154 134 114 Q126 142 100 146 Q74 142 66 114Z" fill="${c}" opacity=".3"/>`,
+    none: () => "",
+  };
+  function portrait(seed, look = {}) {
+    let h = 0; for (const ch of String(seed)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    const pick = (arr) => arr[(h = (h * 1103515245 + 12345) >>> 0) % arr.length];
+    const skin = look.skin || pick(SKIN), hair = look.hairColor || pick(HAIR), [bg1, bg2] = look.bg || pick(BG);
+    const top = hairTop[look.hair || pick(Object.keys(hairTop))](hair), chin = beard[look.beard || pick(Object.keys(beard))](hair);
+    return svg(200, 200, `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${bg2}"/><stop offset="1" stop-color="${bg1}"/></linearGradient></defs>
+      <rect width="200" height="200" fill="url(#g)"/>
+      <path d="M24 200 Q30 160 72 152 L128 152 Q170 160 176 200Z" fill="#141110"/><path d="M88 152 L100 176 L112 152Z" fill="#e8e1d8"/>
+      <rect x="86" y="132" width="28" height="26" rx="8" fill="${skin}"/>
+      <ellipse cx="60" cy="104" rx="7" ry="11" fill="${skin}"/><ellipse cx="140" cy="104" rx="7" ry="11" fill="${skin}"/>
+      <ellipse cx="100" cy="102" rx="40" ry="50" fill="${skin}"/>
+      ${top}
+      <path d="M78 94 Q86 90 94 94 M106 94 Q114 90 122 94" stroke="${hair}" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+      <ellipse cx="86" cy="103" rx="3.2" ry="3.6" fill="#1a1412"/><ellipse cx="114" cy="103" rx="3.2" ry="3.6" fill="#1a1412"/>
+      <path d="M100 106 Q96 118 101 120" stroke="#000" stroke-opacity=".18" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      ${chin}
+      <path d="M90 134 Q100 139 110 134" stroke="#5a2e22" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="${look.beard === "full" ? 0 : 0.7}"/>`);
+  }
+  // A haircut seen from behind or the side, as on a barber's Instagram grid.
+  function work(seed, style) {
+    let h = 7; for (const ch of String(seed)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    const skin = SKIN[h % SKIN.length], hair = HAIR[(h >> 3) % HAIR.length], [bg1, bg2] = BG[(h >> 5) % BG.length];
+    const back = style === "beard"
+      ? `<ellipse cx="110" cy="112" rx="48" ry="58" fill="${skin}"/><path d="M70 92 Q74 40 116 38 Q160 44 158 96 Q150 70 120 66 Q88 66 70 92Z" fill="${hair}"/>
+         <path d="M72 120 Q76 176 118 184 Q150 176 158 120 Q150 150 120 154 Q90 150 72 120Z" fill="${hair}"/><path d="M96 142 Q118 134 140 142" stroke="${hair}" stroke-width="7"/>
+         <ellipse cx="96" cy="108" rx="4" ry="4.5" fill="#1a1412"/><ellipse cx="128" cy="108" rx="4" ry="4.5" fill="#1a1412"/>`
+      : `<ellipse cx="100" cy="112" rx="56" ry="64" fill="${skin}"/>
+         <defs><linearGradient id="f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${hair}"/><stop offset="${style === "fade" ? 0.48 : 0.7}" stop-color="${hair}"/><stop offset="${style === "fade" ? 0.78 : 0.9}" stop-color="${hair}" stop-opacity="0"/></linearGradient></defs>
+         <path d="M44 120 Q38 44 100 40 Q162 44 156 120 L156 168 Q100 182 44 168Z" fill="url(#f)"/>
+         ${style === "line" ? `<path d="M60 96 Q100 84 140 98" stroke="${skin}" stroke-width="3" fill="none"/>` : ""}
+         <ellipse cx="44" cy="118" rx="9" ry="15" fill="${skin}"/><ellipse cx="156" cy="118" rx="9" ry="15" fill="${skin}"/>`;
+    return svg(200, 200, `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${bg2}"/><stop offset="1" stop-color="${bg1}"/></linearGradient></defs>
+      <rect width="200" height="200" fill="url(#g)"/><path d="M30 200 Q40 168 100 166 Q160 168 170 200Z" fill="#141110"/>${back}`);
+  }
+  // Salon cover: a barber pole stripe across a warm interior tone.
+  function cover(seed) {
+    return svg(800, 360, `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b2d22"/><stop offset="1" stop-color="#14100d"/></linearGradient>
+      <pattern id="p" width="40" height="40" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)"><rect width="40" height="40" fill="#efe6d8"/><rect width="13" height="40" fill="#a33a2c"/><rect x="20" width="13" height="40" fill="#2c4a7a"/></pattern></defs>
+      <rect width="800" height="360" fill="url(#g)"/>
+      <rect x="640" y="40" width="44" height="280" rx="22" fill="url(#p)"/><rect x="632" y="28" width="60" height="18" rx="9" fill="#b98f4d"/><rect x="632" y="314" width="60" height="18" rx="9" fill="#b98f4d"/>
+      <circle cx="140" cy="70" r="120" fill="#d9a85c" opacity=".14"/><circle cx="420" cy="40" r="80" fill="#d9a85c" opacity=".08"/>
+      <path d="M60 300 L340 300 L330 250 Q300 200 240 200 L160 200 Q100 200 80 250Z" fill="#0d0a08" opacity=".7"/><rect x="180" y="300" width="40" height="60" fill="#0d0a08" opacity=".7"/>`);
+  }
+  return { portrait, work, cover };
+})();
+
+const demoBot = { connected: false, username: "" };
+
+// ---------- demo profile store (used only when there is no server) ----------
+const DemoProfile = (() => {
+  const wait = (v) => new Promise((r) => setTimeout(() => r(JSON.parse(JSON.stringify(v))), 120));
+  let n = 0; const pid = () => `demo${++n}`;
+  const W = (seed, style, caption) => ({ id: pid(), url: DemoArt.work(seed, style), caption });
+  const salon = { slug: "premium", name: "Premium Barber", phone: "+998712000000", active: true, paid_until: "2026-12-31",
+    description: "Erkaklar uchun premium barbershop: qahva, issiq sochiq va shoshilmasdan ishlaydigan ustalar.", instagram: "premiumbarber.uz", cover_url: DemoArt.cover("premium"), logo_url: null };
+  const branches = [{ id: 1, name: "Chilonzor", address: "Chilonzor 9-kvartal, Bunyodkor shoh ko'chasi", landmark: "Chilonzor metrosi yonida, Korzinka ro'parasida", hours_text: "Har kuni 10:00–21:00", phone: "+998712000000", lat: 41.2756, lng: 69.2034, photo_url: null, photos: [] }];
+  const prof = {
+    1: { photo_url: DemoArt.portrait("Jasur", { hair: "pomp", beard: "full", skin: "#d9a77f" }), experience_years: 9, specialties: ["Fade", "Soqol dizayni", "Klassika"], bio: "Toshkent va Istanbul akademiyalarida o'qigan. Zamonaviy fade va aniq soqol konturi bo'yicha ustoz.", works: [W("j1", "fade", "Skin fade"), W("j2", "beard", "Soqol konturi"), W("j3", "fade", "Mid fade"), W("j4", "line", "Chiziq bilan")] },
+    2: { photo_url: DemoArt.portrait("Bekzod", { hair: "slick", beard: "short", skin: "#e9c4a2" }), experience_years: 5, specialties: ["Klassik qirqim", "Qaychi bilan"], bio: "Biznes uslubidagi klassik qirqimlar. Qaychi bilan ishlashni yaxshi ko'radi.", works: [W("b1", "classic", "Klassika"), W("b3", "beard", "Qisqa soqol")] },
+    3: { photo_url: null, experience_years: 3, specialties: ["Crop", "Tekstura"], bio: "", works: [] },
+  };
+  const reviews = [
+    { id: 1, master_id: 1, rating: 5, client_name: "Aziz K.", services: "Soch + soqol", comment: "Fade juda toza chiqdi, soqol konturini ham zo'r qildi.", is_hidden: false },
+    { id: 2, master_id: 1, rating: 5, client_name: "Bobur T.", services: "Soch olish", comment: "Vaqtida qabul qildi, natija rasmdagidek.", is_hidden: false },
+    { id: 3, master_id: 2, rating: 4, client_name: "Sherzod A.", services: "Soqol olish", comment: "Yaxshi, faqat biroz uzoq davom etdi.", is_hidden: false },
+    { id: 4, master_id: 1, rating: 1, client_name: "Nodir E.", services: "Soch olish", comment: "Reklama: arzon telefonlar @spam_shop", is_hidden: true },
+    { id: 5, master_id: 3, rating: 5, client_name: "Javohir R.", services: "Soch olish", comment: "Bolamning sochini sabr bilan oldi. Rahmat!", is_hidden: false },
+  ];
+  const byPhoto = (id) => { for (const [mid, p] of Object.entries(prof)) { if (p.photo_url && p._face === id) return ["master", +mid]; const w = p.works.findIndex((x) => x.id === id); if (w >= 0) return ["work", +mid, w]; } const b = branches[0].photos.findIndex((x) => x.id === id); return b >= 0 ? ["branch", 1, b] : null; };
+  const enrich = (m) => {
+    const p = prof[m.id] || (prof[m.id] = { photo_url: null, experience_years: null, specialties: [], bio: "", works: [] });
+    const vis = reviews.filter((r) => r.master_id === m.id && !r.is_hidden);
+    return { ...m, ...p, rating: vis.length ? vis.reduce((a, r) => a + r.rating, 0) / vis.length : null, reviews_count: vis.length };
+  };
+  return {
+    enrich,
+    salonInfo: () => wait(salon),
+    updateSalon(p) { Object.assign(salon, p); return wait(salon); },
+    branches: () => wait(branches),
+    updateBranch(id, p) { Object.assign(branches.find((b) => b.id === id), p); return wait(branches.find((b) => b.id === id)); },
+    updateMaster(id, p) { const x = prof[id]; for (const k of ["bio", "experience_years", "specialties", "instagram"]) if (k in p) x[k] = p[k]; return wait({ id, ...x }); },
+    upload(kind, ref, blob) {
+      const ph = { id: pid(), url: URL.createObjectURL(blob), caption: "" };
+      if (kind === "cover") salon.cover_url = ph.url;
+      else if (kind === "branch") { branches[0].photos.unshift(ph); branches[0].photo_url ||= ph.url; }
+      else if (kind === "master") { prof[ref].photo_url = ph.url; prof[ref]._face = ph.id; }
+      else prof[ref].works.unshift(ph);
+      return wait(ph);
+    },
+    deletePhoto(id) {
+      const hit = byPhoto(id); if (!hit) return wait(null);
+      if (hit[0] === "work") prof[hit[1]].works.splice(hit[2], 1);
+      else if (hit[0] === "branch") { branches[0].photos.splice(hit[2], 1); branches[0].photo_url = branches[0].photos[0]?.url || null; }
+      return wait(null);
+    },
+    reviews: (masterId) => wait(reviews.filter((r) => masterId == null || r.master_id === masterId).map((r) => ({ ...r, master_name: ["", "Jasur", "Bekzod", "Sardor"][r.master_id] || "Usta", created_at: new Date(Date.now() - r.id * 3 * 86400e3).toISOString() }))),
+    hideReview(id, hidden) { const r = reviews.find((x) => x.id === id); r.is_hidden = hidden; return wait(r); },
+  };
+})();
+
+// ---------- demo API with sample bookings ----------
+const DEMO_SALON = { slug: "premium", name: "Premium Barber", active: true, paid_until: "2026-12-31" };
+let demoUser = null;
+const demoApi = (() => {
+  const team = [
+    { id: 1, login: "owner", name: "Salon egasi", role: "owner", master_id: null, is_active: true, last_login_at: new Date().toISOString(), pw: "owner123" },
+    { id: 2, login: "malika", name: "Malika", role: "admin", master_id: null, is_active: true, last_login_at: new Date().toISOString(), pw: "admin123" },
+    { id: 3, login: "jasur", name: "Jasur", role: "barber", master_id: 1, is_active: true, last_login_at: new Date(Date.now() - 3600e3).toISOString(), pw: "barber123" },
+    { id: 4, login: "bekzod", name: "Bekzod", role: "barber", master_id: 2, is_active: true, last_login_at: new Date(Date.now() - 86400e3).toISOString(), pw: "barber123" },
+    { id: 5, login: "sardor", name: "Sardor", role: "barber", master_id: 3, is_active: true, last_login_at: null, pw: "barber123" },
+  ];
+  const pub = ({ pw, _master, ...m }) => m;
+  const all = (price) => [{ master_id: 1, price: Math.round(price * 1.2), duration_min: null }, { master_id: 2, price: null, duration_min: null }, { master_id: 3, price: null, duration_min: null }];
+  const services = [
+    { id: 1, name: "Soch olish", category: "Soch", description: "", price: 120000, duration_min: 30, is_active: true, masters: all(120000) },
+    { id: 2, name: "Soqol olish", category: "Soqol", description: "", price: 80000, duration_min: 20, is_active: true, masters: all(80000) },
+    { id: 3, name: "Soch + soqol", category: "Kompleks", description: "", price: 180000, duration_min: 50, is_active: true, masters: all(180000) },
+    { id: 4, name: "Kompleks", category: "Kompleks", description: "Soch, soqol, yuz parvarishi", price: 300000, duration_min: 90, is_active: true, masters: all(300000).filter((m) => m.master_id !== 3) },
+  ];
+  const masters = [{ id: 1, name: "Jasur", rank: "Top-master" }, { id: 2, name: "Bekzod", rank: "Master" }, { id: 3, name: "Sardor", rank: "Master" }];
+  const offer = (s, mid) => s && s.is_active && s.masters.find((x) => x.master_id === mid);
+  const priceOf = (s, mid) => offer(s, mid)?.price ?? s.price, durOf = (s, mid) => offer(s, mid)?.duration_min ?? s.duration_min;
+  // weekly hours (weekday 0 = Monday) and one-off days off / breaks / extra hours
+  const week = (start, end, off = []) => [0, 1, 2, 3, 4, 5, 6].filter((w) => !off.includes(w)).map((weekday) => ({ weekday, start, end }));
+  const hours = { 1: week("10:00", "21:00"), 2: week("10:00", "21:00"), 3: week("11:00", "20:00", [6]) };
+  let excId = 1;
+  const exc = [
+    { id: excId++, master_id: 2, date: today(), kind: "break", start: "14:00", end: "15:00", note: "Tushlik" },
+    { id: excId++, master_id: 3, date: addDays(today(), 3), kind: "day_off", start: null, end: null, note: "Oilaviy marosim" },
+  ];
+  const wdOf = (ymd) => (new Date(ymd + "T12:00:00+05:00").getUTCDay() + 6) % 7;
+  const work = (mid, ymd) => {
+    const ex = exc.filter((e) => e.master_id === mid && e.date === ymd);
+    if (ex.some((e) => e.kind === "day_off")) return [];
+    const iv = (hours[mid] || []).filter((d) => d.weekday === wdOf(ymd)).map((d) => [toMin(d.start), toMin(d.end)]);
+    for (const e of ex) if (e.kind === "extra") iv.push([toMin(e.start), toMin(e.end)]);
+    iv.sort((a, b) => a[0] - b[0]);
+    let out = []; for (const x of iv) { const l = out[out.length - 1]; if (l && x[0] <= l[1]) l[1] = Math.max(l[1], x[1]); else out.push([...x]); }
+    for (const e of ex) if (e.kind === "break") { const s = toMin(e.start), t = toMin(e.end); out = out.flatMap(([a, b]) => (t <= a || s >= b ? [[a, b]] : [[a, s], [t, b]].filter(([x, y]) => y > x))); }
+    return out;
+  };
+  const names = ["Aziz Karimov", "Bobur Tursunov", "Sherzod Aliyev", "Javohir Rahimov", "Doniyor Yusupov", "Ulug'bek Nazarov", "Farrux Ismoilov", "Islom Qodirov", "Akmal Saidov", "Nodir Ergashev", "Rustam Xolmatov", "Temur Abdullayev", "Sardorbek Mirzayev", "Otabek Hasanov"];
+  const comments = ["Fade, tepasi 4 sm", "Soqolni qisqa, kontur aniq", "", "", "Birinchi marta keladi", "", "Klassik qirqim", ""];
+  const book = [], keys = {}; let nextId = 1001;
+  const now = parts(new Date());
+  let h = 7;
+  const rnd = (n) => { h = (h * 1103515245 + 12345) >>> 0; return h % n; };
+  const item = (s, mid) => ({ service_id: s.id, service_name: s.name, price: priceOf(s, mid), duration_min: durOf(s, mid) });
+  for (let d = -1; d <= 6; d++) {
+    const ymd = addDays(now.date, d);
+    for (const m of masters) for (const [a, z] of work(m.id, ymd)) {
+      let t = a + rnd(3) * 15;
+      while (t < z - 30) {
+        if (rnd(10) < 3) { t += 30 + rnd(4) * 15; continue; } // gap
+        const svc = services[rnd(4)];
+        if (!offer(svc, m.id)) { t += 15; continue; }
+        const dur = durOf(svc, m.id), end = t + dur;
+        if (end > z) break;
+        const past = d < 0 || (d === 0 && end <= now.min);
+        let status = "confirmed";
+        if (past) status = rnd(9) === 0 ? "no_show" : "completed";
+        else if (rnd(14) === 0) status = "cancelled";
+        const nm = names[rnd(names.length)], walk = rnd(12) === 0;
+        book.push({ id: nextId++, master_id: m.id, master_name: m.name, date: ymd, s: t, e: end, client_name: walk ? "Telefonsiz mijoz" : nm, client_phone: walk ? "walk-in" : `+99890${String(1000000 + rnd(8999999)).slice(0, 7)}`,
+          items: [item(svc, m.id)], total_price: priceOf(svc, m.id), status, source: walk || rnd(5) === 0 ? "admin" : "web", comment: walk ? nm.split(" ")[0] : comments[rnd(comments.length)] });
+        t = end + rnd(3) * 15;
+      }
+    }
+  }
+  const out = (b) => ({ ...b, branch_id: 1, starts_at: isoAt(b.date, b.s), ends_at: isoAt(b.date, b.e) });
+  const wait = (v) => new Promise((r) => setTimeout(() => r(v === undefined ? v : JSON.parse(JSON.stringify(v))), 120));
+  const no = (status, msg) => Promise.reject(new ApiError(status, msg));
+  const TAKEN = "Bu vaqt hozirgina band bo'ldi. Boshqa vaqtni tanlang.";
+  // free starts on the 15-minute grid inside the master's working time; staff have no lead time
+  const freeStarts = (mid, ymd, dur, skip) => {
+    const busy = book.filter((b) => b.master_id === mid && b.date === ymd && b.id !== skip && ACTIVE.includes(b.status));
+    const t0 = ymd === today() ? parts(new Date()).min : ymd < today() ? 1e4 : 0, res = [];
+    for (const [a, z] of work(mid, ymd)) for (let t = Math.ceil(Math.max(a, t0) / 15) * 15; t + dur <= z; t += 15) if (!busy.some((b) => t < b.e && b.s < t + dur)) res.push(t);
+    return res;
+  };
+  const checkHours = (a, b) => { if (!a || !b || toMin(b) <= toMin(a)) throw new ApiError(422, "Boshlanish va tugash vaqtini to'g'ri kiriting"); };
+  const svcBody = (p) => {
+    if (p.name != null && !String(p.name).trim()) throw new ApiError(422, "Xizmat nomini yozing");
+    if (p.price != null && !(p.price >= 0 && p.price <= 1e8)) throw new ApiError(422, "Narx noto'g'ri");
+    if (p.duration_min != null && !(p.duration_min >= 5 && p.duration_min <= 600)) throw new ApiError(422, "Davomiylik 5 dan 600 daqiqagacha bo'lsin");
+  };
+  return {
+    me: () => wait(demoUser),
+    login(login, password) {
+      const m = team.find((x) => x.login === login.trim().toLowerCase() && x.is_active);
+      if (!m || m.pw !== password) return no(401, "Login yoki parol noto'g'ri");
+      demoUser = { ...pub(m), salon: DEMO_SALON, branch_id: null }; return Promise.resolve(demoUser);
+    },
+    logout() { demoUser = null; return wait(null); },
+    password(old, nw) {
+      const m = team.find((x) => x.id === demoUser.id);
+      if (m.pw !== old) return no(400, "Eski parol noto'g'ri");
+      if (nw.length < 6) return no(422, "Yangi parol kamida 6 belgi bo'lsin");
+      m.pw = nw; return wait(null);
+    },
+    team: () => wait(team.map(pub)),
+    addMember(p) {
+      if (team.some((x) => x.login === p.login)) return no(409, "Bu login band. Boshqasini tanlang.");
+      let master_id = null;
+      if (p.role === "barber") {
+        master_id = Math.max(...masters.map((x) => x.id), ...team.map((x) => x.master_id || 0)) + 1; masters.push({ id: master_id, name: p.name, rank: p.rank || "Master" });
+        hours[master_id] = week("10:00", "21:00");
+        for (const s of services) s.masters.push({ master_id, price: null, duration_min: null });
+      }
+      const m = { id: Math.max(...team.map((x) => x.id)) + 1, login: p.login, name: p.name, role: p.role, master_id, is_active: true, last_login_at: null, pw: p.password };
+      team.push(m); return wait(pub(m));
+    },
+    updateMember(id, p) {
+      const m = team.find((x) => x.id === id);
+      if (p.password) m.pw = p.password;
+      if (p.is_active != null) {
+        m.is_active = p.is_active;
+        const mi = masters.findIndex((x) => x.id === m.master_id);
+        if (!p.is_active && mi >= 0) m._master = masters.splice(mi, 1)[0];
+        if (p.is_active && m._master) { masters.push(m._master); masters.sort((a, b) => a.id - b.id); delete m._master; }
+      }
+      return wait(pub(m));
+    },
+    branches: () => DemoProfile.branches(),
+    masters: () => wait(masters.map(DemoProfile.enrich)),
+    salonInfo: () => DemoProfile.salonInfo(),
+    updateSalon: (p) => DemoProfile.updateSalon(p),
+    botState: () => Promise.resolve({ ...demoBot }),
+    botConnect(token) {
+      if (!/^\d{5,12}:[A-Za-z0-9_-]{30,50}$/.test(token.trim())) return no(422, "Token noto'g'ri ko'rinishda. @BotFather bergan tokenni to'liq nusxalang.");
+      Object.assign(demoBot, { connected: true, username: "premiumbarber_bot" }); return Promise.resolve({ ...demoBot });
+    },
+    botDisconnect() { Object.assign(demoBot, { connected: false, username: "" }); return Promise.resolve(null); },
+    updateBranch: (id, p) => DemoProfile.updateBranch(id, p),
+    updateMaster: (id, p) => DemoProfile.updateMaster(id, p).then((x) => DemoProfile.enrich({ ...masters.find((m) => m.id === id), ...x })),
+    upload: (k, r, b) => DemoProfile.upload(k, r, b),
+    deletePhoto: (id) => DemoProfile.deletePhoto(id),
+    reviews: () => DemoProfile.reviews(demoUser.role === "barber" ? demoUser.master_id : null),
+    hideReview: (id, h) => DemoProfile.hideReview(id, h),
+    services: () => wait(services.filter((s) => s.is_active).map(({ id, name, category, price, duration_min }) => ({ id, name, category, price, duration_min }))),
+    staffServices: () => wait(services),
+    addService(b, p) {
+      try { svcBody(p); } catch (e) { return Promise.reject(e); }
+      const s = { id: Math.max(...services.map((x) => x.id)) + 1, name: p.name.trim(), category: (p.category || "").trim(), description: p.description || "", price: p.price, duration_min: p.duration_min, is_active: true,
+        masters: (p.masters || []).map((m) => ({ master_id: m.master_id, price: m.price ?? null, duration_min: m.duration_min ?? null })) };
+      services.push(s); return wait(s);
+    },
+    updateService(b, id, p) {
+      try { svcBody(p); } catch (e) { return Promise.reject(e); }
+      const s = services.find((x) => x.id === id); if (!s) return no(404, "Xizmat topilmadi");
+      for (const k of ["name", "category", "description"]) if (p[k] != null) s[k] = String(p[k]).trim();
+      for (const k of ["price", "duration_min", "is_active"]) if (p[k] != null) s[k] = p[k];
+      if (p.masters) s.masters = p.masters.map((m) => ({ master_id: m.master_id, price: m.price ?? null, duration_min: m.duration_min ?? null }));
+      return wait(s);
+    },
+    day: (b, d) => wait(book.filter((x) => x.date === d).map(out)),
+    dayHours: (b, d) => wait([...masters, ...team.filter((x) => x._master).map((x) => x._master)].map((m) => ({ master_id: m.id, intervals: work(m.id, d).map(([s, e]) => [hhmm(s), hhmm(e)]) }))),
+    setStatus(id, status) {
+      const b = book.find((x) => x.id === id);
+      if (b.status === "cancelled") return no(422, "Bekor qilingan bronni o'zgartirib bo'lmaydi");
+      if (status === "cancelled" && !ACTIVE.includes(b.status)) return no(422, "Faqat faol bronni bekor qilish mumkin");
+      if (status !== "cancelled" && ACTIVE.includes(b.status) && Date.parse(isoAt(b.date, b.s)) - 15 * 60e3 > Date.now()) return no(422, "Tashrif vaqti hali kelmagan");
+      b.status = status; return wait(out(b));
+    },
+    slots(b, sids, d, m) {
+      const svc = services.filter((s) => sids.includes(s.id));
+      if (svc.some((s) => !offer(s, m))) return no(404, "Bu master tanlangan xizmatlarni bajarmaydi");
+      const dur = svc.reduce((a, s) => a + durOf(s, m), 0);
+      return wait({ date: d, timezone: TZ, duration_min: dur, slots: freeStarts(m, d, dur).map((t) => ({ start: isoAt(d, t), master_ids: [m] })) });
+    },
+    create(p, key) {
+      if (key && keys[key]) return wait(out(book.find((x) => x.id === keys[key])));
+      const m = masters.find((x) => x.id === p.master_id), ymd = parts(new Date(p.starts_at)).date, s = minOf(p.starts_at);
+      const svc = services.filter((x) => p.service_ids.includes(x.id));
+      if (svc.some((x) => !offer(x, m.id))) return no(422, "Bu master tanlangan xizmatlarni bajarmaydi");
+      const dur = svc.reduce((a, x) => a + durOf(x, m.id), 0);
+      if (!freeStarts(m.id, ymd, dur).includes(s)) return no(409, TAKEN);
+      const phone = String(p.client_phone || "").trim(), nm = String(p.client_name || "").trim();
+      const b = { id: nextId++, master_id: m.id, master_name: m.name, date: ymd, s, e: s + dur, client_name: phone ? nm || "Mijoz" : "Telefonsiz mijoz", client_phone: phone || "walk-in",
+        items: svc.map((x) => item(x, m.id)), total_price: svc.reduce((a, x) => a + priceOf(x, m.id), 0), status: "confirmed", source: "admin", comment: phone ? p.comment || "" : [nm, p.comment].filter(Boolean).join(". ") };
+      book.push(b); if (key) keys[key] = b.id; return wait(out(b));
+    },
+    move(id, p) {
+      const b = book.find((x) => x.id === id);
+      if (!ACTIVE.includes(b.status)) return no(422, "Faqat faol bronni ko'chirish mumkin");
+      const mid = p.master_id || b.master_id, m = masters.find((x) => x.id === mid), ymd = parts(new Date(p.starts_at)).date, s = minOf(p.starts_at), dur = b.e - b.s;
+      if (!m || b.items.some((i) => !offer(services.find((x) => x.id === i.service_id), mid))) return no(422, "Bu master tanlangan xizmatlarni bajarmaydi");
+      if (!freeStarts(mid, ymd, dur, b.id).includes(s)) return no(409, TAKEN);
+      Object.assign(b, { master_id: mid, master_name: m.name, date: ymd, s, e: s + dur }); return wait(out(b));
+    },
+    hours: (mid) => wait({ days: (hours[mid] || []).map((d) => ({ ...d, start: d.start + ":00", end: d.end + ":00" })) }),
+    setHours(mid, days) {
+      const sorted = [...days].sort((a, b) => a.weekday - b.weekday || toMin(a.start) - toMin(b.start));
+      for (const [i, d] of sorted.entries()) {
+        if (toMin(d.end) <= toMin(d.start)) return no(422, "Ish tugash vaqti boshlanishidan keyin bo'lishi kerak");
+        const p = sorted[i - 1]; if (p && p.weekday === d.weekday && toMin(p.end) > toMin(d.start)) return no(422, "Bir kunning ish vaqtlari ustma-ust tushmasin");
+      }
+      hours[mid] = sorted.map((d) => ({ weekday: d.weekday, start: d.start.slice(0, 5), end: d.end.slice(0, 5) }));
+      return this.hours(mid);
+    },
+    exceptions: (from, to) => wait(exc.filter((e) => e.date >= from && e.date <= to).sort((a, b) => a.date.localeCompare(b.date) || String(a.start).localeCompare(String(b.start))).map((e) => ({ ...e, conflicts: 0 }))),
+    addException(p) {
+      if (p.date < today()) return no(422, "O'tgan kunni o'zgartirib bo'lmaydi");
+      const e = { id: excId++, master_id: p.master_id, date: p.date, kind: p.kind, start: null, end: null, note: (p.note || "").trim() };
+      if (p.kind !== "day_off") { try { checkHours(p.start, p.end); } catch (err) { return Promise.reject(err); } e.start = p.start; e.end = p.end; }
+      else for (let i = exc.length - 1; i >= 0; i--) if (exc[i].master_id === p.master_id && exc[i].date === p.date && exc[i].kind === "day_off") exc.splice(i, 1);
+      exc.push(e);
+      const s = e.start ? toMin(e.start) : 0, t = e.end ? toMin(e.end) : 1440;
+      const conflicts = p.kind === "extra" ? 0 : book.filter((b) => b.master_id === e.master_id && b.date === e.date && ACTIVE.includes(b.status) && b.s < t && b.e > s).length;
+      return wait({ ...e, conflicts });
+    },
+    delException(id) { const i = exc.findIndex((e) => e.id === id); if (i >= 0) exc.splice(i, 1); return wait(null); },
+  };
+})();
+
+// ---------- state ----------
+const S = { demo: false, user: null, branch: null, branches: [], masters: [], services: [], date: today(), day: [], hours: null, view: "grid", open: null, confirmCancel: false, form: null, move: null, error: "", warn: "",
+  login: { login: "", password: "" }, team: [], member: null, creds: null, pwFor: null, pw: "", offAsk: null, myPw: { old: "", nw: "" },
+  sched: null, exc: null, excForm: null, svcs: null, svcForm: null, undo: null };
+let api = realApi, BUSY = false, lastSync = 0;
+
+// The date changes only once its bookings are here: a failed load keeps the old day on screen with its own label.
+async function loadDay(date = S.date) {
+  const [day, hours] = await Promise.all([api.day(S.branch.id, date), api.dayHours(S.branch.id, date).catch((e) => { if (e.status === 401) throw e; return null; })]);
+  S.date = date; S.day = day; S.hours = hours; lastSync = Date.now(); render();
+}
+let toastTimer;
+function toast(msg, undoLabel) {
+  clearTimeout(toastTimer);
+  $("#toast-slot").innerHTML = `<div class="toast" role="status"><span>${esc(msg)}</span>${undoLabel ? `<button data-undo="1">${esc(undoLabel)}</button>` : ""}</div>`;
+  toastTimer = setTimeout(() => { $("#toast-slot").innerHTML = ""; S.undo = null; }, undoLabel ? 7000 : 2600);
+}
+const isAdmin = () => ["owner", "admin"].includes(S.user?.role);
+const ro = () => !!(S.user?.salon && S.user.salon.active === false); // subscription ended: view only
+const layerOpen = () => !!(S.open || S.form || S.member || S.move || S.svcForm);
+const walkIn = (b) => b.client_phone === "walk-in";
+const who = (b) => (walkIn(b) && b.comment ? b.comment.split(". ")[0] : b.client_name);
+const canManage = (m) => m.id !== S.user.id && (m.role === "barber" || (m.role === "admin" && S.user.role === "owner"));
+const newPassword = () => { const a = "abcdefghjkmnpqrstuvwxyz23456789"; let p = ""; for (let i = 0; i < 8; i++) p += a[Math.floor(Math.random() * a.length)]; return p; };
+const digitsOf = (v) => String(v ?? "").replace(/\D/g, "");
+const dayLabel = (ymd) => { const i = dinfo(ymd); return `${i.day}-${i.month}, ${i.wdf.toLowerCase()}`; };
+function closeLayers() { Object.assign(S, { open: null, form: null, member: null, move: null, svcForm: null, confirmCancel: false, error: "" }); }
+function sessionGone() { closeLayers(); Object.assign(S, { user: null, error: GONE, login: { login: S.login.login, password: "" } }); render(); }
+async function loadTeam() { S.team = await api.team(); render(); }
+// ---------- profile editor: salon, branch and barber profiles, photos, reviews ----------
+// Photos are shrunk in the browser before upload, so a phone picture of 5 MB becomes ~200 KB.
+async function shrink(file, max) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(new Error("Rasmni o'qib bo'lmadi")); i.src = url; });
+    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas"); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.85));
+  } finally { URL.revokeObjectURL(url); }
+}
+const PHOTO_MAX = { cover: 1600, logo: 600, branch: 1400, master: 700, work: 1280 };
+const D = {}; // unsaved edits, keyed by input id, so a re-render keeps what was typed
+const dv = (id, saved) => esc(D[id] ?? saved ?? "");
+const stars = (n) => "★".repeat(n) + "☆".repeat(5 - n);
+const fileBtn = (label, kind, ref, multiple = false) => `<label class="pbtn w">${label}<input type="file" accept="image/*" data-upload="${kind}" data-ref="${ref ?? ""}" ${multiple ? "multiple" : ""} hidden></label>`;
+const thumb = (ph, alt) => `<div class="pthumb"><img src="${esc(ph.url)}" alt="${esc(alt)}" loading="lazy"><button class="pdel w" data-delphoto="${esc(ph.id)}" aria-label="Rasmni o'chirish">✕</button></div>`;
+
+function salonEditorHtml(x) {
+  return `<section class="psec"><div class="phd"><h3>Salon</h3><span class="hint">Mijoz saytining bosh qismi</span></div>
+    <div class="pcover">${x.cover_url ? `<img src="${esc(x.cover_url)}" alt="Muqova">` : `<span class="hint">Muqova rasmi yo'q</span>`}</div>
+    <div class="prow">${fileBtn(x.cover_url ? "Muqovani almashtirish" : "Muqova rasmi yuklash", "cover")}</div>
+    <div class="pgrid">
+      <div class="field wide"><label for="s-description">Salon haqida</label><textarea id="s-description" rows="3" maxlength="2000" placeholder="Masalan: erkaklar uchun premium barbershop, qahva va issiq sochiq">${dv("s-description", x.description)}</textarea></div>
+      <div class="field"><label for="s-instagram">Instagram</label><input id="s-instagram" value="${dv("s-instagram", x.instagram)}" placeholder="premiumbarber.uz"></div>
+      <div class="field"><label for="s-phone">Telefon</label><input id="s-phone" inputmode="tel" value="${dv("s-phone", x.phone)}"></div>
+    </div><div class="prow"><button class="btn primary w" data-save-salon="1">Saqlash</button></div></section>`;
+}
+
+function botEditorHtml() {
+  const b = S.bot; if (!b) return "";
+  const owner = S.user.role === "owner";
+  if (b.connected) return `<section class="psec"><div class="phd"><h3>Telegram bot</h3><span class="hint">Ulangan</span></div>
+    <p>Mijozlar <b>@${esc(b.username)}</b> orqali kiradi. Bron tasdig'i, eslatmalar va baho so'rash shu botdan boradi.</p>
+    <div class="prow"><a class="btn" href="https://t.me/${esc(b.username)}" target="_blank" rel="noopener">Botni ochish</a>${owner ? `<button class="btn bad w" data-bot-off="1">Botni uzish</button>` : ""}</div></section>`;
+  return `<section class="psec"><div class="phd"><h3>Telegram bot</h3><span class="hint">Ulanmagan: mijozlar hali kira olmaydi</span></div>
+    <ol class="steps-list"><li>Telegram'da <b>@BotFather</b> ni oching va <b>/newbot</b> deb yozing.</li><li>Bot nomini yozing (masalan, ${esc(S.salonInfo?.name || "Premium Barber")}), keyin oxiri <b>bot</b> bilan tugaydigan username bering.</li><li>BotFather bergan tokenni pastga qo'yib, "Ulash"ni bosing.</li></ol>
+    ${owner ? `<div class="pgrid"><div class="field wide"><label for="bot-token">Bot tokeni</label><input id="bot-token" value="${dv("bot-token", "")}" placeholder="123456789:AA..." autocomplete="off" spellcheck="false"><span class="hint">Token shifrlab saqlanadi va boshqa hech kimga ko'rinmaydi.</span></div></div>
+    <div class="prow"><button class="btn primary w" data-bot-on="1">Ulash</button></div>` : `<p class="hint">Botni salon egasi ulaydi.</p>`}</section>`;
+}
+
+function branchEditorHtml(b) {
+  const id = (f) => `b${b.id}-${f}`, lat = D[id("lat")] ?? b.lat ?? "", lng = D[id("lng")] ?? b.lng ?? "";
+  const links = lat !== "" && lng !== "" ? `<a href="https://yandex.uz/maps/?pt=${lng},${lat}&z=17&l=map" target="_blank" rel="noopener">Yandex'da tekshirish</a><a href="https://www.google.com/maps/search/?api=1&query=${lat},${lng}" target="_blank" rel="noopener">Google'da tekshirish</a>` : `<span class="hint">Joylashuv hali kiritilmagan</span>`;
+  return `<section class="psec"><div class="phd"><h3>Filial: ${esc(b.name)}</h3><span class="hint">Rasmlar va joylashuv</span></div>
+    <div class="pthumbs">${(b.photos || []).map((ph) => thumb(ph, b.name)).join("")}${fileBtn("+ Rasm", "branch", b.id, true)}</div>
+    <div class="pgrid">
+      <div class="field wide"><label for="${id("address")}">Manzil</label><input id="${id("address")}" value="${dv(id("address"), b.address)}"></div>
+      <div class="field wide"><label for="${id("landmark")}">Mo'ljal</label><input id="${id("landmark")}" value="${dv(id("landmark"), b.landmark)}" placeholder="Masalan: metro yonida, Korzinka ro'parasida"></div>
+      <div class="field"><label for="${id("hours_text")}">Ish vaqti</label><input id="${id("hours_text")}" value="${dv(id("hours_text"), b.hours_text)}"></div>
+      <div class="field"><label for="${id("phone")}">Filial telefoni</label><input id="${id("phone")}" inputmode="tel" value="${dv(id("phone"), b.phone)}"></div>
+      <div class="field wide"><label for="${id("maplink")}">Xaritadagi joy</label><input id="${id("maplink")}" value="${dv(id("maplink"), "")}" placeholder="Google yoki Yandex xaritadan havolani shu yerga qo'ying">
+        <span class="hint">Xaritada salonni topib, "Ulashish" havolasini qo'ying, koordinata o'zi chiqadi.</span></div>
+      <div class="field"><label for="${id("lat")}">Kenglik</label><input id="${id("lat")}" inputmode="decimal" value="${esc(lat)}" placeholder="41.2756"></div>
+      <div class="field"><label for="${id("lng")}">Uzunlik</label><input id="${id("lng")}" inputmode="decimal" value="${esc(lng)}" placeholder="69.2034"></div>
+    </div><div class="prow">${links}<button class="btn primary w" data-save-branch="${b.id}">Saqlash</button></div></section>`;
+}
+
+function masterEditorHtml(m, { canRank }) {
+  const id = (f) => `m${m.id}-${f}`, spec = D[id("spec")] ?? (m.specialties || []).join(", ");
+  return `<section class="psec pmaster"><div class="pface">${m.photo_url ? `<img src="${esc(m.photo_url)}" alt="${esc(m.name)}">` : `<span>${esc(m.name[0])}</span>`}
+      ${fileBtn(m.photo_url ? "Rasmni almashtirish" : "Yuz rasmi yuklash", "master", m.id)}</div>
+    <div class="pbody"><div class="phd"><h3>${esc(m.name)}</h3><span class="hint">${m.reviews_count ? `<b class="star">★ ${m.rating.toFixed(1)}</b> · ${m.reviews_count} baho` : "Hali baho yo'q"}</span></div>
+      <div class="pgrid">
+        ${canRank ? `<div class="field"><label for="${id("rank")}">Darajasi</label><input id="${id("rank")}" value="${dv(id("rank"), m.rank)}"></div>` : ""}
+        <div class="field"><label for="${id("years")}">Tajriba, yil</label><input id="${id("years")}" type="number" min="0" max="60" inputmode="numeric" value="${dv(id("years"), m.experience_years)}"></div>
+        <div class="field"><label for="${id("ig")}">Instagram</label><input id="${id("ig")}" value="${dv(id("ig"), m.instagram)}" placeholder="@jasur.barber" autocapitalize="off"></div>
+        <div class="field wide"><label for="${id("spec")}">Yo'nalishlari (vergul bilan)</label><input id="${id("spec")}" value="${esc(spec)}" placeholder="Fade, Soqol dizayni, Klassika"></div>
+        <div class="field wide"><label for="${id("bio")}">O'zi haqida</label><textarea id="${id("bio")}" rows="3" maxlength="1500" placeholder="Qayerda o'qigan, qanday uslubda ishlaydi">${dv(id("bio"), m.bio)}</textarea></div>
+      </div>
+      <div class="field"><label>Ishlari (${(m.works || []).length}/30)</label><div class="pthumbs">${(m.works || []).map((w) => thumb(w, w.caption || "Ish")).join("")}${fileBtn("+ Ish rasmi", "work", m.id, true)}</div></div>
+      <div class="prow"><button class="btn primary w" data-save-master="${m.id}">Saqlash</button></div></div></section>`;
+}
+
+function reviewsListHtml(list, { canHide }) {
+  if (!list) return `<p class="hint">Yuklanmoqda…</p>`;
+  if (!list.length) return `<div class="pempty">Hali baho yo'q. Mijoz tashrifdan keyin "Bronlarim" bo'limida ustaga yulduzcha qo'yadi.</div>`;
+  return `<div class="previews">${list.map((r) => `<article class="prev${r.is_hidden ? " hidden-rv" : ""}"><div class="ptop"><b class="star">${stars(r.rating)}</b><span class="hint">${esc(r.client_name)} · ${esc(r.master_name)} · ${esc(r.services)}</span></div>
+    ${r.comment ? `<p>${esc(r.comment)}</p>` : ""}${r.is_hidden ? `<span class="hint">Yashirilgan: saytda ko'rinmaydi va reytingga qo'shilmaydi</span>` : ""}
+    ${canHide ? `<div class="prow"><button class="btn w" data-hide-review="${r.id}" data-hidden="${r.is_hidden ? 0 : 1}">${r.is_hidden ? "Qayta ko'rsatish" : "Yashirish"}</button></div>` : ""}</article>`).join("")}</div>`;
+}
+
+// "https://maps.google.com/?q=41.27,69.20", ".../@41.27,69.20,17z", yandex "?ll=69.20,41.27" -> {lat, lng}
+function parseMapLink(text) {
+  const t = decodeURIComponent(text || "");
+  let m = t.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || t.match(/[?&](?:q|query|daddr)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/) || t.match(/^\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*$/);
+  if (m) return { lat: +m[1], lng: +m[2] };
+  m = t.match(/[?&](?:ll|pt)=(-?\d+\.\d+),(-?\d+\.\d+)/); // Yandex puts longitude first
+  return m ? { lat: +m[2], lng: +m[1] } : null;
+}
+
+async function onProfileClick(d) {
+  if (d.botOn) {
+    S.bot = await api.botConnect(String(D["bot-token"] || ""));
+    delete D["bot-token"]; toast(`@${S.bot.username} ulandi`); return true;
+  }
+  if (d.botOff) { await api.botDisconnect(); S.bot = { connected: false, username: "" }; toast("Bot uzildi"); return true; }
+  if (d.saveSalon) {
+    S.salonInfo = await api.updateSalon({ description: D["s-description"] ?? S.salonInfo.description, instagram: (D["s-instagram"] ?? S.salonInfo.instagram).replace(/^@/, ""), phone: D["s-phone"] ?? S.salonInfo.phone });
+    for (const k of ["s-description", "s-instagram", "s-phone"]) delete D[k];
+    toast("Salon ma'lumoti saqlandi"); return true;
+  }
+  if (d.saveBranch) {
+    const b = S.profBranches.find((x) => x.id === +d.saveBranch), id = (f) => `b${b.id}-${f}`, val = (f) => D[id(f)] ?? b[f];
+    const lat = String(D[id("lat")] ?? b.lat ?? "").trim(), lng = String(D[id("lng")] ?? b.lng ?? "").trim();
+    const body = { address: val("address"), landmark: val("landmark"), hours_text: val("hours_text"), phone: val("phone") };
+    if (lat || lng) {
+      if (!/^-?\d+(\.\d+)?$/.test(lat) || !/^-?\d+(\.\d+)?$/.test(lng)) throw new Error("Kenglik va uzunlik raqam bo'lsin, masalan 41.2756 va 69.2034");
+      body.lat = +lat; body.lng = +lng;
+    }
+    const upd = await api.updateBranch(b.id, body);
+    S.profBranches = S.profBranches.map((x) => (x.id === upd.id ? upd : x));
+    for (const k of Object.keys(D)) if (k.startsWith(`b${b.id}-`)) delete D[k];
+    toast("Filial saqlandi"); return true;
+  }
+  if (d.saveMaster) {
+    const m = S.profMasters.find((x) => x.id === +d.saveMaster), id = (f) => `m${m.id}-${f}`;
+    const years = String(D[id("years")] ?? m.experience_years ?? "").trim();
+    const body = { bio: D[id("bio")] ?? m.bio, specialties: (D[id("spec")] ?? (m.specialties || []).join(", ")).split(",").map((x) => x.trim()).filter(Boolean), experience_years: years === "" ? null : +years, instagram: String(D[id("ig")] ?? m.instagram ?? "").trim().replace(/^@/, "") };
+    if (D[id("rank")] != null) body.rank = D[id("rank")];
+    const upd = await api.updateMaster(m.id, body);
+    S.profMasters = S.profMasters.map((x) => (x.id === upd.id ? { ...x, ...upd } : x));
+    for (const k of Object.keys(D)) if (k.startsWith(`m${m.id}-`)) delete D[k];
+    toast(`${m.name} profili saqlandi`); return true;
+  }
+  if (d.delphoto) { await api.deletePhoto(d.delphoto); await loadProfile(); toast("Rasm o'chirildi"); return true; }
+  if (d.hideReview) {
+    const upd = await api.hideReview(+d.hideReview, d.hidden === "1");
+    S.reviews = S.reviews.map((x) => (x.id === upd.id ? { ...x, is_hidden: upd.is_hidden } : x));
+    toast(upd.is_hidden ? "Fikr yashirildi" : "Fikr qayta ko'rsatildi"); return true;
+  }
+  return false;
+}
+
+async function onProfileUpload(input) {
+  const files = [...input.files], kind = input.dataset.upload, ref = input.dataset.ref ? +input.dataset.ref : null;
+  if (!files.length) return;
+  toast(files.length > 1 ? `${files.length} ta rasm yuklanmoqda…` : "Rasm yuklanmoqda…");
+  for (const f of files) await api.upload(kind, ref, await shrink(f, PHOTO_MAX[kind]));
+  await loadProfile(); toast("Rasm qo'shildi");
+}
+
+function onProfileInput(el) {
+  if (!el.id || !/^(s-|b\d+-|m\d+-|bot-)/.test(el.id)) return false;
+  D[el.id] = el.value;
+  const m = el.id.match(/^b(\d+)-maplink$/);
+  if (m) {
+    const pos = parseMapLink(el.value);
+    if (pos) { D[`b${m[1]}-lat`] = pos.lat.toFixed(6); D[`b${m[1]}-lng`] = pos.lng.toFixed(6); render(); toast("Koordinata topildi"); }
+    else if (/https?:\/\//.test(el.value)) toast("Bu havolada koordinata yo'q. Xaritadagi to'liq havolani yoki 41.31, 69.24 ko'rinishida yozing.");
+  }
+  return true;
+}
+
+async function loadProfile() {
+  const [info, branches, masters] = await Promise.all([api.salonInfo(), api.branches(), api.masters(S.branch.id)]);
+  S.salonInfo = info; S.profBranches = branches;
+  if (isAdmin()) S.bot = await api.botState().catch(() => null);
+  S.profMasters = isAdmin() ? masters : masters.filter((m) => m.id === S.user.master_id);
+  render();
+}
+async function loadReviews() { S.reviews = null; render(); S.reviews = await api.reviews(); render(); }
+function profileViewHtml() {
+  if (!S.salonInfo) return `<p class="hint">Yuklanmoqda…</p>`;
+  return `${isAdmin() ? salonEditorHtml(S.salonInfo) + botEditorHtml() + S.profBranches.map(branchEditorHtml).join("") : ""}
+    ${S.profMasters.map((m) => masterEditorHtml(m, { canRank: isAdmin() })).join("")}
+    ${isAdmin() && !S.profMasters.length ? `<div class="pempty">Barberlar yo'q. "Xodimlar" bo'limidan qo'shing.</div>` : ""}`;
+}
+function reviewsViewHtml() {
+  const list = S.reviews || [], vis = list.filter((r) => !r.is_hidden);
+  const per = {}; for (const r of vis) (per[r.master_name] ||= []).push(r.rating);
+  const avg = (a) => (a.reduce((x, y) => x + y, 0) / a.length).toFixed(1);
+  return `${vis.length ? `<div class="rsum">${Object.entries(per).map(([n, a]) => `<div class="stat"><span>${esc(n)}</span><b><span class="star">★</span> ${avg(a)}</b><span>${a.length} baho</span></div>`).join("")}</div>` : ""}
+    ${reviewsListHtml(S.reviews, { canHide: isAdmin() })}
+    <p class="hint">Mijoz faqat "Keldi" deb belgilangan tashrifga, bir marta baho qo'ya oladi. Yulduzlarni o'zgartirib bo'lmaydi, haqoratli yoki reklama otzivni yashirish mumkin.</p>`;
+}
+// ---------- views ----------
+// Columns: active masters, plus any master who still has bookings this day but was switched off.
+function boardCols() {
+  if (!isAdmin()) return [{ id: null, name: S.user.name || "Mening jadvalim", rank: "" }];
+  const have = new Set(S.masters.map((m) => m.id)), gone = [];
+  for (const b of S.day) if (!have.has(b.master_id) && b.status !== "cancelled") { have.add(b.master_id); gone.push({ id: b.master_id, name: b.master_name, rank: "O'chirilgan", gone: true }); }
+  return [...S.masters, ...gone];
+}
+// Working intervals of one master this day in minutes; null when the server gave no hours.
+function ivs(mid) {
+  if (!S.hours) return null;
+  const r = mid == null ? S.hours[0] : S.hours.find((x) => x.master_id === mid);
+  return r ? r.intervals.map(([a, b]) => [toMin(a), toMin(b)]) : null;
+}
+function setRange(cols) {
+  let lo = Infinity, hi = -Infinity;
+  for (const m of cols) for (const [a, b] of ivs(m.id) || []) { lo = Math.min(lo, a); hi = Math.max(hi, b); }
+  for (const b of S.day) { const s = minOf(b.starts_at), e = minOf(b.ends_at); lo = Math.min(lo, s); hi = Math.max(hi, e > s ? e : 1440); }
+  if (lo === Infinity) { lo = DEF_OPEN; hi = DEF_CLOSE; }
+  OPEN = Math.floor(lo / 60) * 60; CLOSE = Math.max(OPEN + 120, Math.ceil(hi / 60) * 60);
+}
+
+function statsHtml() {
+  const act = S.day.filter((b) => b.status !== "cancelled");
+  const sum = (st) => act.filter((b) => st.includes(b.status)).reduce((a, b) => a + b.total_price, 0);
+  const done = act.filter((b) => b.status === "completed").length, miss = act.filter((b) => b.status === "no_show").length;
+  const cols = boardCols().filter((m) => !m.gone);
+  let work = 0; for (const m of cols) { const iv = ivs(m.id); work += iv ? iv.reduce((a, [s, e]) => a + e - s, 0) : DEF_CLOSE - DEF_OPEN; }
+  const busy = act.filter((b) => b.status !== "no_show").reduce((a, b) => a + (minOf(b.ends_at) - minOf(b.starts_at)), 0);
+  const load = work ? Math.round((busy / work) * 100) : 0;
+  return `<div class="stats">
+    <div class="stat"><span>Bronlar</span><b>${act.length}</b></div>
+    <div class="stat money"><span>Ishlandi, so'm</span><b>${som(sum(["completed"]))}</b></div>
+    <div class="stat money"><span>Kutilmoqda, so'm</span><b>${som(sum(ACTIVE))}</b></div>
+    <div class="stat"><span>Keldi / kelmadi</span><b>${done} <small>/ ${miss}</small></b></div>
+    <div class="stat"><span>Bandlik</span><b>${load}%</b><div class="bar"><i style="width:${Math.min(load, 100)}%"></i></div></div></div>`;
+}
+
+function gridHtml() {
+  const cols = boardCols(); setRange(cols);
+  const H = (CLOSE - OPEN) * PX, y = (m) => (m - OPEN) * PX + 8;
+  const isToday = S.date === today(), nowMin = parts(new Date()).min, past = S.date < today();
+  let h = `<div class="board" id="board"><div class="grid" style="grid-template-columns:${TIMEW}px repeat(${cols.length}, minmax(${COLW}px, 1fr))">`;
+  h += `<div class="ghead corner"></div>`;
+  for (const m of cols) {
+    const n = S.day.filter((b) => (m.id == null || b.master_id === m.id) && b.status !== "cancelled").length, iv = ivs(m.id);
+    const sub = m.gone ? "O'chirilgan" : iv && !iv.length ? "Dam olish" : iv ? `${hhmm(iv[0][0])}–${hhmm(iv[iv.length - 1][1])}` : m.rank || "";
+    h += `<div class="ghead${m.gone ? " gone" : ""}" title="${esc([m.rank, iv?.map(([a, b]) => `${hhmm(a)}–${hhmm(b)}`).join(", ")].filter(Boolean).join(" · "))}"><span class="av">${esc((m.name || "?")[0])}</span><span><b>${esc(m.name)}</b><small>${esc(sub)}${sub ? " · " : ""}${n} bron</small></span></div>`;
+  }
+  h += `<div class="times" style="height:${H + 16}px">`;
+  for (let t = OPEN; t <= CLOSE; t += 60) h += `<span style="top:${y(t)}px">${hhmm(t)}</span>`;
+  h += `</div>`;
+  for (const m of cols) {
+    const iv = ivs(m.id), off = past || m.gone || (iv && !iv.length) || ro();
+    h += `<div class="col${off ? " off" : ""}" data-col="${m.id ?? ""}" style="height:${H + 16}px">`;
+    if (iv && iv.length && !past && !m.gone) { // grey out the time this master does not work
+      let from = OPEN;
+      for (const [a, b] of [...iv, [CLOSE, CLOSE]]) { if (a > from) h += `<div class="offhrs" style="top:${from === OPEN ? 0 : y(from)}px;height:${y(a) - (from === OPEN ? 0 : y(from)) + (a === CLOSE ? 8 : 0)}px"></div>`; from = Math.max(from, b); }
+    }
+    for (let t = OPEN; t <= CLOSE; t += 30) h += `<div class="hline${t % 60 ? " half" : ""}" style="top:${y(t)}px"></div>`;
+    for (const b of S.day.filter((x) => m.id == null || x.master_id === m.id)) {
+      const s = minOf(b.starts_at), e = minOf(b.ends_at), hp = (e - s) * PX - 2, tiny = hp < 44;
+      h += `<button class="bk ${b.status}${tiny ? " tiny" : ""}${S.open === b.id ? " sel" : ""}" data-b="${b.id}" style="top:${y(s) + 1}px;height:${hp}px" title="${hhmm(s)}–${hhmm(e)} ${esc(who(b))}">
+        <span class="t">${hhmm(s)}–${hhmm(e)}</span><span class="n">${esc(who(b))}</span>${tiny ? "" : `<span class="s">${b.items.map((x) => esc(x.service_name)).join(", ")}</span>`}</button>`;
+    }
+    h += `</div>`;
+  }
+  if (isToday && nowMin > OPEN && nowMin < CLOSE) h += `<div class="now" style="top:${HEADH + y(nowMin)}px"><b>${hhmm(nowMin)}</b></div>`;
+  return h + `</div></div>${ro() ? "" : `<p class="hint">Bo'sh joyni bosing: o'sha master va vaqtga yangi bron ochiladi. Chiziqli joylar: usta ishlamaydigan vaqt.</p>`}`;
+}
+
+const phoneCell = (b) => (walkIn(b) ? `<span class="hint">Telefonsiz</span>` : esc(b.client_phone));
+function listHtml() {
+  const rows = [...S.day].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+  if (!rows.length) return `<div class="table-wrap"><div class="empty">Bu kunga bron yo'q.</div></div>`;
+  return `<div class="table-wrap"><table><thead><tr><th>Vaqt</th><th>Mijoz</th><th>Telefon</th><th>Master</th><th>Xizmat</th><th>Narx, so'm</th><th>Holat</th></tr></thead><tbody>
+  ${rows.map((b) => `<tr data-b="${b.id}"><td class="num">${hhmm(minOf(b.starts_at))}–${hhmm(minOf(b.ends_at))}</td><td><b>${esc(who(b))}</b>${b.source === "admin" ? ' <span class="hint">· panel</span>' : ""}</td>
+    <td class="num">${phoneCell(b)}</td><td>${esc(b.master_name)}</td><td>${b.items.map((x) => esc(x.service_name)).join(", ")}</td><td class="num">${som(b.total_price)}</td><td><span class="pill ${b.status}">${STATUS[b.status]}</span></td></tr>`).join("")}
+  </tbody></table></div>`;
+}
+
+function teamHtml() {
+  const ago = (iso) => { if (!iso) return "hali kirmagan"; const d = parts(new Date(iso)); return d.date === today() ? `bugun ${hhmm(d.min)}` : `${dinfo(d.date).day}-${dinfo(d.date).month}`; };
+  const A = S.offAsk, P = S.myPw;
+  return `${S.creds ? `<div class="creds"><b>${esc(S.creds.name)} uchun kirish ma'lumoti:</b><span>Manzil <code>${esc(location.host + "/" + (SLUG || "premium") + (S.creds.role === "barber" ? "/panel" : "/admin"))}</code></span><span>Login <code>${esc(S.creds.login)}</code></span><span>Parol <code>${esc(S.creds.password)}</code></span><span class="hint">Buni hozir ${S.creds.role === "barber" ? "barberga" : "xodimga"} bering: parol keyin ko'rsatilmaydi.</span></div>` : ""}
+  ${A ? `<div class="confirm"><b>${esc(A.name)}da keyingi 14 kunda ${A.n} ta faol bron bor.</b><span>O'chirilsa, u saytda ko'rinmaydi va panelga kira olmaydi. Bronlar o'z joyida qoladi: jadvalda alohida ustunda ko'rinadi, mijozlarga qo'ng'iroq qilib boshqa ustaga ko'chiring yoki bekor qiling.</span>
+    <div class="row"><button class="btn" data-offno="1">Bekor</button><button class="btn bad w" data-toggle="${A.id}" data-sure="1">Baribir o'chirish</button></div></div>` : ""}
+  <div class="table-wrap"><table><thead><tr><th>Ism</th><th>Login</th><th>Lavozim</th><th>Oxirgi kirish</th><th></th></tr></thead><tbody>
+  ${S.team.map((m) => `<tr class="${m.is_active ? "" : "off-row"}"><td><b>${esc(m.name)}</b>${m.id === S.user.id ? ' <span class="hint">· siz</span>' : ""}${m.is_active ? "" : ' <span class="hint">· o\'chirilgan</span>'}</td>
+    <td class="num">${esc(m.login)}</td><td><span class="role ${m.role}">${ROLE[m.role]}</span></td><td class="hint">${ago(m.last_login_at)}</td>
+    <td>${canManage(m) ? (S.pwFor === m.id
+      ? `<div class="pw-inline"><input id="pwnew" value="${esc(S.pw)}" aria-label="Yangi parol" autocomplete="off"><button class="btn primary w" data-pwsave="${m.id}">Saqlash</button><button class="btn" data-pwcancel="1">✕</button></div>`
+      : `<div class="row-acts">${m.is_active ? `<button class="btn w" data-pw="${m.id}">Yangi parol</button>` : ""}<button class="btn w ${m.is_active ? "bad" : ""}" data-toggle="${m.id}">${m.is_active ? "O'chirish" : "Qayta yoqish"}</button></div>`) : ""}</td></tr>`).join("")}
+  </tbody></table></div>
+  <p class="hint">Har bir barber o'z login-paroli bilan faqat o'z bronlarini ko'radi. O'chirilgan barber saytda ko'rinmaydi va panelga kira olmaydi.</p>
+  <section class="psec"><div class="phd"><h3>Mening parolim</h3><span class="hint">${esc(S.user.name)} · ${esc(S.user.login || "")}</span></div>
+    <div class="pgrid"><div class="field"><label for="mp-old">Hozirgi parol</label><input id="mp-old" type="password" autocomplete="current-password" value="${esc(P.old)}"></div>
+      <div class="field"><label for="mp-new">Yangi parol (kamida 6 belgi)</label><input id="mp-new" type="password" autocomplete="new-password" value="${esc(P.nw)}"></div></div>
+    <div class="prow"><span class="hint">Boshqa qurilmalardagi kirishlar yopiladi.</span><button class="btn primary" data-mypw="1">Parolni o'zgartirish</button></div></section>`;
+}
+
+// ---------- weekly hours and one-off days off / breaks ----------
+async function loadHours(mid) {
+  const r = await api.hours(mid);
+  const rows = WD.map((_, w) => { const d = r.days.filter((x) => x.weekday === w); return d.length ? { on: true, from: d[0].start.slice(0, 5), to: d[d.length - 1].end.slice(0, 5), multi: d.length > 1 } : { on: false, from: "10:00", to: "21:00" }; });
+  S.sched = { mid, rows }; render();
+}
+async function loadExc() { S.exc = await api.exceptions(today(), addDays(today(), 30)); render(); }
+const KIND = { day_off: "Dam olish kuni", break: "Tanaffus", extra: "Qo'shimcha ish" };
+function hoursViewHtml() {
+  if (!S.masters.length) return `<div class="pempty">Barberlar yo'q. "Xodimlar" bo'limidan qo'shing.</div>`;
+  if (!S.sched || !S.exc) return `<p class="hint">Yuklanmoqda…</p>`;
+  const H = S.sched, X = S.excForm, mname = (id) => S.masters.find((m) => m.id === id)?.name || S.day.find((b) => b.master_id === id)?.master_name || `Usta #${id}`;
+  return `<section class="psec"><div class="phd"><h3>Haftalik ish vaqti</h3><span class="hint">Mijoz saytida faqat shu vaqtdagi bo'sh joylar chiqadi</span></div>
+    <div class="chips">${S.masters.map((m) => `<button class="chip" data-hm="${m.id}" aria-pressed="${H.mid === m.id}">${esc(m.name)}</button>`).join("")}</div>
+    <div class="hrows">${H.rows.map((r, i) => `<div class="hrow${r.on ? "" : " is-off"}"><b title="${WD_FULL[i]}">${WD[i]}</b>
+      <label class="sw"><input type="checkbox" data-hon="${i}" ${r.on ? "checked" : ""} aria-label="${WD_FULL[i]} ishlaydi"><span>${r.on ? "Ishlaydi" : "Dam"}</span></label>
+      <div class="htimes">${r.on ? `<input type="time" step="900" data-hfrom="${i}" value="${r.from}" aria-label="${WD_FULL[i]}: boshlanishi"><span>–</span><input type="time" step="900" data-hto="${i}" value="${r.to}" aria-label="${WD_FULL[i]}: tugashi">
+        <button class="btn mini" data-hall="${i}" title="Shu vaqtni ishlaydigan barcha kunlarga qo'yish">Hammasiga qo'llash</button>${r.multi ? `<small class="hint">tanaffusli edi: saqlansa bitta oraliq bo'ladi</small>` : ""}` : `<span class="hint">Dam olish kuni</span>`}</div></div>`).join("")}</div>
+    <div class="prow"><span class="hint">Tushlik kabi bir martalik tanaffusni pastda qo'shing.</span><button class="btn primary w" data-hsave="1">Saqlash</button></div></section>
+  <section class="psec"><div class="phd"><h3>Dam olish va tanaffus</h3><span class="hint">Bir martalik: kasallik, tushlik, bayram yoki qo'shimcha ish kuni</span></div>
+    <div class="pgrid">
+      <div class="field"><label for="x-master">Usta</label><select id="x-master">${S.masters.map((m) => `<option value="${m.id}" ${m.id === X.mid ? "selected" : ""}>${esc(m.name)}</option>`).join("")}</select></div>
+      <div class="field"><label for="x-date">Sana</label><input type="date" id="x-date" min="${today()}" value="${X.date}"></div>
+      <div class="field wide"><label>Turi</label><div class="chips">${Object.entries(KIND).map(([k, v]) => `<button class="chip" data-xkind="${k}" aria-pressed="${X.kind === k}">${v}</button>`).join("")}</div></div>
+      ${X.kind === "day_off" ? "" : `<div class="field"><label for="x-from">Boshlanishi</label><input type="time" step="900" id="x-from" value="${X.from}"></div><div class="field"><label for="x-to">Tugashi</label><input type="time" step="900" id="x-to" value="${X.to}"></div>`}
+      <div class="field wide"><label for="x-note">Izoh (ixtiyoriy)</label><input id="x-note" value="${esc(X.note)}" maxlength="255" placeholder="Masalan: tushlik, shifokorga"></div>
+    </div>
+    ${S.warn ? `<div class="warn" role="alert">${esc(S.warn)}</div>` : ""}
+    <div class="prow"><span class="hint">${X.kind === "extra" ? "Odatdagi jadvaldan tashqari ishlaydigan vaqt." : "Bu vaqtga yangi bron olinmaydi."}</span><button class="btn primary w" data-xadd="1">Qo'shish</button></div>
+    <div class="xlist"><b class="xh">Keyingi 30 kun</b>${S.exc.length ? S.exc.map((e) => `<div class="xrow"><span><b>${dayLabel(e.date)}</b> · ${esc(mname(e.master_id))}</span>
+      <span class="pill k-${e.kind}">${KIND[e.kind]}${e.start ? ` ${e.start}–${e.end}` : ""}</span>${e.note ? `<span class="hint">${esc(e.note)}</span>` : ""}<button class="btn mini bad w" data-xdel="${e.id}">O'chirish</button></div>`).join("") : `<p class="hint">Hozircha yo'q.</p>`}</div></section>`;
+}
+
+// ---------- services and prices ----------
+const fmtPrice = (n) => (n == null || n === "" ? "" : som(+n));
+function servicesViewHtml() {
+  if (!S.svcs) return `<p class="hint">Yuklanmoqda…</p>`;
+  if (!S.svcs.length) return `<div class="pempty">Hali xizmat yo'q. "+ Xizmat qo'shish" ni bosing.</div>`;
+  const cats = [...new Set(S.svcs.map((s) => s.category || ""))];
+  const mn = (id) => S.masters.find((m) => m.id === id)?.name;
+  return `<div class="svc-list">${cats.map((c) => `${cats.length > 1 ? `<div class="cat-h">${esc(c || "Boshqa")}</div>` : ""}${S.svcs.filter((s) => (s.category || "") === c).map((s) => {
+    const ms = s.masters.filter((x) => mn(x.master_id)), own = ms.filter((x) => x.price != null);
+    const whoDoes = ms.length === S.masters.length ? "barcha ustalar" : ms.length ? ms.map((x) => mn(x.master_id)).join(", ") : "hech kim bajarmaydi";
+    return `<button class="svc${s.is_active ? "" : " off"}" data-sedit="${s.id}"><span class="svc-main"><b>${esc(s.name)}${s.is_active ? "" : ` <span class="pill cancelled">O'chirilgan</span>`}</b>
+      <small>${s.duration_min} daq · ${esc(whoDoes)}${own.length ? " · " + own.map((x) => `${esc(mn(x.master_id))} ${som(x.price)}`).join(", ") : ""}</small></span><span class="svc-price">${som(s.price)}<small> so'm</small></span></button>`;
+  }).join("")}`).join("")}</div>
+  <p class="hint">Narx o'zgarsa, yangi bronlarga qo'llanadi; oldin yozilgan bronlar eski narxida qoladi.</p>`;
+}
+function openSvcForm(s) {
+  const ms = {}; for (const m of S.masters) { const x = s?.masters.find((y) => y.master_id === m.id); ms[m.id] = { on: s ? !!x : true, price: fmtPrice(x?.price) }; }
+  S.svcForm = { id: s?.id ?? null, name: s?.name || "", cat: s?.category || "", price: fmtPrice(s?.price), dur: String(s?.duration_min ?? 30), active: s ? s.is_active : true, masters: ms, keep: (s?.masters || []).filter((x) => !S.masters.some((m) => m.id === x.master_id)), busy: false };
+  S.error = ""; render();
+}
+
+function shellHtml() {
+  const i = dinfo(S.date), t = today(), A = isAdmin();
+  const label = S.date === t ? "Bugun" : S.date === addDays(t, 1) ? "Ertaga" : S.date === addDays(t, -1) ? "Kecha" : i.wdf;
+  const tabs = [["grid", ICON.grid, "Kunlik jadval"], ["list", ICON.list, "Bronlar"], ...(A ? [["team", ICON.team, "Xodimlar"], ["hours", ICON.clock, "Ish vaqti"], ["services", ICON.tag, "Xizmatlar"]] : []),
+    ["profile", ICON.user, A ? "Salon va ustalar" : "Profilim"], ["reviews", ICON.star, "Baholar"]];
+  const pages = { profile: ["Mijoz saytida ko'rinadi", A ? "Salon va ustalar" : "Profilim", profileViewHtml], reviews: ["Mijozlar fikri", "Baholar", reviewsViewHtml],
+    team: [S.user.salon?.name || "", "Xodimlar", teamHtml, `<button class="primary w" id="addm">+ Barber qo'shish</button>`],
+    hours: ["Ustalar jadvali", "Ish vaqti", hoursViewHtml], services: [`Filial: ${S.branch.name}`, "Xizmatlar va narxlar", servicesViewHtml, `<button class="primary w" id="sadd">+ Xizmat qo'shish</button>`] };
+  const notice = S.error && !layerOpen() ? `<div class="notice" role="alert">${esc(S.error)}</div>` : "";
+  const P = pages[S.view];
+  const body = P ? `<div class="toolbar"><h1><small>${esc(P[0])}</small>${P[1]}</h1>${P[3] || ""}</div>${notice}${P[2]()}`
+    : `<div class="toolbar">
+      <h1><small>${label}</small>${i.day}-${i.month}, ${i.wdf.toLowerCase()}</h1>
+      <div class="daynav"><button data-shift="-1" aria-label="Oldingi kun">‹</button><button data-shift="0">Bugun</button><button data-shift="1" aria-label="Keyingi kun">›</button><input type="date" id="pick" value="${S.date}" aria-label="Sana"></div>
+      ${A ? `<button class="primary w" id="add">+ Yangi bron</button>` : ""}
+    </div>${notice}${statsHtml()}${S.view === "grid" ? gridHtml() : listHtml()}`;
+  return `<div class="shell">
+  <aside>
+    <div class="logo">${esc(S.user.salon?.name || "Salon")}<small>BOSHQARUV PANELI</small></div>
+    ${S.branches.length > 1 ? `<label class="branch-pick multi"><small>Filial</small><select id="branch">${S.branches.map((b) => `<option value="${b.id}" ${b.id === S.branch.id ? "selected" : ""}>${esc(b.name)}</option>`).join("")}</select></label>`
+      : `<div class="branch-pick"><small>Filial</small><b>${esc(S.branch?.name || "")}</b></div>`}
+    <nav id="nav">${tabs.map(([v, ic, l]) => `<button data-view="${v}" aria-current="${S.view === v ? "page" : "false"}">${ic}<span>${l}</span></button>`).join("")}</nav>
+    <div class="me"><span class="av">${esc((S.user.name || "A")[0])}</span><span><b>${esc(S.user.name)}</b>${S.demo ? '<span class="demo">DEMO</span>' : ""}<small>${ROLE[S.user.role] || ""}</small></span><button class="out" id="logout">Chiqish</button></div>
+  </aside>
+  <section class="content">
+    ${ro() ? `<div class="sub-warn">${S.user.salon.paid_until >= today() ? "Salon platforma tomonidan to'xtatilgan" : "Salon obunasi tugagan"}: mijozlar bron qila olmaydi, panel faqat ko'rish rejimida. To'lov uchun platforma bilan bog'laning.</div>` : ""}
+    ${body}
+  </section></div>`;
+}
+
+function loginHtml() {
+  const L = S.login;
+  return `<form class="login" id="lform"><span class="salon-name">${esc(S.salonName || SLUG)}</span><h1>Panelga kirish</h1><p class="hint">Salon rahbari yoki administrator login va paroli bilan kiring.</p>${S.error ? `<div class="notice" role="alert">${esc(S.error)}</div>` : ""}
+    <div class="field"><label for="llogin">Login</label><input id="llogin" autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(L.login)}"></div>
+    <div class="field"><label for="lpass">Parol</label><input id="lpass" type="password" autocomplete="current-password" value="${esc(L.password)}"></div>
+    <button class="btn primary" type="submit" ${S.loggingIn ? "disabled" : ""}>Kirish</button>
+    ${S.demo ? `<div class="demo-hint">Demo: rahbar <b>owner</b> / <b>owner123</b>, administrator <b>malika</b> / <b>admin123</b></div>` : ""}</form>`;
+}
+
+const drawer = (label, small, title, body, foot) => `<div class="drawer-scrim" data-close="1"></div><div class="drawer" role="dialog" aria-label="${label}">
+  <header><div><small>${small}</small><h2>${title}</h2></div><button class="x" data-close="1" aria-label="Yopish">✕</button></header>
+  <div class="body">${body}${S.error ? `<div class="notice" role="alert">${esc(S.error)}</div>` : ""}</div><footer>${foot}</footer></div>`;
+const slotLabel = (start, date) => { const m = minOf(start); return date === today() && m <= parts(new Date()).min + 15 ? `${hhmm(m)} · hozir` : hhmm(m); };
+
+function layerHtml() {
+  if (!S.user) return "";
+  if (S.move) {
+    const M = S.move, b = M.b, ok = M.slot && !M.busy;
+    return drawer("Bronni ko'chirish", `Bron #${b.id} · ${esc(who(b))}`, "Ko'chirish",
+      `<p class="hint">Hozir: <b>${hhmm(minOf(b.starts_at))}–${hhmm(minOf(b.ends_at))}</b>, ${dayLabel(parts(new Date(b.starts_at)).date)}, ${esc(b.master_name)} · ${b.items.map((x) => esc(x.service_name)).join(", ")}</p>
+      <div class="field"><label>Master</label><div class="chips">${S.masters.map((m) => `<button class="chip" data-mvm="${m.id}" aria-pressed="${M.master === m.id}">${esc(m.name)}</button>`).join("")}</div></div>
+      <div class="field"><label for="mvdate">Sana</label><input type="date" id="mvdate" min="${today()}" value="${M.date}"></div>
+      <div class="field"><label for="mvslot">Yangi vaqt (faqat bo'sh)</label><select id="mvslot" ${M.slots.length ? "" : "disabled"}>${M.slots.length ? M.slots.map((x) => `<option value="${x.start}" ${x.start === M.slot ? "selected" : ""}>${slotLabel(x.start, M.date)}</option>`).join("") : `<option>${M.loading ? "Yuklanmoqda…" : "Bo'sh vaqt yo'q"}</option>`}</select></div>
+      <p class="hint">Xizmatlar va narx o'zgarmaydi. Mijozga Telegram orqali xabar boradi (agar ulangan bo'lsa).</p>`,
+      `<button class="btn" data-mvback="1">Orqaga</button><button class="btn primary w" id="mvsave" ${ok ? "" : "disabled"}>${M.busy ? "Saqlanmoqda…" : "Ko'chirish"}</button>`);
+  }
+  if (S.open) {
+    const b = S.day.find((x) => x.id === S.open); if (!b) return "";
+    const s = minOf(b.starts_at), e = minOf(b.ends_at), active = ACTIVE.includes(b.status), di = dinfo(S.date);
+    const canMark = Date.parse(b.starts_at) - 15 * 60e3 <= Date.now(), opp = b.status === "completed" ? "no_show" : "completed", tel = digitsOf(b.client_phone);
+    const phone = walkIn(b) ? `<span class="hint">Telefonsiz</span>` : `${esc(b.client_phone)}<button class="copy" data-copy="${esc(b.client_phone)}">Nusxa</button>${tel ? `<a class="btn call" href="tel:+${tel}">Qo'ng'iroq</a>` : ""}`;
+    const foot = ro() ? `<p class="hint">Obuna tugagan: panel faqat ko'rish rejimida.</p><button class="btn wide" data-close="1">Yopish</button>`
+      : S.confirmCancel ? `<div class="confirm"><b>Bronni bekor qilasizmi?</b><span class="hint">Vaqt bo'shaydi. Mijozga Telegram orqali xabar boradi (agar ulangan bo'lsa).</span><div class="row"><button class="btn" data-act="keep">Yo'q</button><button class="btn bad w" data-act="cancelled">Ha, bekor qilish</button></div></div>`
+      : active ? `${canMark ? `<button class="btn ok w" data-act="completed">Keldi</button><button class="btn bad w" data-act="no_show">Kelmadi</button>` : `<p class="hint">Keldi / Kelmadi tashrifdan 15 daqiqa oldin ochiladi.</p>`}<button class="btn w" data-act="move">Ko'chirish</button><button class="btn w" data-act="ask-cancel">Bekor qilish</button>`
+      : b.status === "completed" || b.status === "no_show" ? `<button class="btn w" data-act="${opp}">O'zgartirish: ${STATUS[opp]}</button><button class="btn" data-close="1">Yopish</button>`
+      : `<button class="btn wide" data-close="1">Yopish</button>`;
+    return drawer("Bron tafsiloti", `Bron #${b.id} · ${b.source === "admin" ? "panelda yozilgan" : "sayt orqali"}`, esc(who(b)),
+      `<div class="when"><b>${hhmm(s)}–${hhmm(e)}</b><span class="hint">${di.wdf}, ${di.day}-${di.month}</span> <span class="pill ${b.status}">${STATUS[b.status]}</span></div>
+      <dl class="kv"><dt>Telefon</dt><dd>${phone}</dd>
+        <dt>Master</dt><dd>${esc(b.master_name)}</dd>
+        <dt>Xizmatlar</dt><dd>${b.items.map((x) => `${esc(x.service_name)} · ${x.duration_min} daq`).join("<br>")}</dd>
+        <dt>Narx</dt><dd>${som(b.total_price)} so'm</dd>${b.comment && !(walkIn(b) && b.comment === who(b)) ? `<dt>Izoh</dt><dd>${esc(b.comment)}</dd>` : ""}</dl>`, foot);
+  }
+  if (S.member) {
+    const M = S.member, owner = S.user.role === "owner";
+    return drawer("Yangi xodim", esc(S.user.salon?.name || ""), `Yangi ${M.role === "admin" ? "administrator" : "barber"}`,
+      `${owner ? `<div class="field"><label>Lavozim</label><div class="chips"><button class="chip" data-mrole="barber" aria-pressed="${M.role === "barber"}">Barber</button><button class="chip" data-mrole="admin" aria-pressed="${M.role === "admin"}">Administrator</button></div></div>` : ""}
+      <div class="field"><label for="mname">Ismi</label><input id="mname" value="${esc(M.name)}" placeholder="Masalan, Diyor"></div>
+      ${M.role === "barber" ? `<div class="field"><label>Darajasi</label><div class="chips">${["Master", "Top-master"].map((r) => `<button class="chip" data-mrank="${r}" aria-pressed="${M.rank === r}">${r}</button>`).join("")}</div></div>` : ""}
+      <div class="field"><label for="mlogin">Login (lotin harf, raqam)</label><input id="mlogin" value="${esc(M.login)}" autocapitalize="none" spellcheck="false" placeholder="diyor"></div>
+      <div class="field"><label for="mpass">Parol (kamida 6 belgi)</label><input id="mpass" value="${esc(M.password)}" autocomplete="off"></div>
+      <p class="hint">${M.role === "barber" ? `Barber darhol saytda paydo bo'ladi${S.branches.length > 1 ? ` (${esc(S.branch.name)} filialida)` : ""} va barcha xizmatlarni bajaradi. Ish vaqtini "Ish vaqti" bo'limida sozlang.` : "Administrator barcha bronlarni ko'radi va barber qo'sha oladi."}</p>`,
+      `<button class="btn" data-close="1">Bekor</button><button class="btn primary w" id="msave">Qo'shish</button>`);
+  }
+  if (S.svcForm) {
+    const F = S.svcForm, cats = [...new Set((S.svcs || []).map((s) => s.category).filter(Boolean))];
+    return drawer("Xizmat", F.id ? `Xizmat #${F.id}` : esc(S.branch.name), F.id ? "Xizmatni tahrirlash" : "Yangi xizmat",
+      `<div class="field"><label for="sf-name">Nomi</label><input id="sf-name" value="${esc(F.name)}" maxlength="120" placeholder="Masalan, Soch olish"></div>
+      <div class="pgrid"><div class="field"><label for="sf-price">Narxi, so'm</label><input id="sf-price" inputmode="numeric" value="${esc(F.price)}" placeholder="120 000"></div>
+        <div class="field"><label for="sf-dur">Davomiyligi, daqiqa</label><input id="sf-dur" type="number" min="5" max="600" step="5" inputmode="numeric" value="${esc(F.dur)}"></div></div>
+      <div class="field"><label for="sf-cat">Bo'lim (ixtiyoriy)</label><input id="sf-cat" value="${esc(F.cat)}" maxlength="60" list="sf-cats" placeholder="Soch, Soqol, Kompleks"><datalist id="sf-cats">${cats.map((c) => `<option value="${esc(c)}">`).join("")}</datalist></div>
+      ${F.id ? `<label class="sw"><input type="checkbox" id="sf-active" ${F.active ? "checked" : ""}><span>${F.active ? "Faol: saytda ko'rinadi" : "O'chirilgan: saytda ko'rinmaydi"}</span></label>` : ""}
+      <div class="field"><label>Kim bajaradi va o'z narxi</label><div class="mrows">${S.masters.map((m) => { const x = F.masters[m.id]; return `<div class="mrow"><label class="ck"><input type="checkbox" data-sfm="${m.id}" ${x.on ? "checked" : ""}><span>${esc(m.name)} <small class="hint">${esc(m.rank || "")}</small></span></label>
+        <input data-sfp="${m.id}" inputmode="numeric" value="${esc(x.price)}" placeholder="${F.price ? esc(F.price) : "asosiy narx"}" aria-label="${esc(m.name)} narxi" ${x.on ? "" : "disabled"}></div>`; }).join("")}</div>
+        <span class="hint">Narx bo'sh bo'lsa, asosiy narx olinadi. Top-master uchun qimmatroq narx yozing.</span></div>`,
+      `<button class="btn" data-close="1">Bekor</button><button class="btn primary w" id="sfsave" ${F.busy ? "disabled" : ""}>${F.busy ? "Saqlanmoqda…" : "Saqlash"}</button>`);
+  }
+  if (S.form) {
+    const F = S.form, dg = digitsOf(F.phone), ok = F.slot && !F.busy && (!dg || dg.length >= 9);
+    return drawer("Yangi bron", `${dinfo(S.date).day}-${dinfo(S.date).month} · telefon yoki o'zi kelgan mijoz`, "Yangi bron",
+      `<div class="field"><label for="fname">Mijoz ismi</label><input id="fname" value="${esc(F.name)}" placeholder="Masalan, Aziz"></div>
+      <div class="field"><label for="fphone">Telefon (ixtiyoriy)</label><input id="fphone" inputmode="tel" value="${esc(F.phone)}" placeholder="+998 90 123 45 67"><span class="hint">O'zi kelib, raqam bermasa bo'sh qoldiring: "Telefonsiz" bo'lib yoziladi.</span></div>
+      <div class="field"><label>Master</label><div class="chips">${S.masters.map((m) => `<button class="chip" data-fm="${m.id}" aria-pressed="${F.master === m.id}">${esc(m.name)}</button>`).join("")}</div></div>
+      <div class="field"><label>Xizmat</label><div class="chips">${S.services.map((s) => `<button class="chip" data-svc="${s.id}" aria-pressed="${F.sids.includes(s.id)}">${esc(s.name)} · ${s.duration_min} daq</button>`).join("")}</div></div>
+      <div class="field"><label for="fslot">Vaqt (faqat bo'sh)</label><select id="fslot" ${F.slots.length ? "" : "disabled"}>${F.slots.length ? F.slots.map((x) => `<option value="${x.start}" ${x.start === F.slot ? "selected" : ""}>${slotLabel(x.start, S.date)}</option>`).join("") : `<option>${F.loading ? "Yuklanmoqda…" : "Bo'sh vaqt yo'q"}</option>`}</select></div>`,
+      `<button class="btn" data-close="1">Bekor</button><button class="btn primary w" id="fsave" ${ok ? "" : "disabled"}>${F.busy ? "Saqlanmoqda…" : "Saqlash"}</button>`);
+  }
+  return "";
+}
+
+function render() {
+  const board = $("#board"), sx = board?.scrollLeft, sy = board?.scrollTop, nl = $("#nav")?.scrollLeft;
+  document.body.classList.toggle("ro", ro());
+  $("#root").innerHTML = S.user && S.branch ? shellHtml() : S.user ? "" : loginHtml();
+  $("#layer").innerHTML = layerHtml();
+  const nb = $("#board"); if (nb && sx != null) { nb.scrollLeft = sx; nb.scrollTop = sy; }
+  const nav = $("#nav"), cur = $("#nav [aria-current=page]");
+  if (nav && nav.scrollWidth > nav.clientWidth) { // keep the tab strip where it was, but the current tab in view
+    nav.scrollLeft = nl || 0;
+    if (cur && (cur.offsetLeft < nav.scrollLeft || cur.offsetLeft + cur.offsetWidth > nav.scrollLeft + nav.clientWidth)) nav.scrollLeft = cur.offsetLeft - 16;
+  }
+}
+
+async function openForm(master, startMin) {
+  S.error = ""; S.open = null; S.form = { key: uuid(), name: "", phone: "", master: master ?? S.masters[0]?.id, sids: S.services[0] ? [S.services[0].id] : [], slots: [], slot: null, want: startMin, loading: true };
+  render(); await refreshSlots();
+}
+async function refreshSlots() {
+  const F = S.form; F.loading = true;
+  try { F.slots = F.sids.length && F.master ? (await api.slots(S.branch.id, F.sids, S.date, F.master)).slots : []; }
+  catch (e) { F.slots = []; F.slot = null; throw e; } finally { F.loading = false; }
+  const want = F.want != null ? F.slots.find((x) => minOf(x.start) >= F.want) : null;
+  F.slot = (want || F.slots[0] || {}).start || null; render();
+}
+async function refreshMoveSlots() {
+  const M = S.move; M.loading = true;
+  try { M.slots = (await api.slots(S.branch.id, M.b.items.map((x) => x.service_id), M.date, M.master)).slots; }
+  catch (e) { M.slots = []; M.slot = null; throw e; } finally { M.loading = false; }
+  M.slot = M.slots[0]?.start || null; render();
+}
+function scrollToNow() {
+  const b = $("#board"); if (!b || S.date !== today()) return;
+  const m = parts(new Date()).min; if (m > OPEN && m < CLOSE) b.scrollTop = Math.max(0, (m - OPEN) * PX - 120);
+}
+async function enterView(v) {
+  S.view = v; S.creds = null; S.offAsk = null; S.warn = "";
+  if (v === "team") await loadTeam();
+  else if (v === "profile") { S.salonInfo = null; render(); await loadProfile(); }
+  else if (v === "reviews") await loadReviews();
+  else if (v === "hours") {
+    S.sched = null; S.exc = null; render();
+    if (!S.masters.length) return;
+    if (!S.excForm || !S.masters.some((m) => m.id === S.excForm.mid)) S.excForm = { mid: S.masters[0].id, date: today(), kind: "day_off", from: "13:00", to: "14:00", note: "" };
+    await Promise.all([loadHours(S.masters[0].id), loadExc()]);
+  }
+  else if (v === "services") { S.svcs = null; render(); S.svcs = await api.staffServices(S.branch.id); render(); }
+  else render();
+}
+async function setStatus(id, status) {
+  const upd = await api.setStatus(id, status);
+  S.day = S.day.map((x) => (x.id === upd.id ? upd : x)); return upd;
+}
+
+// ---------- events ----------
+// One action at a time: a second tap while the first is on its way is ignored, so nothing is sent twice.
+document.addEventListener("click", async (e) => {
+  const t = e.target.closest("button, tr[data-b], .col, .drawer-scrim"); if (!t) return;
+  const d = t.dataset;
+  if (d.close) { closeLayers(); return render(); }
+  if (t.disabled || BUSY || (t.classList.contains("w") && ro())) return;
+  BUSY = true; if (t.tagName === "BUTTON") t.disabled = true;
+  S.error = "";
+  try {
+    if (await onProfileClick(d)) render();
+    else if (d.view) await enterView(d.view);
+    else if (t.id === "logout") { await api.logout(); closeLayers(); Object.assign(S, { user: null, branch: null, day: [], team: [], view: "grid", creds: null, login: { login: "", password: "" } }); render(); }
+    else if (d.undo) {
+      const u = S.undo; S.undo = null; $("#toast-slot").innerHTML = ""; if (!u) return;
+      await setStatus(u.id, u.status); render(); toast(`${STATUS[u.status]} deb o'zgartirildi`);
+    }
+    else if (t.id === "addm") { S.creds = null; S.offAsk = null; S.member = { role: "barber", name: "", login: "", password: newPassword(), rank: "Master" }; render(); }
+    else if (d.mrole) { S.member.role = d.mrole; render(); }
+    else if (d.mrank) { S.member.rank = d.mrank; render(); }
+    else if (t.id === "msave") {
+      const M = S.member, login = M.login.trim().toLowerCase();
+      if (!M.name.trim()) throw new Error("Ismini yozing");
+      if (!/^[a-z0-9._-]{3,40}$/.test(login)) throw new Error("Login 3-40 ta lotin harf yoki raqam bo'lsin (bo'sh joysiz)");
+      if (M.password.length < 6) throw new Error("Parol kamida 6 belgi bo'lsin");
+      await api.addMember({ name: M.name.trim(), login, password: M.password, role: M.role, rank: M.rank, branch_id: S.branch.id });
+      S.creds = { name: M.name.trim(), login, password: M.password, role: M.role }; S.member = null;
+      if (M.role === "barber") S.masters = await api.masters(S.branch.id);
+      await loadTeam(); toast("Xodim qo'shildi");
+    }
+    else if (d.pw) { S.pwFor = +d.pw; S.pw = newPassword(); S.creds = null; render(); }
+    else if (d.pwcancel) { S.pwFor = null; render(); }
+    else if (d.pwsave) {
+      if (S.pw.length < 6) throw new Error("Parol kamida 6 belgi bo'lsin");
+      const m = await api.updateMember(+d.pwsave, { password: S.pw });
+      S.creds = { name: m.name, login: m.login, password: S.pw, role: m.role }; S.pwFor = null; await loadTeam(); toast("Parol yangilandi");
+    }
+    else if (d.mypw) {
+      const P = S.myPw;
+      if (!P.old) throw new Error("Hozirgi parolni yozing");
+      if (P.nw.length < 6) throw new Error("Yangi parol kamida 6 belgi bo'lsin");
+      await api.password(P.old, P.nw); S.myPw = { old: "", nw: "" }; render(); toast("Parol o'zgartirildi");
+    }
+    else if (d.offno) { S.offAsk = null; render(); }
+    else if (d.toggle) {
+      const m = S.team.find((x) => x.id === +d.toggle);
+      if (m.is_active && m.master_id && !d.sure) { // warn before a barber with upcoming bookings disappears
+        const days = await Promise.all(Array.from({ length: 14 }, (_, i) => api.day(null, addDays(today(), i))));
+        const n = days.flat().filter((b) => b.master_id === m.master_id && ACTIVE.includes(b.status) && Date.parse(b.ends_at) > Date.now()).length;
+        if (n) { S.offAsk = { id: m.id, name: m.name, n }; S.creds = null; return render(); }
+      }
+      await api.updateMember(m.id, { is_active: !m.is_active }); S.creds = null; S.offAsk = null;
+      S.masters = await api.masters(S.branch.id); await loadTeam(); toast(m.is_active ? `${m.name} o'chirildi` : `${m.name} qayta yoqildi`);
+    }
+    else if (d.shift != null) { await loadDay(d.shift === "0" ? today() : addDays(S.date, +d.shift)); scrollToNow(); }
+    else if (d.b) { S.open = +d.b; S.form = null; S.confirmCancel = false; render(); }
+    else if (t.classList.contains("col")) {
+      if (!isAdmin() || t.classList.contains("off") || ro()) return;
+      const y = e.clientY - t.getBoundingClientRect().top - 8, min = OPEN + Math.floor(y / PX / 15) * 15;
+      await openForm(+d.col, min);
+    }
+    else if (t.id === "add") await openForm(null, null);
+    else if (d.act === "ask-cancel") { S.confirmCancel = true; render(); }
+    else if (d.act === "keep") { S.confirmCancel = false; render(); }
+    else if (d.act === "move") {
+      const b = S.day.find((x) => x.id === S.open);
+      S.move = { b, master: S.masters.some((m) => m.id === b.master_id) ? b.master_id : S.masters[0]?.id, date: S.date < today() ? today() : S.date, slots: [], slot: null, loading: true };
+      render(); await refreshMoveSlots();
+    }
+    else if (d.act) {
+      const upd = await setStatus(S.open, d.act);
+      S.confirmCancel = false; S.open = null; render();
+      if (d.act === "cancelled") toast("Bron bekor qilindi");
+      else { const opp = d.act === "completed" ? "no_show" : "completed"; S.undo = { id: upd.id, status: opp }; toast(`${STATUS[d.act]} deb belgilandi`, `O'zgartirish: ${STATUS[opp]}`); }
+    }
+    else if (d.copy) { try { await navigator.clipboard.writeText(d.copy); toast("Nusxa olindi"); } catch { toast(d.copy); } }
+    else if (d.fm) { S.form.master = +d.fm; await refreshSlots(); }
+    else if (d.svc) { const id = +d.svc, F = S.form; F.sids = F.sids.includes(id) ? F.sids.filter((x) => x !== id) : [...F.sids, id]; await refreshSlots(); }
+    else if (t.id === "fsave") {
+      const F = S.form, dg = digitsOf(F.phone);
+      F.busy = true; render();
+      try { await api.create({ branch_id: S.branch.id, master_id: F.master, service_ids: F.sids, starts_at: F.slot, client_phone: dg ? "+" + (dg.length === 9 ? "998" + dg : dg) : "", client_name: F.name.trim(), comment: "" }, F.key); }
+      catch (err) { F.busy = false; if (err.status === 409) await refreshSlots().catch(() => {}); throw err; }
+      S.form = null; await loadDay(); toast("Bron qo'shildi");
+    }
+    else if (d.mvback) { S.move = null; render(); }
+    else if (d.mvm) { S.move.master = +d.mvm; await refreshMoveSlots(); }
+    else if (t.id === "mvsave") {
+      const M = S.move; M.busy = true; render();
+      let upd;
+      try { upd = await api.move(M.b.id, { starts_at: M.slot, ...(M.master !== M.b.master_id ? { master_id: M.master } : {}) }); }
+      catch (err) { M.busy = false; if (err.status === 409) await refreshMoveSlots().catch(() => {}); throw err; }
+      S.move = null; S.open = null; await loadDay();
+      toast(`Ko'chirildi: ${dayLabel(parts(new Date(upd.starts_at)).date).split(",")[0]} ${hhmm(minOf(upd.starts_at))}, ${upd.master_name}`);
+    }
+    // weekly hours
+    else if (d.hm) { await loadHours(+d.hm); }
+    else if (d.hall) { const r = S.sched.rows[+d.hall]; for (const x of S.sched.rows) if (x.on) { x.from = r.from; x.to = r.to; x.multi = false; } render(); toast("Vaqt ishlaydigan barcha kunlarga qo'yildi"); }
+    else if (d.hsave) {
+      const H = S.sched, days = [];
+      H.rows.forEach((r, w) => { if (!r.on) return; if (!r.from || !r.to || r.to <= r.from) throw new Error(`${WD_FULL[w]}: tugash vaqti boshlanishidan keyin bo'lsin`); days.push({ weekday: w, start: r.from, end: r.to }); });
+      await api.setHours(H.mid, days); await loadHours(H.mid);
+      S.hours = await api.dayHours(S.branch.id, S.date).catch(() => S.hours);
+      toast(`${S.masters.find((m) => m.id === H.mid)?.name || "Usta"}: ish vaqti saqlandi`);
+    }
+    // days off and breaks
+    else if (d.xkind) { S.excForm.kind = d.xkind; render(); }
+    else if (d.xadd) {
+      const X = S.excForm;
+      if (!X.date) throw new Error("Sanani tanlang");
+      if (X.kind !== "day_off" && (!X.from || !X.to || X.to <= X.from)) throw new Error("Boshlanish va tugash vaqtini to'g'ri kiriting");
+      const r = await api.addException({ master_id: X.mid, date: X.date, kind: X.kind, ...(X.kind === "day_off" ? {} : { start: X.from, end: X.to }), note: X.note.trim() });
+      X.note = ""; S.warn = r.conflicts ? `${r.conflicts} ta bron shu vaqtga to'g'ri keladi, mijozlarga qo'ng'iroq qiling` : "";
+      if (r.date === S.date) S.hours = await api.dayHours(S.branch.id, S.date).catch(() => S.hours);
+      await loadExc(); toast(`${KIND[r.kind]} qo'shildi`);
+    }
+    else if (d.xdel) {
+      const x = S.exc.find((y) => y.id === +d.xdel); await api.delException(+d.xdel); S.warn = "";
+      if (x?.date === S.date) S.hours = await api.dayHours(S.branch.id, S.date).catch(() => S.hours);
+      await loadExc(); toast("O'chirildi");
+    }
+    // services
+    else if (t.id === "sadd") openSvcForm(null);
+    else if (d.sedit) openSvcForm(S.svcs.find((s) => s.id === +d.sedit));
+    else if (t.id === "sfsave") {
+      const F = S.svcForm, price = digitsOf(F.price), dur = +F.dur;
+      if (!F.name.trim()) throw new Error("Xizmat nomini yozing");
+      if (!price) throw new Error("Narxni yozing");
+      if (!(dur >= 5 && dur <= 600)) throw new Error("Davomiylik 5 dan 600 daqiqagacha bo'lsin");
+      const masters = [...S.masters.filter((m) => F.masters[m.id].on).map((m) => ({ master_id: m.id, price: digitsOf(F.masters[m.id].price) ? +digitsOf(F.masters[m.id].price) : null })), ...F.keep];
+      const body = { name: F.name.trim(), price: +price, duration_min: dur, category: F.cat.trim(), masters };
+      F.busy = true; render();
+      try { if (F.id) await api.updateService(S.branch.id, F.id, { ...body, is_active: F.active }); else await api.addService(S.branch.id, body); }
+      catch (err) { F.busy = false; throw err; }
+      S.svcForm = null;
+      [S.svcs, S.services] = await Promise.all([api.staffServices(S.branch.id), api.services(S.branch.id)]);
+      render(); toast(F.id ? "Xizmat saqlandi" : "Xizmat qo'shildi");
+    }
+  } catch (err) { S.error = err.message; render(); }
+  finally { BUSY = false; if (t.isConnected && t.tagName === "BUTTON") t.disabled = false; }
+});
+document.addEventListener("submit", async (e) => {
+  if (e.target.id !== "lform") return;
+  e.preventDefault();
+  if (S.loggingIn) return;
+  S.loggingIn = true;
+  try { S.user = await api.login(S.login.login, S.login.password); S.login.password = ""; S.error = ""; await boot(); }
+  catch (err) { S.login.password = ""; S.error = err.message; if (!S.branch) S.user = null; render(); }
+  finally { S.loggingIn = false; }
+});
+const priceInput = (el) => { const v = digitsOf(el.value).slice(0, 9), f = fmtPrice(v); if (el.value !== f) el.value = f; return f; };
+document.addEventListener("input", (e) => {
+  const el = e.target, id = el.id, v = el.value, dd = el.dataset;
+  if (onProfileInput(el)) return;
+  if (id === "llogin") S.login.login = v; if (id === "lpass") S.login.password = v;
+  if (id === "mname") S.member.name = v; if (id === "mlogin") S.member.login = v; if (id === "mpass") S.member.password = v;
+  if (id === "pwnew") S.pw = v;
+  if (id === "mp-old") S.myPw.old = v; if (id === "mp-new") S.myPw.nw = v;
+  if (id === "fname") S.form.name = v;
+  if (id === "fphone") { S.form.phone = v; const b = $("#fsave"), dg = digitsOf(v); if (b) b.disabled = !(S.form.slot && !S.form.busy && (!dg || dg.length >= 9)); }
+  if (id === "fslot") S.form.slot = v;
+  if (id === "mvslot") S.move.slot = v;
+  if (dd.hfrom) S.sched.rows[+dd.hfrom].from = v;
+  if (dd.hto) S.sched.rows[+dd.hto].to = v;
+  if (id === "x-from") S.excForm.from = v; if (id === "x-to") S.excForm.to = v; if (id === "x-note") S.excForm.note = v; if (id === "x-date") S.excForm.date = v;
+  if (id === "sf-name") S.svcForm.name = v; if (id === "sf-cat") S.svcForm.cat = v; if (id === "sf-dur") S.svcForm.dur = v;
+  if (id === "sf-price") S.svcForm.price = priceInput(el);
+  if (dd.sfp) S.svcForm.masters[+dd.sfp].price = priceInput(el);
+});
+document.addEventListener("change", async (e) => {
+  const el = e.target, dd = el.dataset;
+  try {
+    if (el.id === "pick" && el.value) { S.error = ""; await loadDay(el.value); }
+    else if (el.id === "branch") {
+      S.branch = S.branches.find((b) => b.id === +el.value); try { localStorage.setItem("admin.branch", S.branch.id); } catch {}
+      closeLayers(); await loadBranch(); if (S.view !== "grid" && S.view !== "list") await enterView(S.view);
+    }
+    else if (el.id === "mvdate" && el.value) { S.move.date = el.value; S.error = ""; await refreshMoveSlots(); }
+    else if (dd.hon) { const r = S.sched.rows[+dd.hon]; r.on = el.checked; render(); }
+    else if (el.id === "x-master") S.excForm.mid = +el.value;
+    else if (el.id === "x-date") S.excForm.date = el.value;
+    else if (el.id === "sf-active") { S.svcForm.active = el.checked; render(); }
+    else if (dd.sfm) { S.svcForm.masters[+dd.sfm].on = el.checked; render(); }
+    else if (dd.upload) { S.error = ""; await onProfileUpload(el); }
+  } catch (err) { S.error = err.message; render(); }
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && layerOpen()) { closeLayers(); render(); } });
+
+// Board refresh: every minute while the tab is visible and on focus, never while a drawer or form is open.
+async function autoRefresh() {
+  if (document.visibilityState !== "visible" || !S.user || !S.branch || BUSY || !["grid", "list"].includes(S.view) || layerOpen() || Date.now() - lastSync < 15000) return;
+  const date = S.date, seen = new Set(S.day.map((b) => b.id));
+  lastSync = Date.now();
+  try {
+    const [day, hours] = await Promise.all([api.day(S.branch.id, date), api.dayHours(S.branch.id, date).catch(() => S.hours)]);
+    if (date !== S.date || BUSY || layerOpen() || !S.user) return;
+    S.day = day; S.hours = hours; render();
+    const fresh = day.filter((b) => !seen.has(b.id) && ACTIVE.includes(b.status)).sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+    if (fresh.length) toast(`Yangi bron: ${hhmm(minOf(fresh[0].starts_at))} ${who(fresh[0])} (${fresh[0].master_name})${fresh.length > 1 ? `, yana ${fresh.length - 1} ta` : ""}`);
+  } catch { /* quiet: the next minute tries again */ }
+}
+setInterval(autoRefresh, 60000);
+window.addEventListener("focus", autoRefresh);
+document.addEventListener("visibilitychange", autoRefresh);
+
+async function loadBranch() {
+  [S.masters, S.services] = await Promise.all([api.masters(S.branch.id), api.services(S.branch.id)]);
+  S.svcs = null; S.sched = null; S.exc = null; S.excForm = null;
+  await loadDay();
+}
+async function boot() {
+  if (!S.user) return render();
+  S.branches = await api.branches();
+  let saved = null; try { saved = +localStorage.getItem("admin.branch"); } catch {}
+  S.branch = S.branches.find((b) => b.id === S.user.branch_id) || S.branches.find((b) => b.id === saved) || S.branches[0];
+  if (!S.branch) { S.user = null; S.error = "Salonda filial yo'q. Platforma bilan bog'laning."; return render(); }
+  await loadBranch(); scrollToNow();
+}
+(async () => {
+  try {
+    const r = await fetch("/api/health"); if (!r.ok || !(await r.json()).ok) throw 0;
+    const info = await fetch(`/api/s/${SLUG}`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+    if (!info) { S.error = "Salon topilmadi. Manzilni tekshiring."; return render(); }
+    S.salonName = info.name; S.user = await realApi.me();
+  }
+  catch { S.demo = true; api = demoApi; S.salonName = DEMO_SALON.name; S.user = await api.me(); }
+  try { await boot(); } catch (err) { S.error = err.message; if (!S.branch) S.user = null; render(); }
+})();
+</script>
