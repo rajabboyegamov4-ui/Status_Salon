@@ -1,4 +1,5 @@
 import logging
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -12,9 +13,9 @@ from app.notifications import send_due_reminders
 from app.routers import platform, profile, public, schedule, staff, telegram
 from app.tenancy import RESERVED_SLUGS, SLUG_RE
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, stream=sys.stdout)  # Railway marks stderr lines as errors
 # httpx logs every request URL at INFO, and a Telegram URL carries the salon's bot token.
-for _name in ("httpx", "httpcore"):
+for _name in ("httpx", "httpcore", "apscheduler"):  # apscheduler: one line per minute otherwise
     logging.getLogger(_name).setLevel(logging.WARNING)
 
 

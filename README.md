@@ -64,7 +64,7 @@ Testlar ichida: salonlar bir-birining ma'lumotini ko'rmasligi (`tests/test_tenan
    - `TELEGRAM_BACKEND=live`, `SMS_BACKEND=none`
    - `PUBLIC_URL=https://<domen>`: aniq ochiq manzil. Domen almashsa salonlar botni qayta ulaydi.
    - `PLATFORM_LOGIN`, `PLATFORM_PASSWORD_HASH` (`python -m scripts.hash_password` chiqargan satr)
-3. `railway.json`: deploy oldidan `alembic upgrade head`, health check `/api/health`, 1 nusxa (rate-limit va eslatma ishchisi bitta jarayonga mo'ljallangan).
+3. Railway servis sozlamalari (Settings > Deploy): Pre-deploy `alembic upgrade head`, Start `uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips '*'`, Healthcheck `/api/health`, 1 nusxa (rate-limit va eslatma ishchisi bitta jarayonga mo'ljallangan).
 4. Productionda `scripts.seed` ni ishga tushirmang: u ma'lum parollar bilan demo loginlar yaratadi. Salonlar `/platform` orqali qo'shiladi.
 
 ## Tuzilma
