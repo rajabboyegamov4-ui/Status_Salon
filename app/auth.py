@@ -17,6 +17,7 @@ from app.ratelimit import Window
 from app.security import decode_token, issue_token, verify_password
 from app.services.availability import now_utc
 from app.tenancy import get_salon
+from app.text import clean_name
 
 CLIENT_COOKIE = "client_session"
 STAFF_COOKIE = "staff_session"
@@ -113,10 +114,10 @@ async def verify_code(session: AsyncSession, salon: Salon, phone: str, code: str
     otp.consumed_at = now
     user = await session.scalar(select(User).where(User.salon_id == salon.id, User.phone == phone))
     if user is None:
-        user = User(salon_id=salon.id, phone=phone, name=(name or "").strip()[:120])
+        user = User(salon_id=salon.id, phone=phone, name=clean_name(name))
         session.add(user)
-    elif name and not user.name:
-        user.name = name.strip()[:120]
+    elif clean_name(name) and not user.name:
+        user.name = clean_name(name)
     await session.commit()
     return user
 

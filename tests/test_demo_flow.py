@@ -140,7 +140,7 @@ async def test_client_subscribes_in_the_bot_then_books_inside_it_without_a_secon
         r = await app_view.post(f"{API}/bookings", json={"branch_id": 1, "master_id": 1, "service_ids": [1],
                                                           "starts_at": local(tomorrow(), 12).isoformat()})
         assert r.status_code == 201
-        assert "Bron tasdiqlandi" in to(ME["id"])[-1] and "Usta: Jasur" in to(ME["id"])[-1]
+        assert "Bron tasdiqlandi" in to(ME["id"])[-1] and "Usta: \u2068Jasur\u2069" in to(ME["id"])[-1]
 
 
 async def test_mini_app_login_needs_a_genuine_fresh_signature_from_this_salons_bot():
@@ -180,3 +180,26 @@ async def test_a_beauty_salon_starts_with_its_own_services_and_sample_masters(mo
     async with make_client() as madina:  # sample masters log in with their name and the owner's password
         me = await staff_login(madina, "madina", "gulnoza-2026", api=api)
         assert me["role"] == "barber" and me["salon"]["slug"] == "gulnoza"
+
+
+async def test_a_right_to_left_name_does_not_flip_the_number_and_hidden_marks_are_dropped():
+    """A client named "س" in Telegram: the salon's message must still show +998 90 ... in order."""
+    from app.text import FSI, LRI, PDI
+    await connect_bot()
+    await link_staff("owner", "owner123", OWNER_CHAT)
+    salon = await salon_row()
+    arab = {"id": 4242, "first_name": "س"}
+    async with make_client() as c:
+        # the contact name carries a right-to-left override that would reverse what follows it
+        await hook(c, salon, msg(contact={"phone_number": "998901234567", "first_name": "‮س", "last_name": "​Ali",
+                                          "user_id": 4242}, chat=arab))
+        r = await c.post(f"{API}/auth/webapp", json={"init_data": sign_init(4242)})
+        assert r.status_code == 200 and r.json()["name"] == "س Ali"  # stored without hidden characters
+        r = await c.post(f"{API}/bookings", json={"branch_id": 1, "master_id": 1, "service_ids": [1],
+                                                  "starts_at": local(tomorrow(), 15).isoformat(), "comment": "‮izoh"})
+        assert r.status_code == 201
+    text = to(OWNER_CHAT)[-1]
+    lines = text.split("\n")
+    assert lines[1] == f"👤 {FSI}س Ali{PDI}"  # the name alone on its line, isolated
+    assert lines[2] == f"📞 {LRI}+998 90 123 45 67{PDI}"  # the number on its own line, left to right
+    assert "‮" not in text and f"💬 {FSI}izoh{PDI}" in text

@@ -301,6 +301,8 @@ body.ro .w { display: none !important; }
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const bdi = (s) => "\u2068" + esc(s) + "\u2069";  // typed names and notes: a right-to-left name cannot flip its neighbours
+const ltr = (s) => "\u2066" + esc(s) + "\u2069";  // phone numbers always read left to right
 const som = (n) => n.toLocaleString("ru-RU").replace(/,/g, " ");
 const WEEK = ["Ya", "Du", "Se", "Ch", "Pa", "Ju", "Sh"];
 const WEEK_FULL = ["Yakshanba", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"];
@@ -836,7 +838,7 @@ function masterEditorHtml(m, { canRank }) {
 function reviewsListHtml(list, { canHide }) {
   if (!list) return `<p class="hint">Yuklanmoqda…</p>`;
   if (!list.length) return `<div class="pempty">Hali baho yo'q. Mijoz tashrifdan keyin "Bronlarim" bo'limida ustaga yulduzcha qo'yadi.</div>`;
-  return `<div class="previews">${list.map((r) => `<article class="prev${r.is_hidden ? " hidden-rv" : ""}"><div class="ptop"><b class="star">${stars(r.rating)}</b><span class="hint">${esc(r.client_name)} · ${esc(r.master_name)} · ${esc(r.services)}</span></div>
+  return `<div class="previews">${list.map((r) => `<article class="prev${r.is_hidden ? " hidden-rv" : ""}"><div class="ptop"><b class="star">${stars(r.rating)}</b><span class="hint">${bdi(r.client_name)} · ${bdi(r.master_name)} · ${bdi(r.services)}</span></div>
     ${r.comment ? `<p>${esc(r.comment)}</p>` : ""}${r.is_hidden ? `<span class="hint">Yashirilgan: saytda ko'rinmaydi va reytingga qo'shilmaydi</span>` : ""}
     ${canHide ? `<div class="prow"><button class="btn w" data-hide-review="${r.id}" data-hidden="${r.is_hidden ? 0 : 1}">${r.is_hidden ? "Qayta ko'rsatish" : "Yashirish"}</button></div>` : ""}</article>`).join("")}</div>`;
 }
@@ -999,8 +1001,8 @@ function gridHtml() {
     for (let t = OPEN; t <= CLOSE; t += 30) h += `<div class="hline${t % 60 ? " half" : ""}" style="top:${y(t)}px"></div>`;
     for (const b of S.day.filter((x) => m.id == null || x.master_id === m.id)) {
       const s = minOf(b.starts_at), e = minOf(b.ends_at), hp = (e - s) * PX - 2, tiny = hp < 44;
-      h += `<button class="bk ${b.status}${tiny ? " tiny" : ""}${S.open === b.id ? " sel" : ""}" data-b="${b.id}" style="top:${y(s) + 1}px;height:${hp}px" title="${hhmm(s)}–${hhmm(e)} ${esc(who(b))}">
-        <span class="t">${hhmm(s)}–${hhmm(e)}</span><span class="n">${esc(who(b))}</span>${tiny ? "" : `<span class="s">${b.items.map((x) => esc(x.service_name)).join(", ")}</span>`}</button>`;
+      h += `<button class="bk ${b.status}${tiny ? " tiny" : ""}${S.open === b.id ? " sel" : ""}" data-b="${b.id}" style="top:${y(s) + 1}px;height:${hp}px" title="${hhmm(s)}–${hhmm(e)} ${bdi(who(b))}">
+        <span class="t">${hhmm(s)}–${hhmm(e)}</span><span class="n">${bdi(who(b))}</span>${tiny ? "" : `<span class="s">${b.items.map((x) => esc(x.service_name)).join(", ")}</span>`}</button>`;
     }
     h += `</div>`;
   }
@@ -1008,12 +1010,12 @@ function gridHtml() {
   return h + `</div></div>${ro() ? "" : `<p class="hint">Bo'sh joyni bosing: o'sha master va vaqtga yangi bron ochiladi. Chiziqli joylar: usta ishlamaydigan vaqt.</p>`}`;
 }
 
-const phoneCell = (b) => (walkIn(b) ? `<span class="hint">Telefonsiz</span>` : esc(b.client_phone));
+const phoneCell = (b) => (walkIn(b) ? `<span class="hint">Telefonsiz</span>` : ltr(b.client_phone));
 function listHtml() {
   const rows = [...S.day].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   if (!rows.length) return `<div class="table-wrap"><div class="empty">Bu kunga bron yo'q.</div></div>`;
   return `<div class="table-wrap"><table><thead><tr><th>Vaqt</th><th>Mijoz</th><th>Telefon</th><th>Master</th><th>Xizmat</th><th>Narx, so'm</th><th>Holat</th></tr></thead><tbody>
-  ${rows.map((b) => `<tr data-b="${b.id}"><td class="num">${hhmm(minOf(b.starts_at))}–${hhmm(minOf(b.ends_at))}</td><td><b>${esc(who(b))}</b>${b.source === "admin" ? ' <span class="hint">· panel</span>' : ""}</td>
+  ${rows.map((b) => `<tr data-b="${b.id}"><td class="num">${hhmm(minOf(b.starts_at))}–${hhmm(minOf(b.ends_at))}</td><td><b>${bdi(who(b))}</b>${b.source === "admin" ? ' <span class="hint">· panel</span>' : ""}</td>
     <td class="num">${phoneCell(b)}</td><td>${esc(b.master_name)}</td><td>${b.items.map((x) => esc(x.service_name)).join(", ")}</td><td class="num">${som(b.total_price)}</td><td><span class="pill ${b.status}">${STATUS[b.status]}</span></td></tr>`).join("")}
   </tbody></table></div>`;
 }
@@ -1140,7 +1142,7 @@ function layerHtml() {
   if (!S.user) return "";
   if (S.move) {
     const M = S.move, b = M.b, ok = M.slot && !M.busy;
-    return drawer("Bronni ko'chirish", `Bron #${b.id} · ${esc(who(b))}`, "Ko'chirish",
+    return drawer("Bronni ko'chirish", `Bron #${b.id} · ${bdi(who(b))}`, "Ko'chirish",
       `<p class="hint">Hozir: <b>${hhmm(minOf(b.starts_at))}–${hhmm(minOf(b.ends_at))}</b>, ${dayLabel(parts(new Date(b.starts_at)).date)}, ${esc(b.master_name)} · ${b.items.map((x) => esc(x.service_name)).join(", ")}</p>
       <div class="field"><label>Master</label><div class="chips">${S.masters.map((m) => `<button class="chip" data-mvm="${m.id}" aria-pressed="${M.master === m.id}">${esc(m.name)}</button>`).join("")}</div></div>
       <div class="field"><label for="mvdate">Sana</label><input type="date" id="mvdate" min="${today()}" value="${M.date}"></div>
@@ -1152,18 +1154,18 @@ function layerHtml() {
     const b = S.day.find((x) => x.id === S.open); if (!b) return "";
     const s = minOf(b.starts_at), e = minOf(b.ends_at), active = ACTIVE.includes(b.status), di = dinfo(S.date);
     const canMark = Date.parse(b.starts_at) - 15 * 60e3 <= Date.now(), opp = b.status === "completed" ? "no_show" : "completed", tel = digitsOf(b.client_phone);
-    const phone = walkIn(b) ? `<span class="hint">Telefonsiz</span>` : `${esc(b.client_phone)}<button class="copy" data-copy="${esc(b.client_phone)}">Nusxa</button>${tel ? `<a class="btn call" href="tel:+${tel}">Qo'ng'iroq</a>` : ""}`;
+    const phone = walkIn(b) ? `<span class="hint">Telefonsiz</span>` : `${ltr(b.client_phone)}<button class="copy" data-copy="${esc(b.client_phone)}">Nusxa</button>${tel ? `<a class="btn call" href="tel:+${tel}">Qo'ng'iroq</a>` : ""}`;
     const foot = ro() ? `<p class="hint">Obuna tugagan: panel faqat ko'rish rejimida.</p><button class="btn wide" data-close="1">Yopish</button>`
       : S.confirmCancel ? `<div class="confirm"><b>Bronni bekor qilasizmi?</b><span class="hint">Vaqt bo'shaydi. Mijozga Telegram orqali xabar boradi (agar ulangan bo'lsa).</span><div class="row"><button class="btn" data-act="keep">Yo'q</button><button class="btn bad w" data-act="cancelled">Ha, bekor qilish</button></div></div>`
       : active ? `${canMark ? `<button class="btn ok w" data-act="completed">Keldi</button><button class="btn bad w" data-act="no_show">Kelmadi</button>` : `<p class="hint">Keldi / Kelmadi tashrifdan 15 daqiqa oldin ochiladi.</p>`}<button class="btn w" data-act="move">Ko'chirish</button><button class="btn w" data-act="ask-cancel">Bekor qilish</button>`
       : b.status === "completed" || b.status === "no_show" ? `<button class="btn w" data-act="${opp}">O'zgartirish: ${STATUS[opp]}</button><button class="btn" data-close="1">Yopish</button>`
       : `<button class="btn wide" data-close="1">Yopish</button>`;
-    return drawer("Bron tafsiloti", `Bron #${b.id} · ${b.source === "admin" ? "panelda yozilgan" : "sayt orqali"}`, esc(who(b)),
+    return drawer("Bron tafsiloti", `Bron #${b.id} · ${b.source === "admin" ? "panelda yozilgan" : "sayt orqali"}`, bdi(who(b)),
       `<div class="when"><b>${hhmm(s)}–${hhmm(e)}</b><span class="hint">${di.wdf}, ${di.day}-${di.month}</span> <span class="pill ${b.status}">${STATUS[b.status]}</span></div>
       <dl class="kv"><dt>Telefon</dt><dd>${phone}</dd>
         <dt>Master</dt><dd>${esc(b.master_name)}</dd>
         <dt>Xizmatlar</dt><dd>${b.items.map((x) => `${esc(x.service_name)} · ${x.duration_min} daq`).join("<br>")}</dd>
-        <dt>Narx</dt><dd>${som(b.total_price)} so'm</dd>${b.comment && !(walkIn(b) && b.comment === who(b)) ? `<dt>Izoh</dt><dd>${esc(b.comment)}</dd>` : ""}</dl>`, foot);
+        <dt>Narx</dt><dd>${som(b.total_price)} so'm</dd>${b.comment && !(walkIn(b) && b.comment === who(b)) ? `<dt>Izoh</dt><dd>${bdi(b.comment)}</dd>` : ""}</dl>`, foot);
   }
   if (S.member) {
     const M = S.member, owner = S.user.role === "owner";
@@ -1453,7 +1455,7 @@ async function autoRefresh() {
     if (date !== S.date || BUSY || layerOpen() || !S.user) return;
     S.day = day; S.hours = hours; render();
     const fresh = day.filter((b) => !seen.has(b.id) && ACTIVE.includes(b.status)).sort((a, b) => a.starts_at.localeCompare(b.starts_at));
-    if (fresh.length) toast(`Yangi bron: ${hhmm(minOf(fresh[0].starts_at))} ${who(fresh[0])} (${fresh[0].master_name})${fresh.length > 1 ? `, yana ${fresh.length - 1} ta` : ""}`);
+    if (fresh.length) toast(`Yangi bron: ${hhmm(minOf(fresh[0].starts_at))} \u2068${who(fresh[0])}\u2069 (\u2068${fresh[0].master_name}\u2069)${fresh.length > 1 ? `, yana ${fresh.length - 1} ta` : ""}`);
   } catch { /* quiet: the next minute tries again */ }
 }
 setInterval(autoRefresh, 20000);

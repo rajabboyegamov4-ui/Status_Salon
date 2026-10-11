@@ -10,6 +10,7 @@ from app.config import settings
 from app.models import Booking, Branch, Master, Photo, Review, Salon, User
 from app.schemas import PhotoOut, ReviewOut, SalonInfo
 from app.tenancy import subscription_active
+from app.text import strip_controls
 
 MAX_PHOTO_BYTES = 3 * 1024 * 1024
 LIMITS = {"branch": 8, "work": 30}  # photos per branch / per barber
@@ -151,7 +152,7 @@ async def create_review(session: AsyncSession, user: User, booking: Booking, rat
     if booking.review is not None:
         raise ReviewError("Bu tashrifga baho allaqachon qo'yilgan")
     review = Review(salon_id=booking.salon_id, booking_id=booking.id, master_id=booking.master_id, user_id=user.id,
-                    rating=rating, comment=comment.strip())
+                    rating=rating, comment=strip_controls(comment).strip())
     session.add(review)
     try:
         await session.commit()

@@ -191,6 +191,8 @@ header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 4; b
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const bdi = (s) => "\u2068" + esc(s) + "\u2069";  // typed names and notes: a right-to-left name cannot flip its neighbours
+const ltr = (s) => "\u2066" + esc(s) + "\u2069";  // phone numbers always read left to right
 const som = (n) => n.toLocaleString("ru-RU").replace(/,/g, " ");
 const WEEK = ["Ya", "Du", "Se", "Ch", "Pa", "Ju", "Sh"];
 const MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr"];
@@ -590,7 +592,7 @@ function masterEditorHtml(m, { canRank }) {
 function reviewsListHtml(list, { canHide }) {
   if (!list) return `<p class="hint">Yuklanmoqda…</p>`;
   if (!list.length) return `<div class="pempty">Hali baho yo'q. Mijoz tashrifdan keyin "Bronlarim" bo'limida ustaga yulduzcha qo'yadi.</div>`;
-  return `<div class="previews">${list.map((r) => `<article class="prev${r.is_hidden ? " hidden-rv" : ""}"><div class="ptop"><b class="star">${stars(r.rating)}</b><span class="hint">${esc(r.client_name)} · ${esc(r.master_name)} · ${esc(r.services)}</span></div>
+  return `<div class="previews">${list.map((r) => `<article class="prev${r.is_hidden ? " hidden-rv" : ""}"><div class="ptop"><b class="star">${stars(r.rating)}</b><span class="hint">${bdi(r.client_name)} · ${bdi(r.master_name)} · ${bdi(r.services)}</span></div>
     ${r.comment ? `<p>${esc(r.comment)}</p>` : ""}${r.is_hidden ? `<span class="hint">Yashirilgan: saytda ko'rinmaydi va reytingga qo'shilmaydi</span>` : ""}
     ${canHide ? `<div class="prow"><button class="btn w" data-hide-review="${r.id}" data-hidden="${r.is_hidden ? 0 : 1}">${r.is_hidden ? "Qayta ko'rsatish" : "Yashirish"}</button></div>` : ""}</article>`).join("")}</div>`;
 }
@@ -691,7 +693,7 @@ async function loadDay(date = S.date, quiet = false) {
   if (quiet && date === S.date) {
     const old = new Set(S.day.map((x) => x.id));
     const fresh = day.filter((x) => !old.has(x.id) && ACTIVE(x) && (S.master == null || x.master_id === S.master)).sort((a, c) => a.starts_at.localeCompare(c.starts_at));
-    if (fresh.length) toast(`Yangi bron: ${hhmm(minOf(fresh[0].starts_at))} ${fresh[0].client_name.split(" ")[0]}${fresh.length > 1 ? ` va yana ${fresh.length - 1} ta` : ""}`);
+    if (fresh.length) toast(`Yangi bron: ${hhmm(minOf(fresh[0].starts_at))} \u2068${fresh[0].client_name.split(" ")[0]}\u2069${fresh.length > 1 ? ` va yana ${fresh.length - 1} ta` : ""}`);
   } else { S.ask = null; S.more = null; }
   Object.assign(S, { date, day, hoursAll: hours, exc: exc || [], error: "", loadedAt: Date.now() });
   render();
@@ -739,7 +741,7 @@ const OPP = { completed: "no_show", no_show: "completed" };
 function cardHtml(b, isNext) {
   const s = minOf(b.starts_at), e = minOf(b.ends_at), active = ACTIVE(b), dis = S.pending.has(b.id) ? " disabled" : "";
   if (!active && !isNext && !S.open.has(b.id))
-    return `<button class="row1 ${b.status}" data-unfold="${b.id}" aria-expanded="false"><b>${hhmm(s)}</b><span>${esc(b.client_name)}</span><span class="tag ${b.status}">${TAG[b.status]}</span><em>${som(b.total_price)}</em></button>`;
+    return `<button class="row1 ${b.status}" data-unfold="${b.id}" aria-expanded="false"><b>${hhmm(s)}</b><span>${bdi(b.client_name)}</span><span class="tag ${b.status}">${TAG[b.status]}</span><em>${som(b.total_price)}</em></button>`;
   const cls = ["card", isNext ? "next" : "", !active ? (b.status === "cancelled" ? "cancelled" : "done") : ""].join(" ");
   const tag = isNext ? '<span class="tag next">Keyingi</span>' : !active ? `<span class="tag ${b.status}">${TAG[b.status]}</span>` : b.source === "admin" && !noPhone(b.client_phone) ? '<span class="tag phone">Telefon orqali</span>' : "";
   const moveBtns = `<div class="acts two"><button class="btn w" data-sheet="move" data-id="${b.id}"${dis}>Ko'chirish</button><button class="btn bad w" data-ask="${b.id}"${dis}>Bekor qilish</button></div>`;
@@ -749,10 +751,10 @@ function cardHtml(b, isNext) {
   else if (active && canMark(b)) acts = `<div class="acts"><button class="btn ok w" data-act="completed" data-id="${b.id}"${dis}>✓ Keldi</button><button class="btn bad w" data-act="no_show" data-id="${b.id}"${dis}>Kelmadi</button><button class="btn more" data-more="${b.id}" aria-expanded="${S.more === b.id}">${S.more === b.id ? "Yopish" : "Yana"}</button></div>${S.more === b.id ? moveBtns : ""}`;
   else if (active) acts = moveBtns;
   else acts = `<div class="acts one">${OPP[b.status] ? `<button class="btn mini w" data-act="${OPP[b.status]}" data-id="${b.id}"${dis}>O'zgartirish: ${TAG[OPP[b.status]].toLowerCase()}</button>` : "<span></span>"}<button class="btn mini more" data-fold="${b.id}">Yig'ish</button></div>`;
-  const phone = noPhone(b.client_phone) ? `<div class="phone-line">Telefonsiz</div>` : `<div class="phone-line"><span class="num">${esc(b.client_phone)}</span><button class="copy" data-copy="${esc(b.client_phone)}">Nusxa</button>${callLink(b.client_phone)}</div>`;
+  const phone = noPhone(b.client_phone) ? `<div class="phone-line">Telefonsiz</div>` : `<div class="phone-line"><span class="num">${ltr(b.client_phone)}</span><button class="copy" data-copy="${esc(b.client_phone)}">Nusxa</button>${callLink(b.client_phone)}</div>`;
   return `<article class="${cls}">
     <div class="time"><b>${hhmm(s)}</b><small>${e - s} daq</small></div>
-    <div class="who"><b>${esc(b.client_name)}</b>${tag}</div>
+    <div class="who"><b>${bdi(b.client_name)}</b>${tag}</div>
     <div class="svc"><em>${b.items.map((x) => esc(x.service_name)).join(" + ")}</em> · ${som(b.total_price)} so'm</div>
     ${phone}
     ${b.comment ? `<div class="note" style="grid-column:2">${esc(b.comment)}</div>` : ""}
@@ -838,7 +840,7 @@ function walkinHtml(f) {
 }
 function moveHtml(f) {
   const b = f.b;
-  return `${sheetHead("Ko'chirish", `${esc(b.client_name)} · hozir ${dayName(parts(new Date(b.starts_at)).date)} ${hhmm(minOf(b.starts_at))} · ${b.items.map((x) => esc(x.service_name)).join(" + ")}`)}
+  return `${sheetHead("Ko'chirish", `${bdi(b.client_name)} · hozir ${dayName(parts(new Date(b.starts_at)).date)} ${hhmm(minOf(b.starts_at))} · ${b.items.map((x) => esc(x.service_name)).join(" + ")}`)}
     <div class="field"><label>Yangi kun</label>${dayChips(f)}</div>
     <div class="field"><label>Yangi vaqt</label>${slotsHtml(f)}</div>${errHtml(f)}
     <span class="hint">Mijozga Telegramda yangi vaqt haqida xabar boradi.</span>
