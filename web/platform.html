@@ -1,9 +1,9 @@
-<title>Salonlar Platformasi</title>
+<title>Navbat · Platforma</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
 <style>
-/* Layout: the platform owner's subscription desk. Header, three counters, then one row per salon with its paid-until date and quick actions. */
+/* Layout: the team's desk. Header with who is signed in, counters, tabs (Lidlar, Bizneslar, To'lovlar, Jamoa), one card or row per item, drawers for forms. */
 :root {
   --bg: #f3f1ee; --panel: #ffffff; --sunken: #f7f5f2; --fg: #1d1a17; --muted: #74695f; --line: #e4ded6;
   --brass: #9a7433; --brass-soft: #f4ecdd; --brass-ink: #ffffff; --ok: #2f7a4f; --on-ok: #ffffff; --ok-soft: #e3f1e8; --bad: #b2412f; --bad-soft: #f8e5e1;
@@ -102,6 +102,33 @@ tr:last-child td { border-bottom: 0; }
   .acts { justify-content: flex-start; flex-wrap: wrap; }
   .drawer { top: auto; width: 100%; max-height: 92vh; border-radius: 16px 16px 0 0; border-left: 0; }
 }
+
+.tabs { display: flex; gap: 4px; background: var(--sunken); border: 1px solid var(--line); border-radius: 12px; padding: 4px; overflow-x: auto; }
+.tabs button { border: 0; background: none; border-radius: 9px; padding: 8px 14px; font-weight: 800; color: var(--muted); white-space: nowrap; }
+.tabs button[aria-current="page"] { background: var(--panel); color: var(--fg); box-shadow: 0 1px 2px rgb(0 0 0 / .08); }
+.tabs button .n { font-size: 11px; background: var(--brass-soft); color: var(--brass); border-radius: 99px; padding: 1px 7px; margin-left: 4px; }
+.who { font-size: 13px; color: var(--muted); font-weight: 700; }
+.who b { color: var(--fg); }
+.leads { display: grid; gap: 10px; }
+.lead { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; }
+.lead.due { border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn); }
+.lead h3 { margin: 0; font-size: 16px; font-weight: 800; }
+.lead .meta { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: 13px; }
+.lead .meta a { color: inherit; }
+.lead .next { font-size: 13.5px; }
+.lead .next b { color: var(--warn); }
+.lead .note { grid-column: 1 / -1; color: var(--muted); font-size: 13px; white-space: pre-line; }
+.lead .side { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.lead .acts { grid-column: 1 / -1; justify-content: flex-start; flex-wrap: wrap; }
+.st-new { background: var(--sunken); color: var(--muted); } .st-talked { background: var(--brass-soft); color: var(--brass); }
+.st-demo, .st-trial { background: var(--warn-soft); color: var(--warn); } .st-paid { background: var(--ok-soft); color: var(--ok); } .st-lost { background: var(--bad-soft); color: var(--bad); }
+select, textarea { background: var(--sunken); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; font: inherit; color: inherit; }
+textarea { min-height: 80px; resize: vertical; }
+select.mini { width: auto; padding: 6px 8px; font-size: 13px; font-weight: 700; background: var(--panel); }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.btn.link { text-decoration: none; color: inherit; display: inline-flex; align-items: center; }
+.steps { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13.5px; display: grid; gap: 4px; }
+@media (max-width: 760px) { .stat b { font-size: 24px; } .lead { grid-template-columns: minmax(0, 1fr); } .lead .side { align-items: flex-start; flex-direction: row; flex-wrap: wrap; } .row2 { grid-template-columns: 1fr; } }
 </style>
 
 <div id="root"></div>
@@ -111,206 +138,308 @@ tr:last-child td { border-bottom: 0; }
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const bdi = (s) => "⁨" + esc(s) + "⁩";
 const MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr"];
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tashkent" }).format(new Date());
 const dayDiff = (ymd) => Math.round((new Date(ymd + "T00:00:00Z") - new Date(today() + "T00:00:00Z")) / 86400e3);
-const fmtDate = (ymd) => { const [y, m, d] = ymd.split("-").map(Number); return `${d}-${MONTHS[m - 1]} ${y}`; };
-const addMonths = (ymd, n) => { const [y, m, d] = ymd.split("-").map(Number); const t = new Date(Date.UTC(y, m - 1 + n, 1)); const last = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 0)).getUTCDate(); t.setUTCDate(Math.min(d, last)); return t.toISOString().slice(0, 10); };
+const fmtDate = (ymd) => { const [y, m, d] = ymd.split("-").map(Number); return `${d}-${MONTHS[m - 1]}${y !== +today().slice(0, 4) ? " " + y : ""}`; };
+const som = (n) => Number(n || 0).toLocaleString("ru-RU").replace(/\s/g, " ") + " so'm";
 const newPassword = () => { const a = "abcdefghjkmnpqrstuvwxyz23456789"; let p = ""; for (let i = 0; i < 10; i++) p += a[Math.floor(Math.random() * a.length)]; return p; };
 const slugify = (s) => s.toLowerCase().replace(/[ʻʼ'`]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+const digits = (s) => String(s || "").replace(/\D/g, "");
 class ApiError extends Error { constructor(s, m) { super(m); this.status = s; } }
 
-// ---------- real API ----------
-const realApi = {
+const KINDS = [["beauty", "Ayollar saloni"], ["barber", "Barbershop"], ["cosmetology", "Kosmetologiya"], ["dental", "Stomatologiya"], ["clinic", "Klinika"], ["spa", "SPA va massaj"], ["auto", "Avtoservis"], ["vet", "Veterinariya"], ["other", "Boshqa"]];
+const kindLabel = (k) => (KINDS.find((x) => x[0] === k) || ["", "Boshqa"])[1];
+const STATUSES = [["new", "Yangi"], ["talked", "Gaplashildi"], ["demo", "Demo"], ["trial", "Sinovda"], ["paid", "To'ladi"], ["lost", "Rad etdi"]];
+const stLabel = (k) => (STATUSES.find((x) => x[0] === k) || ["", k])[1];
+const ROLE = { owner: "Ega", partner: "Sherik", sales: "Sotuvchi" };
+// The presentation page set up for a business: its kind, its name and its live demo bot.
+const showUrl = (s) => `/taqdimot?soha=${encodeURIComponent(s.kind || "other")}&nom=${encodeURIComponent(s.name)}&demo=${encodeURIComponent(s.slug)}`;
+
+const api = {
   async call(path, opts = {}) {
-    const res = await fetch("/api/platform" + path, { ...opts, credentials: "same-origin", headers: { "Content-Type": "application/json", ...(opts.headers || {}) } });
+    let res;
+    try { res = await fetch("/api/platform" + path, { ...opts, credentials: "same-origin", headers: { "Content-Type": "application/json", ...(opts.headers || {}) } }); }
+    catch { throw new ApiError(0, "Internet aloqasi yo'q. Qayta urinib ko'ring."); }
     if (res.status === 204) return null;
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new ApiError(res.status, typeof body.detail === "string" ? body.detail : Array.isArray(body.detail) ? "Maydonlarni tekshiring" : "Xatolik yuz berdi");
+    if (res.status === 401 && path !== "/login" && path !== "/me") { S.me = null; render(); }
+    if (!res.ok) throw new ApiError(res.status, typeof body.detail === "string" ? body.detail : Array.isArray(body.detail) ? "Maydonlarni tekshiring: " + (body.detail[0]?.msg || "").replace(/^Value error, /, "") : "Xatolik yuz berdi");
     return body;
   },
-  async me() { try { await this.call("/me"); return true; } catch { return false; } },
-  login(login, password) { return this.call("/login", { method: "POST", body: JSON.stringify({ login, password }) }); },
-  logout() { return this.call("/logout", { method: "POST" }); },
-  salons() { return this.call("/salons"); },
-  create(p) { return this.call("/salons", { method: "POST", body: JSON.stringify(p) }); },
-  update(id, p) { return this.call(`/salons/${id}`, { method: "PATCH", body: JSON.stringify(p) }); },
+  get(p) { return this.call(p); },
+  post(p, b) { return this.call(p, { method: "POST", body: JSON.stringify(b) }); },
+  patch(p, b) { return this.call(p, { method: "PATCH", body: JSON.stringify(b) }); },
 };
 
-// ---------- demo API: a dozen salons in different subscription states ----------
-const demoApi = (() => {
-  const t = today(), at = (n) => { const d = new Date(t + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
-  const rows = [
-    ["premium", "Premium Barber", 21, 5, 214], ["navruz", "Navruz Barber", 3, 4, 131], ["baraka", "Baraka Men's Club", 12, 6, 248],
-    ["oldtown", "Old Town Barbershop", -2, 3, 96], ["sultan", "Sultan Barber", 27, 8, 377], ["chilonzor-cut", "Chilonzor Cut", 6, 3, 88],
-    ["gentlemen", "Gentlemen Lounge", 44, 7, 302], ["yunusobod", "Yunusobod Barbers", -9, 2, 41], ["ustara", "Ustara", 15, 4, 159],
-    ["sergeli", "Sergeli Style", 1, 3, 72], ["boss", "Boss Barber", 18, 5, 201], ["mirzo", "Mirzo Barber", 9, 4, 117],
-  ];
-  const salons = rows.map(([slug, name, d, staff, b], i) => ({ id: i + 1, slug, name, phone: `+99871${2000000 + i * 1371}`, plan: "standard", paid_until: at(d), is_active: slug !== "yunusobod", staff_count: staff, bookings_30d: b, created_at: at(-120 + i * 7) }));
-  const live = (s) => ({ ...s, active: s.is_active && s.paid_until >= today() });
-  const wait = (v) => new Promise((r) => setTimeout(() => r(v), 140));
-  let signed = false;
-  return {
-    me: () => wait(signed),
-    login(login, password) { if (login.trim().toLowerCase() !== "platform" || password !== "platform123") return Promise.reject(new ApiError(401, "Login yoki parol noto'g'ri")); signed = true; return wait(null); },
-    logout() { signed = false; return wait(null); },
-    salons: () => wait(salons.map(live).sort((a, b) => a.paid_until.localeCompare(b.paid_until))),
-    create(p) {
-      const slug = p.slug.trim().toLowerCase();
-      if (!/^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/.test(slug)) return Promise.reject(new ApiError(422, "Manzil 3-40 ta lotin harf, raqam yoki '-' bo'lishi kerak"));
-      if (salons.some((s) => s.slug === slug)) return Promise.reject(new ApiError(409, "Bu manzil band. Boshqa nom tanlang."));
-      const s = { id: salons.length + 1, slug, name: p.name, phone: p.phone, plan: "standard", paid_until: addMonths(today(), p.months), is_active: true, staff_count: 1, bookings_30d: 0, created_at: new Date().toISOString() };
-      salons.push(s); return wait(live(s));
-    },
-    update(id, p) {
-      const s = salons.find((x) => x.id === id);
-      if (p.extend_months) s.paid_until = addMonths(s.paid_until > today() ? s.paid_until : today(), p.extend_months);
-      if (p.is_active != null) s.is_active = p.is_active;
-      return wait(live(s));
-    },
-  };
-})();
+const S = { me: null, tab: "leads", leads: [], salons: [], team: [], payments: [], stats: {}, filter: "open", q: "", drawer: null, creds: null, error: "", login: { login: "", password: "" }, ask: null, busy: false };
+const manager = () => ["owner", "partner"].includes(S.me?.role);
+function toast(msg) { $("#toast-slot").innerHTML = `<div class="toast" role="status">${esc(msg)}</div>`; clearTimeout(toast.t); toast.t = setTimeout(() => { $("#toast-slot").innerHTML = ""; }, 2600); }
 
-// ---------- state ----------
-const S = { demo: false, signed: false, salons: [], filter: "all", q: "", form: null, creds: null, error: "", login: { login: "", password: "" }, stopAsk: null };
-let api = realApi;
-const state = (s) => !s.is_active ? "off" : dayDiff(s.paid_until) < 0 ? "bad" : dayDiff(s.paid_until) <= 7 ? "soon" : "ok";
-const STATE_LABEL = { ok: "Faol", soon: "Tugayapti", bad: "Muddati o'tgan", off: "To'xtatilgan" };
-function toast(msg) { $("#toast-slot").innerHTML = `<div class="toast" role="status">${esc(msg)}</div>`; setTimeout(() => { $("#toast-slot").innerHTML = ""; }, 2200); }
-async function load() { S.salons = await api.salons(); render(); }
+async function load() {
+  const [leads, salons, team, stats] = await Promise.all([api.get("/leads"), api.get("/salons"), api.get("/team"), api.get("/stats")]);
+  Object.assign(S, { leads, salons, team, stats });
+  if (manager() && S.tab === "money") S.payments = await api.get("/payments");
+  render();
+}
+async function refreshStats() { S.stats = await api.get("/stats").catch(() => S.stats); }
 
-// ---------- views ----------
-function rowHtml(s) {
+// ---------- leads ----------
+const isDue = (l) => l.next_step_on && dayDiff(l.next_step_on) <= 0 && !["paid", "lost"].includes(l.status);
+function leadHtml(l) {
+  const d = l.next_step_on ? dayDiff(l.next_step_on) : null;
+  const when = d === null ? "" : d < 0 ? `<b>${-d} kun kechikdi</b>` : d === 0 ? "<b>bugun</b>" : d === 1 ? "ertaga" : fmtDate(l.next_step_on);
+  const salon = l.salon_id ? S.salons.find((s) => s.id === l.salon_id) : null;
+  const tel = digits(l.phone);
+  return `<article class="lead${isDue(l) ? " due" : ""}">
+    <div><h3>${bdi(l.name)}</h3>
+      <div class="meta"><span>${esc(kindLabel(l.kind))}</span>${l.contact ? `<span>${bdi(l.contact)}</span>` : ""}${l.phone ? `<a href="tel:+${tel}">⁦${esc(l.phone)}⁩</a>` : ""}${l.address ? `<span>${bdi(l.address)}</span>` : ""}${manager() ? `<span>· ${esc(l.assigned_name || "Ega")}</span>` : ""}</div>
+      ${l.next_step || when ? `<div class="next">Keyingi qadam: ${bdi(l.next_step || "—")}${when ? ` · ${when}` : ""}</div>` : ""}</div>
+    <div class="side"><select class="mini" data-lstatus="${l.id}" aria-label="Holat">${STATUSES.filter(([k]) => k !== "paid" || manager() || l.status === "paid").map(([k, v]) => `<option value="${k}"${k === l.status ? " selected" : ""}>${v}</option>`).join("")}</select></div>
+    ${l.note ? `<div class="note">${bdi(l.note)}</div>` : ""}
+    <div class="acts">
+      ${tel ? `<a class="btn link" href="tel:+${tel}">Qo'ng'iroq</a>` : ""}
+      ${salon ? `<a class="btn link" href="${esc(showUrl(salon))}" target="_blank" rel="noopener">Taqdimot</a><a class="btn link" href="/${esc(salon.slug)}/admin" target="_blank" rel="noopener">Admin panel</a>${salon.telegram_bot ? "" : `<button class="btn" data-takebot="${salon.id}">Bot ulash</button>`}`
+        : `<button class="btn primary" style="font-size:13px;padding:7px 11px" data-demo="${l.id}">Demo ochish</button>`}
+      <button class="btn" data-ledit="${l.id}">Tahrirlash</button>
+    </div></article>`;
+}
+function leadsHtml() {
+  const q = S.q.trim().toLowerCase();
+  const pass = (l) => (S.filter === "all" || (S.filter === "open" && !["paid", "lost"].includes(l.status)) || (S.filter === "due" && isDue(l)) || l.status === S.filter)
+    && (!q || l.name.toLowerCase().includes(q) || digits(l.phone).includes(digits(q) || "§"));
+  const list = S.leads.filter(pass).sort((a, b) => (isDue(b) - isDue(a)) || String(a.next_step_on || "9").localeCompare(String(b.next_step_on || "9")));
+  const chip = (k, label) => `<button class="chip" data-filter="${k}" aria-pressed="${S.filter === k}">${label}</button>`;
+  return `<div class="filters">${chip("open", "Ochiq")}${chip("due", "Bugun qilinadigan")}${STATUSES.map(([k, v]) => chip(k, v)).join("")}${chip("all", "Hammasi")}
+      <input class="search" id="q" placeholder="Nom yoki telefon" value="${esc(S.q)}" autocomplete="off"></div>
+    ${list.length ? `<div class="leads">${list.map(leadHtml).join("")}</div>` : `<div class="table-wrap"><div class="empty">${S.leads.length ? "Bu filtrda lid yo'q." : "Hali lid yo'q. Birinchi biznesni \"+ Lid\" bilan qo'shing."}</div></div>`}`;
+}
+
+// ---------- businesses ----------
+const state = (s) => s.is_demo ? "demo" : !s.is_active ? "off" : dayDiff(s.paid_until) < 0 ? "bad" : dayDiff(s.paid_until) <= 7 ? "soon" : "ok";
+const STATE = { ok: ["ok", "Faol"], soon: ["soon", "Tugayapti"], bad: ["bad", "Muddati o'tgan"], off: ["off", "To'xtatilgan"], demo: ["soon", "Demo"] };
+function salonRow(s) {
   const st = state(s), dd = dayDiff(s.paid_until);
-  const left = !s.is_active ? "platforma to'xtatgan" : dd < 0 ? `${-dd} kun oldin tugagan` : dd === 0 ? "bugun oxirgi kun" : `${dd} kun qoldi`;
-  const acts = S.stopAsk === s.id
+  const left = !s.is_active ? "to'xtatilgan" : dd < 0 ? `${-dd} kun oldin tugagan` : dd === 0 ? "bugun oxirgi kun" : `${dd} kun qoldi`;
+  const acts = S.ask === s.id
     ? `<span class="hint">To'xtatilsinmi?</span><button class="btn" data-keep="1">Yo'q</button><button class="btn bad" data-stop="${s.id}">Ha</button>`
-    : `<button class="btn pay" data-extend="${s.id}">+1 oy</button><button class="btn" data-extend3="${s.id}">+3 oy</button>${s.is_active ? `<button class="btn bad" data-ask="${s.id}">To'xtatish</button>` : `<button class="btn" data-resume="${s.id}">Yoqish</button>`}`;
-  return `<tr><td class="name"><b>${esc(s.name)}</b><a href="/${esc(s.slug)}" target="_blank" rel="noopener">/${esc(s.slug)}</a> <span class="hint">· ${esc(kindLabel(s.kind))}</span> <a href="${esc(showUrl(s))}" target="_blank" rel="noopener">· Taqdimot</a></td>
-    <td><span class="pill ${st}">${STATE_LABEL[st]}</span></td>
+    : `<a class="btn link" href="${esc(showUrl(s))}" target="_blank" rel="noopener">Taqdimot</a>${!s.telegram_bot ? `<button class="btn" data-takebot="${s.id}">Bot ulash</button>` : ""}
+       ${manager() ? `<button class="btn pay" data-pay="${s.id}">To'lov</button>${s.is_active ? `<button class="btn bad" data-ask="${s.id}">To'xtatish</button>` : `<button class="btn" data-resume="${s.id}">Yoqish</button>`}` : ""}`;
+  return `<tr><td class="name"><b>${bdi(s.name)}</b><a href="/${esc(s.slug)}/admin" target="_blank" rel="noopener">/${esc(s.slug)}</a> <span class="hint">· ${esc(kindLabel(s.kind))}${s.telegram_bot ? ` · @${esc(s.telegram_bot)}` : " · bot yo'q"}</span></td>
+    <td><span class="pill ${STATE[st][0]}">${STATE[st][1]}</span></td>
     <td class="num">${fmtDate(s.paid_until)}<span class="days">${left}</span></td>
-    <td class="num c-stats">${s.staff_count} xodim · ${s.bookings_30d} bron / 30 kun</td>
+    <td class="num c-stats">${s.staff_count} xodim · ${s.bookings_30d} bron / 30 kun${manager() && s.paid_total ? ` · ${som(s.paid_total)}` : ""}</td>
     <td class="c-acts"><div class="acts">${acts}</div></td></tr>`;
 }
-
-function mainHtml() {
-  const c = { ok: 0, soon: 0, bad: 0, off: 0 }; S.salons.forEach((s) => c[state(s)]++);
+function salonsHtml() {
   const q = S.q.trim().toLowerCase();
-  const rows = S.salons.filter((s) => (S.filter === "all" || state(s) === S.filter || (S.filter === "ok" && state(s) === "soon")) && (!q || s.name.toLowerCase().includes(q) || s.slug.includes(q)));
-  const chip = (k, label) => `<button class="chip" data-filter="${k}" aria-pressed="${S.filter === k}">${label}</button>`;
-  return `<div class="wrap">
-    <div class="top"><h1><small>PLATFORMA</small>Salonlar</h1>${S.demo ? '<span class="badge">DEMO</span>' : ""}<button class="ghost" id="logout">Chiqish</button><button class="primary" id="add">+ Salon ulash</button></div>
-    ${S.creds ? `<div class="creds"><b>${esc(S.creds.name)} ulandi.</b><span>Admin panel <code>${esc(location.host)}/${esc(S.creds.slug)}/admin</code></span><span>Login <code>${esc(S.creds.login)}</code></span><span>Parol <code>${esc(S.creds.password)}</code></span><span class="hint">Salon egasiga hozir bering: parol keyin ko'rsatilmaydi. Botni ulagach, ro'yxatdagi "Taqdimot" havolasi shu biznes uchun tayyor taqdimotni ochadi.</span></div>` : ""}
-    ${S.error && !S.form ? `<div class="notice">${esc(S.error)}</div>` : ""}
-    <div class="stats">
-      <div class="stat"><span>Jami salon</span><b>${S.salons.length}</b></div>
-      <div class="stat"><span>Faol</span><b>${c.ok + c.soon}</b></div>
-      <div class="stat"><span>7 kunda tugaydi</span><b>${c.soon}</b></div>
-      <div class="stat"><span>To'lamagan yoki to'xtatilgan</span><b>${c.bad + c.off}</b></div>
-    </div>
-    <div class="filters">${chip("all", "Hammasi")}${chip("soon", "Tugayapti")}${chip("bad", "Muddati o'tgan")}${chip("off", "To'xtatilgan")}
-      <input class="search" id="q" type="search" placeholder="Qidirish" value="${esc(S.q)}" aria-label="Salon qidirish"></div>
-    <div class="table-wrap">${rows.length ? `<table><thead><tr><th>Salon</th><th>Holat</th><th>Obuna tugashi</th><th>Faollik</th><th></th></tr></thead><tbody>${rows.map(rowHtml).join("")}</tbody></table>` : `<div class="empty">Hech narsa topilmadi.</div>`}</div>
-    <p class="hint">Obuna tugasa: salon sayti bron qabul qilmaydi, SMS ketmaydi, panel faqat ko'rish rejimida. "+1 oy" bosilganda darhol tiklanadi.</p>
-  </div>`;
+  const list = S.salons.filter((s) => !q || s.name.toLowerCase().includes(q) || s.slug.includes(q));
+  return `<div class="filters"><span class="hint">Demolar 14 kunlik sinov bilan ochiladi. To'lov yozilgach demo oddiy mijozga aylanadi va boti unda qoladi.</span><input class="search" id="q" placeholder="Qidirish" value="${esc(S.q)}" autocomplete="off"></div>
+    <div class="table-wrap">${list.length ? `<table><thead><tr><th>Biznes</th><th>Holat</th><th>Obuna tugashi</th><th>Faollik</th><th></th></tr></thead><tbody>${list.map(salonRow).join("")}</tbody></table>` : `<div class="empty">Biznes yo'q.</div>`}</div>`;
 }
 
+// ---------- money ----------
+function moneyHtml() {
+  return `<div class="table-wrap">${S.payments.length ? `<table><thead><tr><th>Sana</th><th>Biznes</th><th>Oy</th><th>Summa</th></tr></thead><tbody>${S.payments.map((p) => `<tr><td class="num">${fmtDate(p.paid_at.slice(0, 10))}</td><td>${bdi(p.salon_name)}</td><td class="num">${p.months}</td><td class="num"><b>${som(p.amount)}</b></td></tr>`).join("")}</tbody></table>` : `<div class="empty">Hali to'lov yozilmagan. "Bizneslar" bo'limida "To'lov" tugmasi bilan yoziladi.</div>`}</div>`;
+}
+
+// ---------- team ----------
+function teamHtml() {
+  return `<div class="filters"><span class="hint">Har kim o'z login-paroli bilan kiradi. Sotuvchi faqat o'z lidlarini ko'radi, demo ochadi va pulni ko'rmaydi. Sherik hamma narsani ko'radi.</span></div>
+  <div class="table-wrap"><table><thead><tr><th>Ism</th><th>Login</th><th>Rol</th><th>Oxirgi kirish</th><th></th></tr></thead><tbody>
+  <tr><td><b>${esc(S.me.role === "owner" && S.me.id === null ? S.me.name : "Platforma egasi")}</b></td><td class="hint">asosiy</td><td>Ega</td><td></td><td></td></tr>
+  ${S.team.map((u) => `<tr><td><b>${bdi(u.name)}</b>${u.is_active ? "" : ' <span class="pill off">o\'chirilgan</span>'}</td><td class="num">${esc(u.login)}</td><td>${ROLE[u.role]}</td><td class="num">${u.last_login_at ? fmtDate(u.last_login_at.slice(0, 10)) : "—"}</td>
+    <td class="c-acts"><div class="acts">${manager() && (u.role === "sales" || S.me.role === "owner") ? `<button class="btn" data-newpw="${u.id}">Yangi parol</button><button class="btn${u.is_active ? " bad" : ""}" data-toggleu="${u.id}">${u.is_active ? "O'chirish" : "Yoqish"}</button>` : ""}</div></td></tr>`).join("")}
+  </tbody></table></div>`;
+}
+
+// ---------- page ----------
+function statsHtml() {
+  const st = S.stats, L = st.leads || {}, open = ["new", "talked", "demo", "trial"].reduce((a, k) => a + (L[k] || 0), 0);
+  const cards = manager()
+    ? [["To'layotgan bizneslar", st.paying ?? 0], ["Tushum, 30 kun", som(st.income_30d)], ["Ochiq lidlar", open], ["Bugun qilinadigan", st.due_today ?? 0]]
+    : [["Mening ochiq lidlarim", open], ["Demo va sinovda", (L.demo || 0) + (L.trial || 0)], ["To'lovga o'tganlar", L.paid || 0], ["Bugun qilinadigan", st.due_today ?? 0]];
+  return `<div class="stats">${cards.map(([k, v]) => `<div class="stat"><span>${k}</span><b>${v}</b></div>`).join("")}</div>`;
+}
+function mainHtml() {
+  const tabs = [["leads", "Lidlar", S.stats.due_today || 0], ["salons", "Bizneslar", 0], ...(manager() ? [["money", "To'lovlar", 0], ["team", "Jamoa", 0]] : [["team", "Jamoa", 0]])];
+  const add = S.tab === "leads" ? `<button class="primary" data-newlead="1">+ Lid</button>` : S.tab === "salons" ? `<button class="primary" data-newsalon="1">+ ${manager() ? "Biznes" : "Demo"}</button>` : S.tab === "team" && manager() ? `<button class="primary" data-newuser="1">+ Xodim</button>` : "";
+  const view = S.tab === "salons" ? salonsHtml() : S.tab === "money" ? moneyHtml() : S.tab === "team" ? teamHtml() : leadsHtml();
+  return `<div class="wrap">
+    <div class="top"><h1><small>NAVBAT PLATFORMASI</small>${{ leads: "Lidlar", salons: "Bizneslar", money: "To'lovlar", team: "Jamoa" }[S.tab]}</h1>
+      <span class="who">${S.me.name !== ROLE[S.me.role] ? `${bdi(S.me.name)} · ` : ""}<b>${ROLE[S.me.role]}</b></span><a class="ghost" href="/taqdimot" target="_blank" rel="noopener" style="text-decoration:none">Taqdimot</a><button class="ghost" id="logout">Chiqish</button>${add}</div>
+    ${statsHtml()}
+    <nav class="tabs">${tabs.map(([k, v, n]) => `<button data-tab="${k}" aria-current="${S.tab === k ? "page" : "false"}">${v}${n ? `<span class="n">${n}</span>` : ""}</button>`).join("")}</nav>
+    ${S.error ? `<div class="notice">${esc(S.error)}</div>` : ""}
+    ${S.creds ? `<div class="creds"><b>${bdi(S.creds.name)} ochildi.</b><span>Admin panel <code>${esc(location.host)}/${esc(S.creds.slug)}/admin</code></span><span>Login <code>${esc(S.creds.login)}</code></span><span>Parol <code>${esc(S.creds.password)}</code></span><span class="hint">Parol keyin ko'rsatilmaydi. Endi "Bot ulash" ni bosing.</span></div>` : ""}
+    ${view}</div>`;
+}
 function loginHtml() {
-  return `<form class="login" id="lform"><h1>Platforma</h1><p class="hint">Salonlar va obunalarni boshqarish.</p>${S.error ? `<div class="notice">${esc(S.error)}</div>` : ""}
+  return `<form class="login" id="lform"><h1>Platforma</h1><p class="hint">Navbat jamoasi uchun: lidlar, demolar, bizneslar va to'lovlar.</p>
+    ${S.error ? `<div class="notice">${esc(S.error)}</div>` : ""}
     <div class="field"><label for="llogin">Login</label><input id="llogin" autocomplete="username" autocapitalize="none" value="${esc(S.login.login)}"></div>
     <div class="field"><label for="lpass">Parol</label><input id="lpass" type="password" autocomplete="current-password" value="${esc(S.login.password)}"></div>
-    <button class="btn primary" type="submit">Kirish</button>
-    ${S.demo ? `<div class="demo-hint">Demo: <b>platform</b> / <b>platform123</b></div>` : ""}</form>`;
+    <button class="primary" type="submit">Kirish</button></form>`;
 }
 
-const KINDS = [["beauty", "Ayollar saloni"], ["barber", "Barbershop"], ["cosmetology", "Kosmetologiya"], ["dental", "Stomatologiya"], ["clinic", "Klinika"], ["spa", "SPA va massaj"], ["auto", "Avtoservis"], ["vet", "Veterinariya"], ["other", "Boshqa"]];
-const kindLabel = (k) => (KINDS.find((x) => x[0] === k) || ["", "Barbershop"])[1];
-// The presentation page set up for this business: its kind, its name and its live demo bot.
-const showUrl = (s) => `/taqdimot?soha=${encodeURIComponent(s.kind || "barber")}&nom=${encodeURIComponent(s.name)}&demo=${encodeURIComponent(s.slug)}`;
-function formHtml() {
-  const F = S.form; if (!F) return "";
-  const field = (id, label, v, extra = "") => `<div class="field"><label for="${id}">${label}</label><input id="${id}" value="${esc(v)}" ${extra}></div>`;
-  return `<div class="scrim" data-close="1"></div><div class="drawer" role="dialog" aria-label="Salon ulash">
-    <header><div><small class="hint">Yangi mijoz</small><h2>Biznes ulash</h2></div><button class="x" data-close="1" aria-label="Yopish">✕</button></header>
-    <div class="body">
-      ${field("fname", "Salon nomi", F.name, 'placeholder="Masalan, Gulnoza Beauty"')}
-      <div class="field"><label>Soha</label><div class="months">${KINDS.map(([k, l]) => `<button class="chip" data-kind="${k}" aria-pressed="${F.kind === k}">${l}</button>`).join("")}</div></div>
-      <div class="field"><label for="fslug">Manzil</label><div class="slug"><span>${esc(location.host || "sayt.uz")}/</span><input id="fslug" value="${esc(F.slug)}" autocapitalize="none" spellcheck="false"></div></div>
-      ${field("fphone", "Salon telefoni", F.phone, 'inputmode="tel" placeholder="+998 71 200 00 00"')}
-      ${field("faddr", "Manzili (filial)", F.address, 'placeholder="Toshkent, ..."')}
-      <div class="field"><label>To'langan muddat</label><div class="months">${[1, 3, 6, 12].map((m) => `<button class="chip" data-months="${m}" aria-pressed="${F.months === m}">${m} oy</button>`).join("")}<button class="chip" data-months="0" aria-pressed="${F.months === 0}">Sinov (bugun)</button></div></div>
-      <div class="group">Salon egasining kirishi</div>
-      ${field("oname", "Ismi", F.owner_name, 'placeholder="Masalan, Aziz"')}
-      ${field("ologin", "Login", F.owner_login, 'autocapitalize="none" spellcheck="false"')}
-      ${field("opass", "Parol", F.owner_password, 'autocomplete="off"')}
-      <div class="field"><label>Demo uchun</label><div class="months"><button class="chip" data-sample="1" aria-pressed="${!!F.sample}">3 ta namuna usta qo'shilsin</button></div></div>
-      <p class="hint">Salon tanlangan sohaning standart xizmatlari va bitta filial bilan ochiladi. ${F.sample ? "Namuna ustalarning logini o'z ismi (kichik harfda), paroli egasining paroli bilan bir xil." : "Egasi o'zi ustalarni qo'shib, har biriga login-parol beradi."}</p>
-      ${S.error ? `<div class="notice">${esc(S.error)}</div>` : ""}
-    </div>
-    <footer><button class="btn" data-close="1">Bekor</button><button class="btn primary" id="fsave">Ulash</button></footer></div>`;
+// ---------- drawers ----------
+const field = (id, label, v, extra = "") => `<div class="field"><label for="${id}">${label}</label><input id="${id}" value="${esc(v)}" ${extra}></div>`;
+const kindChips = (cur) => `<div class="field"><label>Soha</label><div class="months">${KINDS.map(([k, l]) => `<button class="chip" type="button" data-fkind="${k}" aria-pressed="${cur === k}">${l}</button>`).join("")}</div></div>`;
+function drawer(title, sub, body, save) {
+  return `<div class="scrim" data-close="1"></div><div class="drawer" role="dialog" aria-label="${esc(title)}">
+    <header><div><small class="hint">${esc(sub)}</small><h2>${esc(title)}</h2></div><button class="x" data-close="1" aria-label="Yopish">✕</button></header>
+    <div class="body">${body}${S.error ? `<div class="notice">${esc(S.error)}</div>` : ""}</div>
+    <footer><button class="btn" data-close="1">Bekor</button>${save}</footer></div>`;
 }
-
+function drawerHtml() {
+  const F = S.drawer; if (!F) return "";
+  if (F.type === "lead") return drawer(F.id ? "Lidni tahrirlash" : "Yangi lid", "Biznes bilan ish", `
+    ${field("f-name", "Biznes nomi", F.name, 'placeholder="Masalan, Gulnoza Beauty"')}${kindChips(F.kind)}
+    <div class="row2">${field("f-phone", "Telefon", F.phone, 'inputmode="tel" placeholder="+998 90 123 45 67"')}${field("f-contact", "Kim bilan gaplashamiz", F.contact, 'placeholder="Egasi, Gulnoza opa"')}</div>
+    ${field("f-address", "Manzil yoki tuman", F.address)}
+    <div class="row2">${field("f-next", "Keyingi qadam", F.next_step, 'placeholder="Demo ko\'rsatish"')}<div class="field"><label for="f-date">Qachon</label><input id="f-date" type="date" value="${esc(F.next_step_on || "")}"></div></div>
+    ${manager() ? `<div class="field"><label for="f-who">Mas'ul</label><select id="f-who"><option value="">Ega</option>${S.team.filter((u) => u.is_active).map((u) => `<option value="${u.id}"${F.assigned_to === u.id ? " selected" : ""}>${esc(u.name)} · ${ROLE[u.role]}</option>`).join("")}</select></div>` : ""}
+    <div class="field"><label for="f-note">Izoh</label><textarea id="f-note" placeholder="Nimaga qiziqdi, qancha usta, qaysi muammo">${esc(F.note)}</textarea></div>`,
+    `<button class="btn primary" id="f-save">Saqlash</button>`);
+  if (F.type === "salon") return drawer(F.demo ? "Demo ochish" : "Biznes ulash", F.lead ? `Lid: ${F.lead.name}` : "Yangi biznes", `
+    ${field("f-name", "Biznes nomi", F.name)}
+    <div class="field"><label for="f-slug">Manzil</label><div class="slug"><span>${esc(location.host)}/</span><input id="f-slug" value="${esc(F.slug)}" autocapitalize="none" spellcheck="false"></div></div>
+    ${kindChips(F.kind)}
+    ${manager() ? `<div class="field"><label>Turi</label><div class="months"><button class="chip" type="button" data-fdemo="1" aria-pressed="${F.demo}">Demo, 14 kun tekin</button><button class="chip" type="button" data-fdemo="0" aria-pressed="${!F.demo}">To'lovchi mijoz</button></div></div>
+      ${F.demo ? "" : `<div class="field"><label>To'langan muddat</label><div class="months">${[1, 3, 6, 12].map((m) => `<button class="chip" type="button" data-fmonths="${m}" aria-pressed="${F.months === m}">${m} oy</button>`).join("")}</div></div>`}` : `<p class="hint">Demo 14 kun tekin ishlaydi. To'lovni platforma egasi yoki sherigi yozadi.</p>`}
+    <div class="field"><label>Namuna</label><div class="months"><button class="chip" type="button" data-fsample="1" aria-pressed="${F.sample}">3 ta namuna xodim qo'shilsin</button></div></div>
+    ${field("f-phone", "Biznes telefoni", F.phone, 'inputmode="tel"')}${field("f-address", "Manzili (filial)", F.address)}
+    <div class="group">Biznes egasining kirishi</div>
+    ${field("f-oname", "Ismi", F.owner_name)}<div class="row2">${field("f-ologin", "Login", F.owner_login, 'autocapitalize="none" spellcheck="false"')}${field("f-opass", "Parol", F.owner_password, 'autocomplete="off"')}</div>
+    ${F.sample ? `<p class="hint">Namuna xodimlarning logini ismi (kichik harfda), paroli egasiniki bilan bir xil.</p>` : ""}`,
+    `<button class="btn primary" id="f-save">${F.demo ? "Demo ochish" : "Ulash"}</button>`);
+  if (F.type === "pay") { const s = S.salons.find((x) => x.id === F.id); return drawer("To'lov", s.name, `
+    <div class="field"><label>Necha oy</label><div class="months">${[1, 3, 6, 12].map((m) => `<button class="chip" type="button" data-fmonths="${m}" aria-pressed="${F.months === m}">${m} oy</button>`).join("")}</div></div>
+    ${field("f-amount", "Summa, so'm", F.amount, 'inputmode="numeric" placeholder="300 000"')}
+    <p class="hint">Obuna ${fmtDate(s.paid_until)} dan ${F.months} oyga uzayadi${dayDiff(s.paid_until) < 0 ? " (bugundan boshlab)" : ""}. ${s.is_demo ? "Demo oddiy mijozga aylanadi, boti unda qoladi." : ""}</p>`,
+    `<button class="btn primary" id="f-save">To'lovni yozish</button>`); }
+  if (F.type === "takebot") { const s = S.salons.find((x) => x.id === F.id), donors = S.salons.filter((x) => x.is_demo && x.telegram_bot && x.id !== F.id);
+    return drawer("Bot ulash", s.name, `
+    ${donors.length ? `<div class="field"><label>Boshqa demodagi botni olish</label><p class="hint">Bot o'sha demodan ajraladi va shu yerga ulanadi. Yangi bot ochish shart emas.</p>
+      ${donors.map((d) => `<button class="btn" style="justify-content:flex-start" data-donor="${d.id}">@${esc(d.telegram_bot)} · ${bdi(d.name)}</button>`).join("")}</div>` : `<p class="hint">Bo'sh demo bot yo'q.</p>`}
+    <div class="group">Yoki yangi bot</div><ol class="steps"><li>Telegram'da @BotFather → /newbot</li><li>Admin panelga kiring: <a href="/${esc(s.slug)}/admin" target="_blank" rel="noopener">/${esc(s.slug)}/admin</a></li><li>Profil → Telegram bot → tokenni qo'yib "Ulash"</li></ol>`, ""); }
+  if (F.type === "user") return drawer("Yangi xodim", "Jamoa", `
+    ${field("f-name", "Ismi", F.name)}${field("f-ologin", "Login", F.login, 'autocapitalize="none" spellcheck="false"')}${field("f-opass", "Parol", F.password, 'autocomplete="off"')}
+    <div class="field"><label>Rol</label><div class="months"><button class="chip" type="button" data-frole="sales" aria-pressed="${F.role === "sales"}">Sotuvchi</button>${S.me.role === "owner" ? `<button class="chip" type="button" data-frole="partner" aria-pressed="${F.role === "partner"}">Sherik</button>` : ""}</div></div>
+    <p class="hint">Login va parolni xodimga o'zingiz bering: parol keyin ko'rsatilmaydi.</p>`, `<button class="btn primary" id="f-save">Qo'shish</button>`);
+  return "";
+}
 function render() {
-  $("#root").innerHTML = S.signed ? mainHtml() : loginHtml();
-  $("#layer").innerHTML = S.signed ? formHtml() : "";
+  $("#root").innerHTML = S.me ? mainHtml() : loginHtml();
+  $("#layer").innerHTML = S.me ? drawerHtml() : "";
 }
 
-// ---------- events ----------
+// ---------- actions ----------
+function openLead(l) {
+  S.drawer = l ? { type: "lead", id: l.id, name: l.name, kind: l.kind, phone: l.phone, contact: l.contact, address: l.address, next_step: l.next_step, next_step_on: l.next_step_on, assigned_to: l.assigned_to, note: l.note }
+    : { type: "lead", name: "", kind: "beauty", phone: "", contact: "", address: "", next_step: "", next_step_on: today(), assigned_to: S.me.role === "sales" ? S.me.id : null, note: "" };
+}
+function openSalon(lead) {
+  const demo = !manager() || !!lead;
+  S.drawer = { type: "salon", lead, demo, name: lead?.name || "", slug: slugify(lead?.name || ""), slugTouched: false, kind: lead?.kind || "beauty", months: 1, sample: demo,
+    phone: lead?.phone || "", address: lead?.address || "", owner_name: lead?.contact || "", owner_login: "owner", owner_password: newPassword() };
+}
+async function save() {
+  const F = S.drawer;
+  if (F.type === "lead") {
+    if (!F.name.trim()) throw new Error("Biznes nomini yozing");
+    const body = { name: F.name.trim(), kind: F.kind, phone: F.phone.trim(), contact: F.contact.trim(), address: F.address.trim(), next_step: F.next_step.trim(), next_step_on: F.next_step_on || null, note: F.note };
+    if (manager()) body.assigned_to = F.assigned_to;
+    const l = F.id ? await api.patch(`/leads/${F.id}`, { ...body, clear_next_step_on: !F.next_step_on }) : await api.post("/leads", body);
+    S.leads = F.id ? S.leads.map((x) => (x.id === l.id ? l : x)) : [l, ...S.leads];
+    S.drawer = null; toast(F.id ? "Saqlandi" : "Lid qo'shildi"); await refreshStats(); return;
+  }
+  if (F.type === "salon") {
+    if (!F.name.trim() || !F.owner_name.trim()) throw new Error("Biznes nomi va egasining ismini yozing");
+    const s = await api.post("/salons", { slug: F.slug, name: F.name.trim(), phone: F.phone.trim(), branch_address: F.address.trim(), months: F.demo ? 0 : F.months, trial_days: F.demo ? 14 : 0,
+      is_demo: F.demo, kind: F.kind, sample_masters: F.sample, owner_name: F.owner_name.trim(), owner_login: F.owner_login.trim().toLowerCase(), owner_password: F.owner_password, lead_id: F.lead?.id || null });
+    S.creds = { name: s.name, slug: s.slug, login: F.owner_login.trim().toLowerCase(), password: F.owner_password };
+    S.drawer = null; await load(); S.tab = "salons"; render(); toast(`${s.name} ochildi`);
+    if (S.salons.some((x) => x.is_demo && x.telegram_bot && x.id !== s.id)) { S.drawer = { type: "takebot", id: s.id }; render(); }
+    return;
+  }
+  if (F.type === "pay") {
+    const amount = +digits(F.amount); if (!amount) throw new Error("Summani yozing");
+    const s = await api.patch(`/salons/${F.id}`, { extend_months: F.months, amount, is_active: true });
+    S.salons = S.salons.map((x) => (x.id === s.id ? s : x)); S.drawer = null; toast(`${s.name}: ${fmtDate(s.paid_until)} gacha`); await load(); return;
+  }
+  if (F.type === "user") {
+    const u = await api.post("/team", { name: F.name.trim(), login: F.login.trim().toLowerCase(), password: F.password, role: F.role });
+    S.team = [...S.team, u]; S.creds = null; S.drawer = null; toast(`${u.name} qo'shildi. Login: ${u.login}, parol: ${F.password}`); return;
+  }
+}
+
 document.addEventListener("click", async (e) => {
   const t = e.target.closest("button, .scrim"); if (!t || t.disabled) return;
   const d = t.dataset;
+  if (S.busy && !d.close) return;
+  S.busy = true;
   try {
-    if (d.close) { S.form = null; S.error = ""; render(); }
-    else if (d.filter) { S.filter = d.filter; render(); }
-    else if (t.id === "add") { S.error = ""; S.creds = null; S.form = { name: "", slug: "", slugTouched: false, phone: "", address: "", months: 1, owner_name: "", owner_login: "owner", owner_password: newPassword(), kind: "beauty", sample: false }; render(); }
-    else if (d.kind) { S.form.kind = d.kind; render(); }
-    else if (d.sample) { S.form.sample = !S.form.sample; render(); }
-    else if (d.months) { S.form.months = +d.months; render(); }
-    else if (t.id === "fsave") {
-      const F = S.form;
-      if (!F.name.trim() || !F.owner_name.trim()) throw new Error("Salon nomi va egasining ismini yozing");
-      const s = await api.create({ slug: F.slug, name: F.name.trim(), phone: F.phone.trim(), months: F.months, branch_address: F.address.trim(),
-        owner_name: F.owner_name.trim(), owner_login: F.owner_login.trim().toLowerCase(), owner_password: F.owner_password, kind: F.kind, sample_masters: F.sample });
-      S.creds = { name: s.name, slug: s.slug, login: F.owner_login.trim().toLowerCase(), password: F.owner_password };
-      S.form = null; S.error = ""; await load(); toast("Salon ulandi");
-    }
-    else if (d.extend || d.extend3) {
-      if (S.busy) return;  // a double tap must not pay twice
-      const id = +(d.extend || d.extend3), n = d.extend ? 1 : 3;
-      S.busy = true; document.querySelectorAll("[data-extend],[data-extend3]").forEach((b) => (b.disabled = true));
-      let s; try { s = await api.update(id, { extend_months: n, is_active: true }); } finally { S.busy = false; }
-      S.salons = S.salons.map((x) => (x.id === s.id ? s : x)); S.error = ""; render(); toast(`${s.name}: ${fmtDate(s.paid_until)} gacha uzaytirildi`);
-    }
-    else if (d.ask) { S.stopAsk = +d.ask; render(); }
-    else if (d.keep) { S.stopAsk = null; render(); }
-    else if (d.stop || d.resume) {
-      const s = await api.update(+(d.stop || d.resume), { is_active: !!d.resume });
-      S.salons = S.salons.map((x) => (x.id === s.id ? s : x)); S.stopAsk = null; render(); toast(d.stop ? `${s.name} to'xtatildi` : `${s.name} qayta yoqildi`);
-    }
-    else if (t.id === "logout") { await api.logout(); S.signed = false; S.creds = null; S.login = { login: "", password: "" }; render(); }
+    S.error = "";
+    if (d.close) { S.drawer = null; }
+    else if (d.tab) { S.tab = d.tab; S.q = ""; S.creds = null; if (d.tab === "money") S.payments = await api.get("/payments"); }
+    else if (d.filter) S.filter = d.filter;
+    else if (d.newlead) openLead(null);
+    else if (d.ledit) openLead(S.leads.find((x) => x.id === +d.ledit));
+    else if (d.demo) openSalon(S.leads.find((x) => x.id === +d.demo));
+    else if (d.newsalon) openSalon(null);
+    else if (d.newuser) S.drawer = { type: "user", name: "", login: "", password: newPassword(), role: "sales" };
+    else if (d.pay) S.drawer = { type: "pay", id: +d.pay, months: 1, amount: "" };
+    else if (d.takebot) S.drawer = { type: "takebot", id: +d.takebot };
+    else if (d.donor) { const s = await api.post(`/salons/${S.drawer.id}/take-bot`, { from_salon_id: +d.donor }); S.drawer = null; await load(); toast(`@${s.telegram_bot} endi ${s.name} boti`); }
+    else if (d.fkind) S.drawer.kind = d.fkind;
+    else if (d.fdemo) S.drawer.demo = d.fdemo === "1";
+    else if (d.fmonths) S.drawer.months = +d.fmonths;
+    else if (d.fsample) S.drawer.sample = !S.drawer.sample;
+    else if (d.frole) S.drawer.role = d.frole;
+    else if (t.id === "f-save") await save();
+    else if (d.ask) S.ask = +d.ask;
+    else if (d.keep) S.ask = null;
+    else if (d.stop || d.resume) { const s = await api.patch(`/salons/${+(d.stop || d.resume)}`, { is_active: !!d.resume }); S.salons = S.salons.map((x) => (x.id === s.id ? s : x)); S.ask = null; toast(d.stop ? `${s.name} to'xtatildi` : `${s.name} yoqildi`); }
+    else if (d.newpw) { const pw = newPassword(), u = await api.patch(`/team/${+d.newpw}`, { password: pw }); toast(`${u.name}: yangi parol ${pw}`); }
+    else if (d.toggleu) { const u0 = S.team.find((x) => x.id === +d.toggleu), u = await api.patch(`/team/${u0.id}`, { is_active: !u0.is_active }); S.team = S.team.map((x) => (x.id === u.id ? u : x)); }
+    else if (t.id === "logout") { await api.post("/logout", {}); S.me = null; S.creds = null; S.login = { login: "", password: "" }; }
+    else return;
+  } catch (err) { S.error = err.message; }
+  finally { S.busy = false; }
+  render();
+});
+document.addEventListener("change", async (e) => {
+  const el = e.target, d = el.dataset, F = S.drawer;
+  try {
+    if (d.lstatus) { const l = await api.patch(`/leads/${+d.lstatus}`, { status: el.value }); S.leads = S.leads.map((x) => (x.id === l.id ? l : x)); await refreshStats(); toast(`${l.name}: ${stLabel(l.status)}`); render(); }
+    else if (F && el.id === "f-who") F.assigned_to = el.value ? +el.value : null;
+    else if (F && el.id === "f-date") F.next_step_on = el.value;
   } catch (err) { S.error = err.message; render(); }
 });
 document.addEventListener("submit", async (e) => {
   if (e.target.id !== "lform") return;
   e.preventDefault();
-  try { await api.login(S.login.login, S.login.password); S.signed = true; S.error = ""; S.login.password = ""; await load(); }
+  try { await api.post("/login", { login: S.login.login, password: S.login.password }); S.me = await api.get("/me"); S.error = ""; S.login.password = ""; S.tab = "leads"; await load(); }
   catch (err) { S.login.password = ""; S.error = err.message; render(); }
 });
 document.addEventListener("input", (e) => {
-  const id = e.target.id, v = e.target.value, F = S.form;
+  const id = e.target.id, v = e.target.value, F = S.drawer;
   if (id === "llogin") S.login.login = v; if (id === "lpass") S.login.password = v;
   if (id === "q") { S.q = v; const pos = e.target.selectionStart; render(); const q = $("#q"); q.focus(); q.setSelectionRange(pos, pos); }
   if (!F) return;
-  if (id === "fname") { F.name = v; if (!F.slugTouched) { F.slug = slugify(v); const sl = $("#fslug"); if (sl) sl.value = F.slug; } }
-  if (id === "fslug") { F.slug = v; F.slugTouched = true; }
-  if (id === "fphone") F.phone = v; if (id === "faddr") F.address = v;
-  if (id === "oname") F.owner_name = v; if (id === "ologin") F.owner_login = v; if (id === "opass") F.owner_password = v;
+  const map = { "f-name": "name", "f-phone": "phone", "f-contact": "contact", "f-address": "address", "f-next": "next_step", "f-note": "note", "f-oname": "owner_name", "f-amount": "amount" };
+  if (map[id]) F[map[id]] = v;
+  if (id === "f-name" && F.type === "salon" && !F.slugTouched) { F.slug = slugify(v); const sl = $("#f-slug"); if (sl) sl.value = F.slug; }
+  if (id === "f-slug") { F.slug = v; F.slugTouched = true; }
+  if (id === "f-ologin") { if (F.type === "user") F.login = v; else F.owner_login = v; }
+  if (id === "f-opass") { if (F.type === "user") F.password = v; else F.owner_password = v; }
 });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.form) { S.form = null; render(); } });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.drawer) { S.drawer = null; render(); } });
 
 (async () => {
-  try { const r = await fetch("/api/health"); if (!r.ok || !(await r.json()).ok) throw 0; S.signed = await realApi.me(); }
-  catch { S.demo = true; api = demoApi; }
-  try { if (S.signed) await load(); else render(); } catch (err) { S.error = err.message; render(); }
+  try { S.me = await api.get("/me").catch(() => null); if (S.me) { S.tab = "leads"; await load(); } else render(); }
+  catch (err) { S.error = err.message; render(); }
 })();
 </script>

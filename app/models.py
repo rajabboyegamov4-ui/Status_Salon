@@ -40,7 +40,8 @@ class Salon(Base):
     name: Mapped[str] = mapped_column(String(120))
     phone: Mapped[str] = mapped_column(String(20), default="")
     plan: Mapped[str] = mapped_column(String(20), default="standard")
-    kind: Mapped[str] = mapped_column(String(20), default="barber", server_default="barber")  # barber | beauty | cosmetology
+    kind: Mapped[str] = mapped_column(String(20), default="barber", server_default="barber")  # see app/kinds.py
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")  # a sales demo; its bot can be reused
     paid_until: Mapped[date] = mapped_column(Date)  # subscription is active through this day
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)  # platform can suspend
     description: Mapped[str] = mapped_column(Text, default="")
@@ -355,3 +356,65 @@ class TgLogin(Base):
     status: Mapped[str] = mapped_column(String(10), default="pending")  # pending | done | used
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# ---------- the platform's own team: owner, partner, sales people ----------
+
+PLATFORM_ROLES = ("owner", "partner", "sales")
+LEAD_STATUSES = ("new", "talked", "demo", "trial", "paid", "lost")
+
+
+class PlatformUser(Base):
+    """Someone who sells or runs the platform. The owner from PLATFORM_LOGIN needs no row."""
+
+    __tablename__ = "platform_users"
+    __table_args__ = (CheckConstraint("role IN ('owner', 'partner', 'sales')", name="platform_users_role_check"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    login: Mapped[str] = mapped_column(String(40), unique=True)
+    password_hash: Mapped[str] = mapped_column(String(200))
+    name: Mapped[str] = mapped_column(String(120))
+    role: Mapped[str] = mapped_column(String(16))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Lead(Base):
+    """A business we talk to, from the first call to a paying client (then it points at its salon)."""
+
+    __tablename__ = "leads"
+    __table_args__ = (
+        CheckConstraint("status IN ('new', 'talked', 'demo', 'trial', 'paid', 'lost')", name="leads_status_check"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    kind: Mapped[str] = mapped_column(String(20), default="other")
+    phone: Mapped[str] = mapped_column(String(20), default="")
+    contact: Mapped[str] = mapped_column(String(120), default="")  # who we talk to: owner, manager
+    address: Mapped[str] = mapped_column(String(255), default="")
+    status: Mapped[str] = mapped_column(String(10), default="new")
+    assigned_to: Mapped[int | None] = mapped_column(ForeignKey("platform_users.id"), index=True)  # None: the owner
+    salon_id: Mapped[int | None] = mapped_column(ForeignKey("salons.id"), unique=True)
+    next_step_on: Mapped[date | None] = mapped_column(Date)
+    next_step: Mapped[str] = mapped_column(String(200), default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("platform_users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class Payment(Base):
+    """Money a business paid us for its subscription."""
+
+    __tablename__ = "payments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    salon_id: Mapped[int] = mapped_column(ForeignKey("salons.id"), index=True)
+    amount: Mapped[int] = mapped_column(BigInteger)  # so'm
+    months: Mapped[int] = mapped_column(Integer)
+    note: Mapped[str] = mapped_column(String(200), default="")
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("platform_users.id"))
+    paid_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
