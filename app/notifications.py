@@ -14,7 +14,7 @@ from sqlalchemy.orm import joinedload
 from app import telegram
 from app.config import settings
 from app.db import SessionLocal
-from app.models import Booking, Reminder, Salon
+from app.models import Booking, Reminder, Salon, Staff
 from app.services.availability import branch_tz, now_utc
 from app.sms import send_safely
 from app.tenancy import salon_today, subscription_active
@@ -35,13 +35,13 @@ def _som(n: int) -> str:
 
 
 def confirmation_text(b: Booking) -> str:
-    return (f"✅ <b>Bron tasdiqlandi</b>\n{_when(b)} · {_h(b.branch.name)}\nBarber: {_h(b.master.name)}\n"
+    return (f"✅ <b>Bron tasdiqlandi</b>\n{_when(b)} · {_h(b.branch.name)}\nUsta: {_h(b.master.name)}\n"
             f"Manzil: {_h(b.branch.address)}\nJami: {_som(b.total_price)} so'm")
 
 
 def reminder_text(b: Booking, kind: str) -> str:
     lead = "Ertaga" if kind == "24h" else "2 soatdan keyin"
-    return f"⏰ {lead} ({_when(b)}) sizni kutamiz.\nBarber: {_h(b.master.name)} · {_h(b.branch.name)}"
+    return f"⏰ {lead} ({_when(b)}) sizni kutamiz.\nUsta: {_h(b.master.name)} · {_h(b.branch.name)}"
 
 
 def cancellation_text(b: Booking) -> str:
@@ -102,8 +102,55 @@ async def send_moved(booking_id: int) -> None:
     async with SessionLocal() as session:
         b, salon = await _load(session, booking_id)
         if b:
-            text = f"🔁 <b>Bron vaqti o'zgardi</b>\nYangi vaqt: {_when(b)} · {_h(b.branch.name)}\nBarber: {_h(b.master.name)}"
+            text = f"🔁 <b>Bron vaqti o'zgardi</b>\nYangi vaqt: {_when(b)} · {_h(b.branch.name)}\nUsta: {_h(b.master.name)}"
             await deliver(salon, b, text, [cancel_button(b)])
+
+
+# ---------- the salon's own people: new, cancelled and moved bookings ----------
+
+WEEKDAYS = ("dushanba", "seshanba", "chorshanba", "payshanba", "juma", "shanba", "yakshanba")
+STAFF_EVENTS = {"new": "🆕 <b>Yangi bron</b>", "cancelled": "❌ <b>Bron bekor qilindi</b>", "moved": "🔁 <b>Bron vaqti o'zgardi</b>"}
+
+
+def _phone(p: str) -> str:
+    if p.startswith("+998") and len(p) == 13:
+        return f"+998 {p[4:6]} {p[6:9]} {p[9:11]} {p[11:]}"
+    return "" if p == "walk-in" else p
+
+
+def staff_text(b: Booking, event: str) -> str:
+    local = b.starts_at.astimezone(branch_tz(b.branch))
+    client = b.user.name or "Mijoz"
+    if b.user.phone == "walk-in" and b.comment:
+        client = b.comment.split(". ")[0]
+    lines = [STAFF_EVENTS[event],
+             f"👤 {_h(client)}{(' · ' + _phone(b.user.phone)) if _phone(b.user.phone) else ''}",
+             f"✨ {_h(', '.join(i.service_name for i in b.items))}",
+             f"👩‍🎨 Usta: {_h(b.master.name)}",
+             f"🕒 {local:%d.%m}, {WEEKDAYS[local.weekday()]} {local:%H:%M} · {_h(b.branch.name)}",
+             f"💰 {_som(b.total_price)} so'm"]
+    if b.comment and b.user.phone != "walk-in":
+        lines.append(f"💬 {_h(b.comment)}")
+    return "\n".join(lines)
+
+
+async def notify_staff(booking_id: int, event: str, exclude_staff_id: int | None = None) -> int:
+    """Tell the owner, administrators and the booked master (whoever linked their Telegram) what happened.
+    The person who made the change is not told about their own action. Returns how many messages went out."""
+    async with SessionLocal() as session:
+        b, salon = await _load(session, booking_id)
+        token = telegram.unseal(salon.tg_token_sealed) if b else None
+        if not b or not token:
+            return 0
+        people = (await session.scalars(
+            select(Staff).where(Staff.salon_id == b.salon_id, Staff.is_active, Staff.tg_chat_id.is_not(None))
+        )).all()
+        chats = {p.tg_chat_id for p in people
+                 if p.id != exclude_staff_id and (p.role in ("owner", "admin") or p.master_id == b.master_id)}
+        text, sent = staff_text(b, event), 0
+        for chat_id in sorted(chats):
+            sent += await telegram.send(token, chat_id, text)
+        return sent
 
 
 async def send_review_request(booking_id: int) -> None:

@@ -1,5 +1,5 @@
 <meta charset="utf-8">
-<title>Barber Paneli</title>
+<title>Usta paneli</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
@@ -548,8 +548,8 @@ function salonEditorHtml(x) {
     <div class="pcover">${x.cover_url ? `<img src="${esc(x.cover_url)}" alt="Muqova">` : `<span class="hint">Muqova rasmi yo'q</span>`}</div>
     <div class="prow">${fileBtn(x.cover_url ? "Muqovani almashtirish" : "Muqova rasmi yuklash", "cover")}</div>
     <div class="pgrid">
-      <div class="field wide"><label for="s-description">Salon haqida</label><textarea id="s-description" rows="3" maxlength="2000" placeholder="Masalan: erkaklar uchun premium barbershop, qahva va issiq sochiq">${dv("s-description", x.description)}</textarea></div>
-      <div class="field"><label for="s-instagram">Instagram</label><input id="s-instagram" value="${dv("s-instagram", x.instagram)}" placeholder="premiumbarber.uz"></div>
+      <div class="field wide"><label for="s-description">Salon haqida</label><textarea id="s-description" rows="3" maxlength="2000" placeholder="Masalan: ayollar uchun go'zallik saloni, tajribali ustalar va qulay joy">${dv("s-description", x.description)}</textarea></div>
+      <div class="field"><label for="s-instagram">Instagram</label><input id="s-instagram" value="${dv("s-instagram", x.instagram)}" placeholder="salon.uz"></div>
       <div class="field"><label for="s-phone">Telefon</label><input id="s-phone" inputmode="tel" value="${dv("s-phone", x.phone)}"></div>
     </div><div class="prow"><button class="btn primary w" data-save-salon="1">Saqlash</button></div></section>`;
 }
@@ -579,7 +579,7 @@ function masterEditorHtml(m, { canRank }) {
       <div class="pgrid">
         ${canRank ? `<div class="field"><label for="${id("rank")}">Darajasi</label><input id="${id("rank")}" value="${dv(id("rank"), m.rank)}"></div>` : ""}
         <div class="field"><label for="${id("years")}">Tajriba, yil</label><input id="${id("years")}" type="number" min="0" max="60" inputmode="numeric" value="${dv(id("years"), m.experience_years)}"></div>
-        <div class="field"><label for="${id("ig")}">Instagram</label><input id="${id("ig")}" value="${dv(id("ig"), m.instagram)}" placeholder="@jasur.barber" autocapitalize="off"></div>
+        <div class="field"><label for="${id("ig")}">Instagram</label><input id="${id("ig")}" value="${dv(id("ig"), m.instagram)}" placeholder="@usta.instagram" autocapitalize="off"></div>
         <div class="field wide"><label for="${id("spec")}">Yo'nalishlari (vergul bilan)</label><input id="${id("spec")}" value="${esc(spec)}" placeholder="Fade, Soqol dizayni, Klassika"></div>
         <div class="field wide"><label for="${id("bio")}">O'zi haqida</label><textarea id="${id("bio")}" rows="3" maxlength="1500" placeholder="Qayerda o'qigan, qanday uslubda ishlaydi">${dv(id("bio"), m.bio)}</textarea></div>
       </div>
@@ -723,7 +723,7 @@ const dayName = (d) => (d === today() ? "Bugun" : d === addDays(today(), 1) ? "E
 const money = (n) => (n >= 10e6 ? `${(n / 1e6).toFixed(1).replace(".", ",")} mln` : som(n));
 function headerHtml() {
   const t = today(), m = S.masters.find((x) => x.id === S.master);
-  const name = S.user.name || (isAdmin() ? "Admin" : m?.name || "Barber");
+  const name = S.user.name || (isAdmin() ? "Admin" : m?.name || "Usta");
   const days = Array.from({ length: 8 }, (_, i) => addDays(t, i - 1));
   const label = (d) => (d === t ? "Bugun" : d === addDays(t, 1) ? "Ertaga" : d === addDays(t, -1) ? "Kecha" : `${dinfo(d).wd} ${dinfo(d).day}`);
   return `<div class="hello"><span class="av">${esc(name[0])}</span><span class="hi"><b>Salom, ${esc(name)}</b><small>${esc(S.user.salon?.name || "")} · ${isAdmin() ? "admin ko'rinishi" : "mijozlaringiz"}</small></span>${S.demo ? '<span class="badge">DEMO</span>' : ""}<button class="out" id="logout">Chiqish</button></div>
@@ -975,7 +975,7 @@ function passwordHtml() {
 
 function loginHtml() {
   const L = S.login;
-  return `<form class="login" id="lform"><span class="salon-name">${esc(S.salonName || SLUG)}</span><h1>Barber paneli</h1>
+  return `<form class="login" id="lform"><span class="salon-name">${esc(S.salonName || SLUG)}</span><h1>Usta paneli</h1>
     <p class="hint">Salon rahbari bergan login va parol bilan kiring.</p>${S.error ? `<div class="notice">${esc(S.error)}</div>` : ""}
     <div class="field"><label for="llogin">Login</label><input id="llogin" autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(L.login)}" placeholder="masalan, jasur"></div>
     <div class="field"><label for="lpass">Parol</label><input id="lpass" type="password" autocomplete="current-password" value="${esc(L.password)}"></div>

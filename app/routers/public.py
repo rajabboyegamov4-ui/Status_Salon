@@ -10,7 +10,7 @@ from app import auth
 from app.config import settings
 from app.db import get_session
 from app.models import Booking, Branch, BranchService, Master, MasterService, Salon, Service, User
-from app.notifications import send_confirmation
+from app.notifications import notify_staff, send_confirmation
 from app.schemas import (
     BookingCreate,
     BookingOut,
@@ -152,7 +152,7 @@ async def salon_master(session: AsyncSession, salon: Salon, master_id: int) -> M
     master = await session.get(Master, master_id)
     branch = await session.get(Branch, master.branch_id) if master else None
     if master is None or not master.is_active or branch.salon_id != salon.id or not branch.is_active:
-        raise HTTPException(404, "Barber topilmadi")
+        raise HTTPException(404, "Usta topilmadi")
     return master
 
 
@@ -187,7 +187,7 @@ async def master_reviews(
     master = await session.get(Master, master_id)
     branch = await session.get(Branch, master.branch_id) if master else None
     if master is None or branch.salon_id != salon.id:
-        raise HTTPException(404, "Barber topilmadi")
+        raise HTTPException(404, "Usta topilmadi")
     return await profiles.list_reviews(session, salon.id, master_id=master_id, limit=limit)
 
 
@@ -334,6 +334,7 @@ async def create_booking(
         raise HTTPException(422, str(e))
     if created:
         background.add_task(send_confirmation, booking.id)
+        background.add_task(notify_staff, booking.id, "new")
     else:
         response.status_code = 200  # the same request again: nothing new was booked
     return BookingOut.of(booking)
@@ -348,7 +349,10 @@ async def my_bookings(user: User = Depends(auth.current_client), session: AsyncS
 
 
 @router.post("/bookings/{booking_id}/cancel", response_model=BookingOut)
-async def cancel(booking_id: int, user: User = Depends(auth.current_client), session: AsyncSession = Depends(get_session)):
+async def cancel(
+    booking_id: int, background: BackgroundTasks,
+    user: User = Depends(auth.current_client), session: AsyncSession = Depends(get_session),
+):
     booking = await session.get(Booking, booking_id)
     if booking is None or booking.user_id != user.id:
         raise HTTPException(404, "Bron topilmadi")
@@ -356,6 +360,7 @@ async def cancel(booking_id: int, user: User = Depends(auth.current_client), ses
         booking = await svc.cancel_booking(session, booking, by_staff=False)
     except svc.BookingError as e:
         raise HTTPException(422, str(e))
+    background.add_task(notify_staff, booking.id, "cancelled")
     return BookingOut.of(await svc.load_booking(session, booking.id))
 
 

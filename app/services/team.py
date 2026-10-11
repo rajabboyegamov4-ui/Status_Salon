@@ -8,14 +8,40 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Branch, BranchService, Master, MasterService, Salon, Service, Staff, WorkingHours
 from app.security import hash_password
 
-# A new salon starts with these services; the owner adjusts prices later.
-DEFAULT_SERVICES = [
+# A new salon starts with the services of its kind; the owner adjusts names and prices later.
+TEMPLATES = {
     # name, category, price (so'm), duration (min)
-    ("Soch olish", "Soch", 120_000, 30),
-    ("Soqol olish", "Soqol", 80_000, 20),
-    ("Soch + soqol", "Kompleks", 180_000, 50),
-    ("Kompleks (soch, soqol, yuz parvarishi)", "Kompleks", 300_000, 90),
-]
+    "barber": [
+        ("Soch olish", "Soch", 120_000, 30),
+        ("Soqol olish", "Soqol", 80_000, 20),
+        ("Soch + soqol", "Kompleks", 180_000, 50),
+        ("Kompleks (soch, soqol, yuz parvarishi)", "Kompleks", 300_000, 90),
+    ],
+    "beauty": [
+        ("Soch turmagi (ukladka)", "Soch", 150_000, 60),
+        ("Soch bo'yash", "Soch", 400_000, 150),
+        ("Manikyur + gel lak", "Tirnoq", 150_000, 90),
+        ("Pedikyur", "Tirnoq", 180_000, 75),
+        ("Qosh va kiprik dizayni", "Qosh va kiprik", 100_000, 45),
+        ("Kechki makiyaj", "Makiyaj", 300_000, 60),
+    ],
+    "cosmetology": [
+        ("Yuzni tozalash", "Yuz", 300_000, 60),
+        ("Kimyoviy piling", "Yuz", 350_000, 45),
+        ("Yuz massaji", "Yuz", 200_000, 40),
+        ("Kiprik laminatsiyasi", "Qosh va kiprik", 200_000, 60),
+        ("Lazer epilyatsiya (bir zona)", "Epilyatsiya", 250_000, 30),
+        ("Kosmetolog konsultatsiyasi", "Konsultatsiya", 100_000, 20),
+    ],
+}
+DEFAULT_SERVICES = TEMPLATES["barber"]
+# Demo salons get three sample masters so a presentation starts with a full schedule.
+SAMPLE_MASTERS = {
+    "barber": [("Jasur", "Top-master", "Fade, Soqol dizayni"), ("Bekzod", "Master", "Klassik qirqim"), ("Sardor", "Master", "Crop, Bolalar")],
+    "beauty": [("Dilnoza", "Top-master", "Soch bo'yash, Ukladka"), ("Madina", "Master", "Manikyur, Pedikyur"), ("Sevara", "Master", "Makiyaj, Qosh dizayni")],
+    "cosmetology": [("Nigora", "Top-master", "Yuz tozalash, Piling"), ("Kamola", "Master", "Kiprik laminatsiyasi"), ("Zarina", "Master", "Lazer epilyatsiya")],
+}
+LOGIN_SAFE = str.maketrans({"'": "", "`": "", "ʻ": "", "ʼ": ""})
 DEFAULT_HOURS = (time(10), time(21))
 
 
@@ -35,22 +61,36 @@ async def create_salon(
     owner_name: str,
     owner_login: str,
     owner_password: str,
+    kind: str = "barber",
+    sample_masters: bool = False,
 ) -> Salon:
     if await session.scalar(select(Salon.id).where(Salon.slug == slug)):
         raise TeamError("Bu manzil band. Boshqa nom tanlang.")
-    salon = Salon(slug=slug, name=name, phone=phone, paid_until=paid_until)
+    template = TEMPLATES.get(kind)
+    if template is None:
+        raise TeamError("Soha noto'g'ri")
+    salon = Salon(slug=slug, name=name, phone=phone, paid_until=paid_until, kind=kind)
     session.add(salon)
     await session.flush()
     branch = Branch(salon_id=salon.id, name=branch_name or name, address=branch_address, phone=phone)
-    services = [Service(salon_id=salon.id, name=n, category=c) for n, c, _, _ in DEFAULT_SERVICES]
+    services = [Service(salon_id=salon.id, name=n, category=c) for n, c, _, _ in template]
     session.add(branch)
     session.add_all(services)
     await session.flush()
-    for s, (_, _, price, dur) in zip(services, DEFAULT_SERVICES):
+    for s, (_, _, price, dur) in zip(services, template):
         session.add(BranchService(branch_id=branch.id, service_id=s.id, price=price, duration_min=dur))
     session.add(Staff(salon_id=salon.id, login=owner_login.lower(), password_hash=hash_password(owner_password),
                       name=owner_name, role="owner"))
     await session.flush()
+    if sample_masters:
+        for name_, rank, specialties in SAMPLE_MASTERS[kind]:
+            login = name_.lower().translate(LOGIN_SAFE)
+            if login == owner_login.lower():
+                login += "1"
+            member = await create_member(session, salon, name=name_, login=login, password=owner_password, rank=rank,
+                                         price_factor=1.2 if rank == "Top-master" else None)
+            master = await session.get(Master, member.master_id)
+            master.specialties = specialties
     return salon
 
 

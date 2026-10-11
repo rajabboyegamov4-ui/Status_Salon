@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import auth
 from app.db import get_session
 from app.models import Booking, Branch, Master, Salon, Staff, User
-from app.notifications import send_cancelled, send_confirmation, send_review_request
+from app.notifications import notify_staff, send_cancelled, send_confirmation, send_review_request
 from app.routers.public import SLOT_TAKEN_MESSAGE
 from app.schemas import (
     AdminBookingCreate,
@@ -144,6 +144,7 @@ async def create_for_client(
     session: AsyncSession = Depends(get_session),
 ):
     """A client who called or walked in; staff book on their behalf. A barber books only into their own chair."""
+    actor = staff.id  # read before any commit expires the row
     if staff.role == "barber":
         if body.master_id not in (None, staff.master_id):
             raise HTTPException(403, "Faqat o'zingizga bron qo'sha olasiz")
@@ -187,6 +188,7 @@ async def create_for_client(
         raise HTTPException(422, str(e))
     if created:
         background.add_task(send_confirmation, booking.id)
+        background.add_task(notify_staff, booking.id, "new", actor)
     else:
         response.status_code = 200  # the same request again: nothing new was booked
     return AdminBookingOut.of(booking)
@@ -200,6 +202,7 @@ async def update_status(
     staff: Staff = Depends(writer),
     session: AsyncSession = Depends(get_session),
 ):
+    actor = staff.id
     # Lock the row first: two taps on different phones must not both change it.
     await session.execute(select(Booking.id).where(Booking.id == booking_id).with_for_update())
     booking = await session.get(Booking, booking_id)
@@ -213,6 +216,7 @@ async def update_status(
         except svc.BookingError as e:
             raise HTTPException(422, str(e))
         background.add_task(send_cancelled, booking_id)
+        background.add_task(notify_staff, booking_id, "cancelled", actor)
     else:
         try:
             await svc.mark_visit(session, booking, body.status)
