@@ -40,7 +40,7 @@ async def test_roles_sales_sees_own_leads_opens_demos_but_not_money(boss):
     await owner.post(f"{P}/team", json={"login": "bobur", "name": "Bobur", "password": "sotuv-2027", "role": "sales"})
 
     partner = await signed("ali", "sherik-2026")
-    assert (await partner.post(f"{P}/team", json={"login": "x2", "name": "X", "password": "partner-22", "role": "partner"})).status_code == 403
+    assert (await partner.post(f"{P}/team", json={"login": "xyz2", "name": "X", "password": "partner-22", "role": "partner"})).status_code == 403
     assert (await partner.get(f"{P}/stats")).json()["income_30d"] == 0
 
     nodira = await signed("nodira", "sotuv-2026")
