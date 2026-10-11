@@ -14,10 +14,11 @@ from sqlalchemy import select
 
 from app import telegram
 from app.kinds import kind_of
-from app.models import ACTIVE_STATUSES, Booking, Branch, Salon, Staff
+from app.models import ACTIVE_STATUSES, OPEN_ORDER_STATUSES, Booking, Branch, Order, Salon, Staff
 from app.services import booking as svc
 from app.services.availability import branch_tz, now_utc
-from app.staffui import MANAGERS, booking_buttons, staff_keyboard
+from app.services import orders as osvc
+from app.staffui import MANAGERS, booking_buttons, order_buttons, staff_keyboard
 from app.tenancy import subscription_active
 from app.text import LRM, iso, phone_display
 
@@ -87,16 +88,71 @@ async def day_list(session, salon: Salon, staff: Staff, offset: int) -> str:
     return "\n".join(LRM + line if line else line for line in lines)
 
 
+async def open_orders_list(session, salon: Salon) -> str:
+    rows = (await session.scalars(select(Order).where(Order.salon_id == salon.id, Order.status.in_(OPEN_ORDER_STATUSES))
+                                  .order_by(Order.number))).unique().all()
+    if not rows:
+        return "📦 Ochiq buyurtma yo'q."
+    lines = [f"📦 <b>Ochiq buyurtmalar</b> · {len(rows)} ta", ""]
+    for o in rows:
+        what = ", ".join(f"{_h(i.name)}×{i.qty}" for i in o.items)
+        where = "🚚" if o.fulfillment == "delivery" else "🏪"
+        lines.append(f"<b>#{o.number}</b> {osvc.LABEL[o.status]} · {where} {_h(o.user.name or 'Mijoz')} · {what} · {o.total:,} so'm".replace(",", " "))
+    return "\n".join(LRM + line if line else line for line in lines)
+
+
 async def on_text(session, salon: Salon, token: str, chat_id: int, text: str) -> bool:
     """A staff chat typed a staff command; False means it was not one (the client flow handles it)."""
-    offset = DAY_WORDS.get(text.strip().lower())
-    if offset is None:
+    word = text.strip().lower()
+    offset = DAY_WORDS.get(word)
+    orders = word in ("📦 buyurtmalar", "/buyurtmalar", "buyurtmalar")
+    if offset is None and not orders:
         return False
     staff = await staff_of_chat(session, salon, chat_id)
     if staff is None:
         return False
-    await send_menu(salon, token, chat_id, staff, await day_list(session, salon, staff, offset))
+    if orders:
+        text_out = await open_orders_list(session, salon) if staff.role in MANAGERS else "Buyurtmalarni rahbar va administrator ko'radi."
+    else:
+        text_out = await day_list(session, salon, staff, offset)
+    await send_menu(salon, token, chat_id, staff, text_out)
     return True
+
+
+ORDER_MOVES = {"oa": "accepted", "or": "ready", "ov": "delivering", "od": "done", "oy": "cancelled"}
+
+
+async def on_order_button(session, salon: Salon, token: str, cq: dict, parts: list[str]) -> str:
+    """oa/or/ov/od: next step; ox: ask to cancel, oy: yes, on: keep."""
+    from app.notifications import notify_staff_order, send_order_update
+
+    chat_id = cq.get("from", {}).get("id")
+    staff = await staff_of_chat(session, salon, chat_id)
+    order = await osvc.lock_order(session, int(parts[1])) if len(parts) == 2 and parts[1].isdigit() else None
+    if staff is None or order is None or order.salon_id != salon.id or staff.role not in MANAGERS:
+        return "Bu buyurtma topilmadi"
+    if parts[0] == "ox":
+        await _edit_buttons(token, cq, [[{"text": "Ha, bekor qilish", "callback_data": f"oy:{order.id}"},
+                                         {"text": "Yo'q", "callback_data": f"on:{order.id}"}]])
+        return "Bekor qilinsinmi? Mijozga xabar boradi."
+    if parts[0] == "on":
+        await _edit_buttons(token, cq, order_buttons(salon, staff, order.id, order.status, order.fulfillment))
+        return "Buyurtma o'z holicha qoldi"
+    status = ORDER_MOVES.get(parts[0])
+    if status is None:
+        return "Bajarildi"
+    if not subscription_active(salon):
+        return "Obuna muddati tugagan"
+    order_id, actor = order.id, staff.id
+    try:
+        order = await osvc.move(session, order, status)
+    except osvc.OrderError as e:
+        await _edit_buttons(token, cq, order_buttons(salon, staff, order_id, order.status, order.fulfillment))
+        return str(e)[:190]
+    await _edit_buttons(token, cq, order_buttons(salon, staff, order_id, order.status, order.fulfillment))
+    await send_order_update(order_id)
+    await notify_staff_order(order_id, order.status, actor)
+    return f"#{order.number}: {osvc.LABEL[order.status]}"
 
 
 async def _edit_buttons(token: str, cq: dict, rows: list[list[dict]]) -> None:

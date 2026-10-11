@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.kinds import KINDS
-from app.models import Branch, BranchService, Master, MasterService, Salon, Service, Staff, WorkingHours
+from app.models import Branch, BranchService, Master, MasterService, Product, Salon, Service, Staff, WorkingHours
 from app.security import hash_password
 
 # A new salon starts with the services of its kind (app/kinds.py); the owner adjusts names and prices later.
@@ -48,7 +48,7 @@ async def create_salon(
     template = TEMPLATES.get(kind)
     if template is None:
         raise TeamError("Soha noto'g'ri")
-    salon = Salon(slug=slug, name=name, phone=phone, paid_until=paid_until, kind=kind)
+    salon = Salon(slug=slug, name=name, phone=phone, paid_until=paid_until, kind=kind, modules=KINDS[kind].modules)
     session.add(salon)
     await session.flush()
     branch = Branch(salon_id=salon.id, name=branch_name or name, address=branch_address, phone=phone)
@@ -61,6 +61,9 @@ async def create_salon(
     session.add(Staff(salon_id=salon.id, login=owner_login.lower(), password_hash=hash_password(owner_password),
                       name=owner_name, role="owner"))
     await session.flush()
+    if sample_masters and KINDS[kind].products:
+        for i, (cat, pname, price, desc) in enumerate(KINDS[kind].products):
+            session.add(Product(salon_id=salon.id, category=cat, name=pname, price=price, description=desc, sort=i))
     if sample_masters:
         taken = {owner_login.lower()}
         for name_, rank, specialties in KINDS[kind].sample:

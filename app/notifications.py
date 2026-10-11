@@ -14,12 +14,12 @@ from sqlalchemy.orm import joinedload
 from app import telegram
 from app.config import settings
 from app.db import SessionLocal
-from app.models import Booking, Reminder, Salon, Staff
+from app.models import Booking, Order, Reminder, Salon, Staff
 from app.services.availability import branch_tz, now_utc
 from app.sms import send_safely
 from app.tenancy import salon_today, subscription_active
 from app.kinds import kind_of
-from app.staffui import booking_buttons
+from app.staffui import booking_buttons, order_buttons
 from app.text import LRM, iso, phone_display
 
 log = logging.getLogger("salon.notifications")
@@ -210,3 +210,79 @@ async def send_due_reminders(batch: int = 50) -> int:
     if claimed:
         log.info("reminders: %d claimed, %d sent", len(claimed), sent)
     return sent
+
+
+# ---------- orders ----------
+
+ORDER_CLIENT = {
+    "new": "🧾 <b>Buyurtma #{n} qabul qilindi</b>\nTez orada tasdiqlaymiz. Holatini shu chatda ko'rasiz.",
+    "accepted": "👍 <b>Buyurtma #{n} tasdiqlandi</b>\nTayyorlayapmiz.",
+    "ready": "✅ <b>Buyurtma #{n} tayyor</b>\n{ready}",
+    "delivering": "🚚 <b>Buyurtma #{n} yo'lda</b>\nKuryer tez orada yetib boradi.",
+    "done": "🙏 <b>Buyurtma #{n} berildi</b>\nXaridingiz uchun rahmat!",
+    "cancelled": "❌ <b>Buyurtma #{n} bekor qilindi</b>",
+}
+ORDER_STAFF = {"new": "🆕 <b>Yangi buyurtma #{n}</b>", "cancelled": "❌ <b>Buyurtma #{n} bekor qilindi</b>",
+               "accepted": "👍 <b>Buyurtma #{n} qabul qilindi</b>", "ready": "✅ <b>Buyurtma #{n} tayyor</b>",
+               "delivering": "🚚 <b>Buyurtma #{n} yo'lda</b>", "done": "🙏 <b>Buyurtma #{n} berildi</b>"}
+
+
+def order_lines(o: Order) -> list[str]:
+    lines = [f"• {_h(i.name)} × {i.qty} = {_som(i.price * i.qty)}" for i in o.items]
+    if o.delivery_fee:
+        lines.append(f"• Yetkazish = {_som(o.delivery_fee)}")
+    lines.append(f"💰 Jami: <b>{_som(o.total)} so'm</b>")
+    lines.append(f"🚚 Yetkazish: {_h(o.address)}" if o.fulfillment == "delivery" else "🏪 Olib ketish")
+    return lines
+
+
+def order_staff_text(o: Order, event: str) -> str:
+    lines = [ORDER_STAFF[event].format(n=o.number), f"👤 {_h(o.user.name or 'Mijoz')}"]
+    if _phone(o.user.phone):
+        lines.append(f"📞 {_phone(o.user.phone)}")
+    lines += order_lines(o)
+    if o.comment:
+        lines.append(f"💬 {_h(o.comment)}")
+    return "\n".join(LRM + line for line in lines)
+
+
+async def _load_order(session, order_id: int) -> tuple[Order | None, Salon | None]:
+    o = await session.scalar(select(Order).where(Order.id == order_id))
+    salon = await session.get(Salon, o.salon_id) if o is not None else None
+    if salon is None or not subscription_active(salon):
+        return None, None
+    return o, salon
+
+
+async def send_order_update(order_id: int) -> None:
+    """The client hears about every step of their order in the business's bot."""
+    async with SessionLocal() as session:
+        o, salon = await _load_order(session, order_id)
+        token = telegram.unseal(salon.tg_token_sealed) if o else None
+        if not o or not token or not o.user.tg_chat_id:
+            return
+        ready = "Kuryerga topshiramiz." if o.fulfillment == "delivery" else "Olib ketishingiz mumkin."
+        text = ORDER_CLIENT[o.status].format(n=o.number, ready=ready)
+        if o.status == "new":
+            text += "\n\n" + "\n".join(order_lines(o))
+        await telegram.send(token, o.user.tg_chat_id, "\n".join(LRM + x for x in text.split("\n")))
+
+
+async def notify_staff_order(order_id: int, event: str, exclude_staff_id: int | None = None) -> int:
+    """Owner and administrators (whoever linked Telegram) get the order with the next-step buttons."""
+    async with SessionLocal() as session:
+        o, salon = await _load_order(session, order_id)
+        token = telegram.unseal(salon.tg_token_sealed) if o else None
+        if not o or not token:
+            return 0
+        people = (await session.scalars(select(Staff).where(
+            Staff.salon_id == o.salon_id, Staff.is_active, Staff.tg_chat_id.is_not(None), Staff.role.in_(("owner", "admin"))
+        ))).all()
+        chats: dict[int, Staff] = {}
+        for p in sorted(people, key=lambda p: 0 if p.role == "owner" else 1):
+            if p.id != exclude_staff_id:
+                chats.setdefault(p.tg_chat_id, p)
+        text, sent = order_staff_text(o, event), 0
+        for chat_id, person in sorted(chats.items()):
+            sent += await telegram.send(token, chat_id, text, order_buttons(salon, person, o.id, o.status, o.fulfillment))
+        return sent

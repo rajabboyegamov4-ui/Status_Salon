@@ -1120,7 +1120,7 @@ function shellHtml() {
     ${S.branches.length > 1 ? `<label class="branch-pick multi"><small>Filial</small><select id="branch">${S.branches.map((b) => `<option value="${b.id}" ${b.id === S.branch.id ? "selected" : ""}>${esc(b.name)}</option>`).join("")}</select></label>`
       : `<div class="branch-pick"><small>Filial</small><b>${esc(S.branch?.name || "")}</b></div>`}
     <nav id="nav">${tabs.map(([v, ic, l]) => `<button data-view="${v}" aria-current="${S.view === v ? "page" : "false"}">${ic}<span>${l}</span></button>`).join("")}</nav>
-    <div class="me"><span class="av">${esc((S.user.name || "A")[0])}</span><span><b>${esc(S.user.name)}</b>${S.demo ? '<span class="demo">DEMO</span>' : ""}<small>${ROLE[S.user.role] || ""}</small></span><button class="out" id="logout">Chiqish</button></div>
+    <div class="me"><span class="av">${esc((S.user.name || "A")[0])}</span><span><b>${esc(S.user.name)}</b>${S.demo ? '<span class="demo">DEMO</span>' : ""}<small>${ROLE[S.user.role] || ""}</small></span>${S.orders ? `<a class="out" href="/${esc(SLUG)}/buyurtmalar" style="text-decoration:none">Buyurtmalar</a>` : ""}<button class="out" id="logout">Chiqish</button></div>
   </aside>
   <section class="content">
     ${ro() ? `<div class="sub-warn">${S.user.salon.paid_until >= today() ? "Salon platforma tomonidan to'xtatilgan" : "Salon obunasi tugagan"}: mijozlar bron qila olmaydi, panel faqat ko'rish rejimida. To'lov uchun platforma bilan bog'laning.</div>` : ""}
@@ -1489,7 +1489,7 @@ async function boot() {
     const r = await fetch("/api/health"); if (!r.ok || !(await r.json()).ok) throw 0;
     const info = await fetch(`/api/s/${SLUG}`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
     if (!info) { S.error = "Salon topilmadi. Manzilni tekshiring."; return render(); }
-    S.salonName = info.name; S.user = await realApi.me();
+    S.salonName = info.name; S.orders = (info.modules || []).includes("orders"); S.user = await realApi.me();
     if (!S.user && TG_INIT) S.user = await realApi.call("/staff/webapp", { method: "POST", body: JSON.stringify({ init_data: TG_INIT }) }).catch(() => null);
   }
   catch { S.demo = true; api = demoApi; S.salonName = DEMO_SALON.name; S.user = await api.me(); }
