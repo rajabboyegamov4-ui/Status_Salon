@@ -68,7 +68,7 @@ async def deliver(salon: Salon, b: Booking, text: str, buttons: list[list[dict]]
     token = telegram.unseal(salon.tg_token_sealed)
     if token and b.user.tg_chat_id:
         return await telegram.send(token, b.user.tg_chat_id, text, buttons)
-    if settings.sms_backend != "none" and b.user.phone.startswith("+"):
+    if settings.sms_backend != "none" and b.user.phone.startswith("+998"):  # SMS goes to Uzbek numbers only
         plain = text.replace("<b>", "").replace("</b>", "")
         return await send_safely(b.user.phone, html.unescape(plain))
     return True
@@ -119,6 +119,8 @@ def _phone(p: str) -> str:
         return ""
     if p.startswith("+998") and len(p) == 13:
         p = f"+998 {p[4:6]} {p[6:9]} {p[9:11]} {p[11:]}"
+    elif p.startswith("+7") and len(p) == 12:  # Russia, Kazakhstan
+        p = f"+7 {p[2:5]} {p[5:8]} {p[8:10]} {p[10:]}"
     return ltr(p)
 
 

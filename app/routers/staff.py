@@ -153,7 +153,7 @@ async def create_for_client(
     comment = strip_controls(body.comment).strip()
     if body.client_phone.strip():
         try:
-            phone = auth.normalize_phone(body.client_phone)
+            phone = auth.normalize_phone(body.client_phone, foreign=True)
         except auth.AuthError as e:
             raise HTTPException(422, str(e))
         name = clean_name(body.client_name)
