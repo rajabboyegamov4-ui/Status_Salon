@@ -227,6 +227,7 @@ function salonRow(s) {
   const acts = S.ask === s.id
     ? `<span class="hint">To'xtatilsinmi?</span><button class="btn" data-keep="1">Yo'q</button><button class="btn bad" data-stop="${s.id}">Ha</button>`
     : `<a class="btn link" href="${esc(showUrl(s))}" target="_blank" rel="noopener">Taqdimot</a>${!s.telegram_bot ? `<button class="btn" data-takebot="${s.id}">Bot ulash</button>` : ""}
+       ${manager() && !s.paid_total ? `<button class="btn" data-setdemo="${s.id}">${s.is_demo ? "Demo emas" : "Demo qilish"}</button>` : ""}
        ${manager() ? `<button class="btn" data-mods="${s.id}">Modullar</button><button class="btn pay" data-pay="${s.id}">To'lov</button>${s.is_active ? `<button class="btn bad" data-ask="${s.id}">To'xtatish</button>` : `<button class="btn" data-resume="${s.id}">Yoqish</button>`}` : ""}`;
   return `<tr><td class="name"><b>${bdi(s.name)}</b><a href="/${esc(s.slug)}/admin" target="_blank" rel="noopener">/${esc(s.slug)}</a> <span class="hint">· ${esc(kindLabel(s.kind))} · ${(s.modules || ["booking"]).map((m) => MODS[m] || m).join(" + ")}${s.telegram_bot ? ` · @${esc(s.telegram_bot)}` : " · bot yo'q"}</span></td>
     <td><span class="pill ${STATE[st][0]}">${STATE[st][1]}</span></td>
@@ -402,6 +403,7 @@ document.addEventListener("click", async (e) => {
     else if (d.newsalon) openSalon(null);
     else if (d.newuser) S.drawer = { type: "user", name: "", login: "", password: newPassword(), role: "sales" };
     else if (d.pay) S.drawer = { type: "pay", id: +d.pay, months: 1, amount: "" };
+    else if (d.setdemo) { const s0 = S.salons.find((x) => x.id === +d.setdemo), s = await api.patch(`/salons/${s0.id}`, { is_demo: !s0.is_demo }); S.salons = S.salons.map((x) => (x.id === s.id ? s : x)); toast(s.is_demo ? `${s.name} endi demo: boti boshqa demoga o'tkazilishi mumkin` : `${s.name} endi oddiy mijoz`); }
     else if (d.mods) S.drawer = { type: "mods", id: +d.mods, mods: [...(S.salons.find((x) => x.id === +d.mods).modules || ["booking"])] };
     else if (d.fmod) S.drawer.mods = S.drawer.mods.includes(d.fmod) ? S.drawer.mods.filter((m) => m !== d.fmod) : [...S.drawer.mods, d.fmod];
     else if (d.takebot) S.drawer = { type: "takebot", id: +d.takebot };
