@@ -203,6 +203,7 @@ class SalonInfo(ORM):
     logo_url: str | None = None
     telegram_bot: str = ""  # clients log in and get messages through this bot
     kind: str = "barber"  # see app/kinds.py
+    modules: list[str] = ["booking"]  # booking, orders
     term: str = "Usta"  # what the specialist is called: Usta, Shifokor, Kosmetolog...
     client_word: str = "mijoz"  # mijoz | bemor
     sms_login: bool = False  # SMS codes are switched on for this server (fallback when there is no bot)
@@ -316,6 +317,7 @@ class SalonUpdate(BaseModel):
     amount: int | None = Field(None, ge=0, le=1_000_000_000)  # so'm received for extend_months
     is_active: bool | None = None
     is_demo: bool | None = None
+    modules: list[Literal["booking", "orders"]] | None = Field(None, min_length=1, max_length=2)
 
 
 class PlatformSalonOut(ORM):
@@ -329,6 +331,7 @@ class PlatformSalonOut(ORM):
     is_active: bool
     active: bool
     is_demo: bool = False
+    modules: list[str] = ["booking"]
     telegram_bot: str = ""
     created_at: datetime
     staff_count: int = 0

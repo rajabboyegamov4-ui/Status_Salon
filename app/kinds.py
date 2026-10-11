@@ -14,6 +14,8 @@ class Kind:
     client: str  # "mijoz" or "bemor"
     services: tuple[tuple[str, str, int, int], ...]  # name, category, price (so'm), duration (min)
     sample: tuple[tuple[str, str, str], ...]  # demo team: name, rank, specialties
+    modules: str = "booking"  # what a new business of this kind starts with
+    products: tuple[tuple[str, str, int, str], ...] = ()  # demo catalog: category, name, price, description
 
 
 KINDS: dict[str, Kind] = {
@@ -73,6 +75,13 @@ KINDS: dict[str, Kind] = {
         ("Gruming", "Parvarish", 200_000, 60),
         ("UZI tekshiruvi", "Tekshiruv", 180_000, 30),
     ), (("Dr. Anvar Qodirov", "Top-master", "Terapiya, Jarrohlik"), ("Dr. Zarina Hamidova", "Master", "Emlash, Gruming"))),
+    "shop": Kind("Buyurtma (gul, tort, do'kon)", "Xodim", "mijoz", (), (), "orders", (
+        ("Guldastalar", "Atirgullar guldastasi (15 dona)", 350_000, "Qizil atirgul, qog'oz o'ram"),
+        ("Guldastalar", "Lola va xrizantema", 280_000, "Bahoriy guldasta"),
+        ("Tortlar", "Shokoladli tort (1,5 kg)", 220_000, "Yozuv bilan, 1 kun oldin buyurtma"),
+        ("Tortlar", "Medovik (1 kg)", 160_000, ""),
+        ("Sovg'alar", "Sovg'a qutisi", 120_000, "Shirinliklar va otkritka"),
+    )),
     "other": Kind("Boshqa biznes", "Mutaxassis", "mijoz", (
         ("Konsultatsiya", "Asosiy", 100_000, 30),
         ("Asosiy xizmat", "Asosiy", 200_000, 60),

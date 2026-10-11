@@ -10,7 +10,7 @@ from sqlalchemy.exc import DBAPIError
 
 from app.config import settings
 from app.notifications import send_due_reminders
-from app.routers import platform, profile, public, schedule, staff, telegram
+from app.routers import orders, platform, profile, public, schedule, staff, telegram
 from app.tenancy import RESERVED_SLUGS, SLUG_RE
 
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)  # Railway marks stderr lines as errors
@@ -45,7 +45,7 @@ async def bad_value(request, exc: DBAPIError):
     raise exc
 
 
-for r in (platform.router, staff.router, schedule.router, profile.router, telegram.router, public.router):
+for r in (platform.router, staff.router, schedule.router, profile.router, telegram.router, orders.router, public.router):
     app.include_router(r, prefix="/api")
 app.include_router(profile.media)
 
@@ -96,3 +96,13 @@ async def salon_panel(slug: str):
 @app.get("/{slug}/admin", response_class=HTMLResponse, include_in_schema=False)
 async def salon_admin(slug: str):
     return _salon_page(slug, "admin.html")
+
+
+@app.get("/{slug}/shop", response_class=HTMLResponse, include_in_schema=False)
+async def salon_shop(slug: str):
+    return _salon_page(slug, "shop.html")
+
+
+@app.get("/{slug}/buyurtmalar", response_class=HTMLResponse, include_in_schema=False)
+async def salon_orders_desk(slug: str):
+    return _salon_page(slug, "buyurtmalar.html")

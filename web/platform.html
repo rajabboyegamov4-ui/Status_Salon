@@ -149,13 +149,15 @@ const slugify = (s) => s.toLowerCase().replace(/[ʻʼ'`]/g, "").replace(/[^a-z0-
 const digits = (s) => String(s || "").replace(/\D/g, "");
 class ApiError extends Error { constructor(s, m) { super(m); this.status = s; } }
 
-const KINDS = [["beauty", "Ayollar saloni"], ["barber", "Barbershop"], ["cosmetology", "Kosmetologiya"], ["dental", "Stomatologiya"], ["clinic", "Klinika"], ["spa", "SPA va massaj"], ["auto", "Avtoservis"], ["vet", "Veterinariya"], ["other", "Boshqa"]];
+const KINDS = [["shop", "Buyurtma (gul, tort, do'kon)"], ["beauty", "Ayollar saloni"], ["barber", "Barbershop"], ["cosmetology", "Kosmetologiya"], ["dental", "Stomatologiya"], ["clinic", "Klinika"], ["spa", "SPA va massaj"], ["auto", "Avtoservis"], ["vet", "Veterinariya"], ["other", "Boshqa"]];
 const kindLabel = (k) => (KINDS.find((x) => x[0] === k) || ["", "Boshqa"])[1];
 const STATUSES = [["new", "Yangi"], ["talked", "Gaplashildi"], ["demo", "Demo"], ["trial", "Sinovda"], ["paid", "To'ladi"], ["lost", "Rad etdi"]];
 const stLabel = (k) => (STATUSES.find((x) => x[0] === k) || ["", k])[1];
 const ROLE = { owner: "Ega", partner: "Sherik", sales: "Sotuvchi" };
 // The presentation page set up for a business: its kind, its name and its live demo bot.
-const showUrl = (s) => `/taqdimot?soha=${encodeURIComponent(s.kind || "other")}&nom=${encodeURIComponent(s.name)}&demo=${encodeURIComponent(s.slug)}`;
+const showUrl = (s) => ((s.modules || ["booking"]).includes("booking")
+  ? `/taqdimot?soha=${encodeURIComponent(s.kind || "other")}&nom=${encodeURIComponent(s.name)}&demo=${encodeURIComponent(s.slug)}` : `/${encodeURIComponent(s.slug)}/shop`);
+const MODS = { booking: "Bron", orders: "Buyurtma" };
 
 const api = {
   async call(path, opts = {}) {
@@ -225,8 +227,8 @@ function salonRow(s) {
   const acts = S.ask === s.id
     ? `<span class="hint">To'xtatilsinmi?</span><button class="btn" data-keep="1">Yo'q</button><button class="btn bad" data-stop="${s.id}">Ha</button>`
     : `<a class="btn link" href="${esc(showUrl(s))}" target="_blank" rel="noopener">Taqdimot</a>${!s.telegram_bot ? `<button class="btn" data-takebot="${s.id}">Bot ulash</button>` : ""}
-       ${manager() ? `<button class="btn pay" data-pay="${s.id}">To'lov</button>${s.is_active ? `<button class="btn bad" data-ask="${s.id}">To'xtatish</button>` : `<button class="btn" data-resume="${s.id}">Yoqish</button>`}` : ""}`;
-  return `<tr><td class="name"><b>${bdi(s.name)}</b><a href="/${esc(s.slug)}/admin" target="_blank" rel="noopener">/${esc(s.slug)}</a> <span class="hint">· ${esc(kindLabel(s.kind))}${s.telegram_bot ? ` · @${esc(s.telegram_bot)}` : " · bot yo'q"}</span></td>
+       ${manager() ? `<button class="btn" data-mods="${s.id}">Modullar</button><button class="btn pay" data-pay="${s.id}">To'lov</button>${s.is_active ? `<button class="btn bad" data-ask="${s.id}">To'xtatish</button>` : `<button class="btn" data-resume="${s.id}">Yoqish</button>`}` : ""}`;
+  return `<tr><td class="name"><b>${bdi(s.name)}</b><a href="/${esc(s.slug)}/admin" target="_blank" rel="noopener">/${esc(s.slug)}</a> <span class="hint">· ${esc(kindLabel(s.kind))} · ${(s.modules || ["booking"]).map((m) => MODS[m] || m).join(" + ")}${s.telegram_bot ? ` · @${esc(s.telegram_bot)}` : " · bot yo'q"}</span></td>
     <td><span class="pill ${STATE[st][0]}">${STATE[st][1]}</span></td>
     <td class="num">${fmtDate(s.paid_until)}<span class="days">${left}</span></td>
     <td class="num c-stats">${s.staff_count} xodim · ${s.bookings_30d} bron / 30 kun${manager() && s.paid_total ? ` · ${som(s.paid_total)}` : ""}</td>
@@ -324,6 +326,10 @@ function drawerHtml() {
     ${donors.length ? `<div class="field"><label>Boshqa demodagi botni olish</label><p class="hint">Bot o'sha demodan ajraladi va shu yerga ulanadi. Yangi bot ochish shart emas.</p>
       ${donors.map((d) => `<button class="btn" style="justify-content:flex-start" data-donor="${d.id}">@${esc(d.telegram_bot)} · ${bdi(d.name)}</button>`).join("")}</div>` : `<p class="hint">Bo'sh demo bot yo'q.</p>`}
     <div class="group">Yoki yangi bot</div><ol class="steps"><li>Telegram'da @BotFather → /newbot</li><li>Admin panelga kiring: <a href="/${esc(s.slug)}/admin" target="_blank" rel="noopener">/${esc(s.slug)}/admin</a></li><li>Profil → Telegram bot → tokenni qo'yib "Ulash"</li></ol>`, ""); }
+  if (F.type === "mods") { const s = S.salons.find((x) => x.id === F.id); return drawer("Modullar", s.name, `
+    <div class="field"><label>Bu biznes nimadan foydalanadi</label><div class="months">${Object.entries(MODS).map(([k, l]) => `<button class="chip" type="button" data-fmod="${k}" aria-pressed="${F.mods.includes(k)}">${l}</button>`).join("")}</div></div>
+    <p class="hint">Bron: mijoz vaqtga yoziladi (sartarosh, klinika). Buyurtma: mijoz katalogdan buyurtma beradi (gul, tort, do'kon). Ikkalasi ham bo'lishi mumkin. Bot tugmasi o'zi moslashadi.</p>`,
+    `<button class="btn primary" id="f-save">Saqlash</button>`); }
   if (F.type === "user") return drawer("Yangi xodim", "Jamoa", `
     ${field("f-name", "Ismi", F.name)}${field("f-ologin", "Login", F.login, 'autocapitalize="none" spellcheck="false"')}${field("f-opass", "Parol", F.password, 'autocomplete="off"')}
     <div class="field"><label>Rol</label><div class="months"><button class="chip" type="button" data-frole="sales" aria-pressed="${F.role === "sales"}">Sotuvchi</button>${S.me.role === "owner" ? `<button class="chip" type="button" data-frole="partner" aria-pressed="${F.role === "partner"}">Sherik</button>` : ""}</div></div>
@@ -369,6 +375,11 @@ async function save() {
     const s = await api.patch(`/salons/${F.id}`, { extend_months: F.months, amount, is_active: true });
     S.salons = S.salons.map((x) => (x.id === s.id ? s : x)); S.drawer = null; toast(`${s.name}: ${fmtDate(s.paid_until)} gacha`); await load(); return;
   }
+  if (F.type === "mods") {
+    if (!F.mods.length) throw new Error("Kamida bittasini tanlang");
+    const s = await api.patch(`/salons/${F.id}`, { modules: F.mods });
+    S.salons = S.salons.map((x) => (x.id === s.id ? s : x)); S.drawer = null; toast(`${s.name}: ${s.modules.map((m) => MODS[m]).join(" + ")}`); return;
+  }
   if (F.type === "user") {
     const u = await api.post("/team", { name: F.name.trim(), login: F.login.trim().toLowerCase(), password: F.password, role: F.role });
     S.team = [...S.team, u]; S.creds = null; S.drawer = null; toast(`${u.name} qo'shildi. Login: ${u.login}, parol: ${F.password}`); return;
@@ -391,6 +402,8 @@ document.addEventListener("click", async (e) => {
     else if (d.newsalon) openSalon(null);
     else if (d.newuser) S.drawer = { type: "user", name: "", login: "", password: newPassword(), role: "sales" };
     else if (d.pay) S.drawer = { type: "pay", id: +d.pay, months: 1, amount: "" };
+    else if (d.mods) S.drawer = { type: "mods", id: +d.mods, mods: [...(S.salons.find((x) => x.id === +d.mods).modules || ["booking"])] };
+    else if (d.fmod) S.drawer.mods = S.drawer.mods.includes(d.fmod) ? S.drawer.mods.filter((m) => m !== d.fmod) : [...S.drawer.mods, d.fmod];
     else if (d.takebot) S.drawer = { type: "takebot", id: +d.takebot };
     else if (d.donor) { const s = await api.post(`/salons/${S.drawer.id}/take-bot`, { from_salon_id: +d.donor }); S.drawer = null; await load(); toast(`@${s.telegram_bot} endi ${s.name} boti`); }
     else if (d.fkind) S.drawer.kind = d.fkind;

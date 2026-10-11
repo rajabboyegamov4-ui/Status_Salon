@@ -1,0 +1,267 @@
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Buyurtmalar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600&display=swap">
+<style>
+/* Layout: the orders desk for owner and administrators. Tabs (Ochiq, Yopilgan, Mahsulotlar, Sozlamalar);
+   open orders as columns by step on a wide screen and one list on a phone; each card carries its next-step button. */
+:root{
+  --accent:#0E7C86; --bg:#f2f4f5; --surface:#fff; --sunk:#e8ecee; --line:#d6dde1; --fg:#16212a; --muted:#5d6c75;
+  --accent-soft:color-mix(in oklab,var(--accent) 12%,white); --accent-fg:var(--accent); --on-accent:#fff;
+  --ok:#1f7a45; --ok-soft:#dcefe3; --bad:#b3261e; --bad-soft:#f7dedc; --warn:#9a6a12; --warn-soft:#fbf0d9;
+  --f-display:"Unbounded","Golos Text",system-ui,sans-serif; --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1519; --surface:#172127; --sunk:#1d2a31; --line:#2b3b43; --fg:#e4ecef; --muted:#95a7af;
+  --accent-soft:color-mix(in oklab,var(--accent) 22%,#172127); --accent-fg:color-mix(in oklab,var(--accent) 65%,white);
+  --ok:#6cc78f; --ok-soft:#173527; --bad:#f08a82; --bad-soft:#3d1c1a; --warn:#e2b660; --warn-soft:#2d2414; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1519; --surface:#172127; --sunk:#1d2a31; --line:#2b3b43; --fg:#e4ecef; --muted:#95a7af;
+  --accent-soft:color-mix(in oklab,var(--accent) 22%,#172127); --accent-fg:color-mix(in oklab,var(--accent) 65%,white);
+  --ok:#6cc78f; --ok-soft:#173527; --bad:#f08a82; --bad-soft:#3d1c1a; --warn:#e2b660; --warn-soft:#2d2414; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 var(--f-body)}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent-fg);outline-offset:2px}
+[hidden]{display:none!important}
+.num{font-variant-numeric:tabular-nums}
+.wrap{max-width:1240px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top,0px)) 16px 48px;display:flex;flex-direction:column;gap:14px}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.top h1{font:600 20px/1.2 var(--f-display);margin:0 auto 0 0}
+.top h1 small{display:block;font:600 11px/1.6 var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 12px;font-weight:600;white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.bad{color:var(--bad);border-color:var(--bad);background:none}
+.btn.big{padding:11px 14px}
+.btn:disabled{opacity:.45;cursor:default}
+.tabs{display:flex;gap:4px;background:var(--sunk);border-radius:12px;padding:4px;overflow-x:auto}
+.tabs button{border:0;background:none;border-radius:9px;padding:8px 14px;font-weight:600;color:var(--muted);white-space:nowrap}
+.tabs button[aria-current="page"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgb(0 0 0/.08)}
+.tabs .n{font-size:11px;background:var(--warn-soft);color:var(--warn);border-radius:99px;padding:1px 7px;margin-left:4px}
+.board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start}
+@media (max-width:980px){.board{grid-template-columns:minmax(0,1fr)}}
+.col h2{font:600 13px/1.2 var(--f-body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px;display:flex;gap:6px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.card.fresh{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.card .h{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.card .h b{font:600 18px var(--f-display)}
+.card .who a{color:inherit}
+.card ul{margin:0;padding-left:18px}
+.card .muted{color:var(--muted);font-size:13.5px}
+.card .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.card .acts .btn{flex:1}
+.tag{font-size:12px;font-weight:700;border-radius:99px;padding:3px 9px;white-space:nowrap}
+.tag.new,.tag.accepted{background:var(--warn-soft);color:var(--warn)} .tag.ready,.tag.delivering{background:var(--accent-soft);color:var(--accent-fg)}
+.tag.done{background:var(--ok-soft);color:var(--ok)} .tag.cancelled{background:var(--bad-soft);color:var(--bad)}
+.empty{color:var(--muted);text-align:center;padding:32px 12px;background:var(--surface);border:1px dashed var(--line);border-radius:14px}
+.prod{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.prod .ph{width:56px;height:56px;border-radius:10px;background:var(--accent-soft);display:grid;place-items:center;overflow:hidden;color:var(--accent-fg);font-weight:700}
+.prod .ph img{width:100%;height:100%;object-fit:cover}
+.prod small{display:block;color:var(--muted)}
+.prod.off{opacity:.55}
+.list{display:grid;gap:8px}
+.form{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:12px;max-width:560px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;color:var(--muted);font-weight:600}
+.field input,.field textarea{background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.toggle{display:flex;align-items:center;gap:10px;font-weight:600}
+.toggle input{width:20px;height:20px}
+.notice{background:var(--bad-soft);color:var(--bad);border-radius:10px;padding:10px 12px}
+.login{max-width:380px;margin:12vh auto;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;display:grid;gap:12px}
+.login h1{font:600 22px var(--f-display);margin:0}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:30;background:var(--fg);color:var(--bg);padding:10px 14px;border-radius:10px;font-weight:600;max-width:calc(100% - 32px)}
+.scrim{position:fixed;inset:0;background:rgb(0 0 0/.35);z-index:20}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(440px,100%);background:var(--bg);z-index:21;display:flex;flex-direction:column;border-left:1px solid var(--line)}
+.drawer header{display:flex;align-items:center;gap:10px;padding:calc(12px + env(safe-area-inset-top,0px)) 16px 12px;border-bottom:1px solid var(--line);background:var(--surface)}
+.drawer header h3{margin:0 auto 0 0;font-size:16px}
+.drawer .body{padding:16px;overflow-y:auto;display:grid;gap:12px;align-content:start}
+@media (max-width:620px){.row2{grid-template-columns:1fr}.drawer{top:auto;max-height:92vh;width:100%;border-radius:16px 16px 0 0;border-left:0}}
+</style>
+<body>
+<div id="root"></div>
+<div id="layer"></div>
+<div class="toast" id="toast" hidden></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const bdi = (s) => "⁨" + esc(s) + "⁩";
+const som = (n) => Number(n || 0).toLocaleString("ru-RU").replace(/\s/g, " ") + " so'm";
+const digits = (s) => String(s || "").replace(/\D/g, "");
+const SLUG = location.pathname.split("/").filter(Boolean)[0] || "";
+const TG_INIT = (() => { try { return new URLSearchParams(location.hash.slice(1)).get("tgWebAppData") || ""; } catch { return ""; } })();
+if (TG_INIT) { const sc = document.createElement("script"); sc.src = "https://telegram.org/js/telegram-web-app.js"; sc.async = true;
+  sc.onload = () => { try { window.Telegram.WebApp.ready(); window.Telegram.WebApp.expand(); } catch {} }; document.head.append(sc); }
+async function call(path, opts = {}) {
+  let res;
+  try { res = await fetch(`/api/s/${SLUG}` + path, { ...opts, credentials: "same-origin", headers: { "Content-Type": "application/json", ...(opts.headers || {}) } }); }
+  catch { throw Object.assign(new Error("Internet aloqasi yo'q"), { status: 0 }); }
+  const body = res.status === 204 ? null : await res.json().catch(() => null);
+  if (res.status === 401 && !["/staff/login", "/staff/me", "/staff/webapp"].includes(path)) { S.user = null; render(); }
+  if (!res.ok) throw Object.assign(new Error(typeof body?.detail === "string" ? body.detail : "Xatolik yuz berdi"), { status: res.status });
+  return body;
+}
+const STEPS = [["new", "Yangi"], ["accepted", "Qabul qilindi"], ["ready", "Tayyor"], ["delivering", "Yo'lda"]];
+const NEXT = { new: [["accepted", "✅ Qabul qilish", "ok"]], accepted: [["ready", "🍳 Tayyor", "primary"]], ready: [["delivering", "🚚 Yo'lga chiqdi", ""], ["done", "✅ Berildi", "ok"]], delivering: [["done", "✅ Berildi", "ok"]] };
+const S = { user: null, salon: null, tab: "open", open: [], closed: null, products: null, shop: null, seen: null, fresh: new Set(), ask: null, drawer: null, error: "", login: { login: "", password: "" }, busy: false };
+function toast(m) { const t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => (t.hidden = true), 3200); }
+const time = (iso) => new Date(iso).toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tashkent" });
+
+function orderCard(o) {
+  const tel = digits(o.client_phone), acts = S.ask === o.id
+    ? `<span class="muted">Bekor qilinsinmi? Mijozga xabar boradi.</span><div class="acts"><button class="btn" data-keep="1">Yo'q</button><button class="btn bad" data-move="${o.id}:cancelled">Ha, bekor qilish</button></div>`
+    : `<div class="acts">${(NEXT[o.status] || []).filter(([s]) => s !== "delivering" || o.fulfillment === "delivery").map(([s, l, c]) => `<button class="btn big ${c}" data-move="${o.id}:${s}">${l}</button>`).join("")}
+       ${["new", "accepted"].includes(o.status) ? `<button class="btn bad" data-ask="${o.id}">Bekor</button>` : ""}</div>`;
+  return `<article class="card${S.fresh.has(o.id) ? " fresh" : ""}"><div class="h"><b>#${o.number}</b><span class="muted num">${time(o.created_at)}</span></div>
+    <div class="who">${bdi(o.client_name)}${tel && o.client_phone !== "walk-in" ? ` · <a href="tel:+${tel}">⁦${esc(o.client_phone)}⁩</a>` : ""}</div>
+    <ul>${o.items.map((i) => `<li>${bdi(i.name)} × <b>${i.qty}</b></li>`).join("")}</ul>
+    <div class="muted">${o.fulfillment === "delivery" ? `🚚 ${bdi(o.address)}` : "🏪 Olib ketadi"}</div>
+    ${o.comment ? `<div class="muted">💬 ${bdi(o.comment)}</div>` : ""}
+    <div><b class="num">${som(o.total)}</b>${o.delivery_fee ? ` <span class="muted">(yetkazish ${som(o.delivery_fee)})</span>` : ""}</div>
+    ${o.status === "done" || o.status === "cancelled" ? `<span class="tag ${o.status}" style="align-self:flex-start">${esc(o.status_label)}</span>` : acts}</article>`;
+}
+function openHtml() {
+  if (!S.open.length) return `<div class="empty">Ochiq buyurtma yo'q. Yangi buyurtma kelganda shu yerda va Telegram'da ko'rinadi.</div>`;
+  const cols = STEPS.filter(([s]) => s !== "delivering" || S.open.some((o) => o.status === "delivering") || S.shop?.delivery);
+  return `<div class="board" style="grid-template-columns:repeat(${cols.length},minmax(0,1fr))">${cols.map(([s, l]) => { const list = S.open.filter((o) => o.status === s);
+    return `<section class="col"><h2>${l}<span class="num">${list.length || ""}</span></h2>${list.map(orderCard).join("")}</section>`; }).join("")}</div>`;
+}
+function closedHtml() {
+  if (S.closed === null) return `<div class="empty">Yuklanmoqda…</div>`;
+  return S.closed.length ? `<div class="list">${S.closed.map(orderCard).join("")}</div>` : `<div class="empty">Yopilgan buyurtma yo'q.</div>`;
+}
+function productsHtml() {
+  if (S.products === null) return `<div class="empty">Yuklanmoqda…</div>`;
+  return `<div><button class="btn primary" data-padd="1">+ Mahsulot</button></div>
+    ${S.products.length ? `<div class="list">${S.products.map((p) => `<div class="prod${p.is_active ? "" : " off"}"><div class="ph">${p.photo_url ? `<img src="${esc(p.photo_url)}" alt="">` : esc(p.name[0] || "•")}</div>
+      <div><b>${bdi(p.name)}</b><small>${esc(p.category || "Boshqa")} · <span class="num">${som(p.price)}</span>${p.is_active ? "" : " · tugadi"}</small></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="btn" data-ptoggle="${p.id}">${p.is_active ? "Tugadi" : "Bor"}</button><button class="btn" data-pedit="${p.id}">Tahrirlash</button></div></div>`).join("")}</div>`
+      : `<div class="empty">Katalog bo'sh. Birinchi mahsulotni qo'shing.</div>`}`;
+}
+function settingsHtml() {
+  const sh = S.shop || {};
+  return `<div class="form"><label class="toggle"><input type="checkbox" id="s-pickup" ${sh.pickup ? "checked" : ""}> Olib ketish mumkin</label>
+    <label class="toggle"><input type="checkbox" id="s-delivery" ${sh.delivery ? "checked" : ""}> Yetkazib beramiz</label>
+    <div class="row2"><div class="field"><label for="s-fee">Yetkazish narxi, so'm</label><input id="s-fee" inputmode="numeric" value="${sh.delivery_fee || ""}" placeholder="0 — bepul"></div>
+    <div class="field"><label for="s-min">Eng kam buyurtma, so'm</label><input id="s-min" inputmode="numeric" value="${sh.min_order || ""}" placeholder="0 — cheklovsiz"></div></div>
+    <button class="btn primary" data-ssave="1">Saqlash</button>
+    <p class="muted" style="margin:0">Mijoz katalogni botdagi "🛍 Buyurtma berish" tugmasidan ochadi: <a href="/${esc(SLUG)}/shop" target="_blank" rel="noopener">/${esc(SLUG)}/shop</a></p></div>`;
+}
+function drawerHtml() {
+  const F = S.drawer; if (!F) return "";
+  return `<div class="scrim" data-close="1"></div><div class="drawer" role="dialog" aria-label="Mahsulot"><header><h3>${F.id ? "Mahsulotni tahrirlash" : "Yangi mahsulot"}</h3><button class="btn" data-close="1">Yopish</button></header>
+    <div class="body">
+      <div class="field"><label for="p-name">Nomi</label><input id="p-name" value="${esc(F.name)}"></div>
+      <div class="row2"><div class="field"><label for="p-price">Narxi, so'm</label><input id="p-price" inputmode="numeric" value="${esc(F.price)}"></div>
+      <div class="field"><label for="p-cat">Bo'lim</label><input id="p-cat" value="${esc(F.category)}" list="cats" placeholder="Masalan, Tortlar"><datalist id="cats">${[...new Set((S.products || []).map((p) => p.category).filter(Boolean))].map((c) => `<option value="${esc(c)}">`).join("")}</datalist></div></div>
+      <div class="field"><label for="p-desc">Tavsif</label><textarea id="p-desc" rows="3">${esc(F.description)}</textarea></div>
+      ${F.id ? `<div class="field"><label>Rasm</label><label class="btn" style="text-align:center">${F.photo_url ? "Rasmni almashtirish" : "Rasm yuklash"}<input type="file" accept="image/*" id="p-photo" hidden></label></div>` : `<p class="muted" style="margin:0">Rasmni saqlagandan keyin qo'shasiz.</p>`}
+      ${S.error ? `<div class="notice">${esc(S.error)}</div>` : ""}
+      <button class="btn primary big" data-psave="1">Saqlash</button></div></div>`;
+}
+function mainHtml() {
+  const tabs = [["open", "Ochiq", S.open.length], ["closed", "Yopilgan", 0], ["products", "Mahsulotlar", 0], ["settings", "Sozlamalar", 0]];
+  const view = S.tab === "closed" ? closedHtml() : S.tab === "products" ? productsHtml() : S.tab === "settings" ? settingsHtml() : openHtml();
+  return `<div class="wrap"><div class="top"><h1><small>Buyurtmalar</small>${bdi(S.salon?.name || "")}</h1>
+      ${S.salon?.modules?.includes("booking") ? `<a class="btn" href="/${esc(SLUG)}/admin" style="text-decoration:none">Bronlar</a>` : ""}<button class="btn" data-logout="1">Chiqish</button></div>
+    <nav class="tabs">${tabs.map(([k, l, n]) => `<button data-tab="${k}" aria-current="${S.tab === k ? "page" : "false"}">${l}${n ? `<span class="n num">${n}</span>` : ""}</button>`).join("")}</nav>
+    ${S.error && !S.drawer ? `<div class="notice">${esc(S.error)}</div>` : ""}${view}</div>`;
+}
+function loginHtml() {
+  return `<form class="login" id="lform"><h1>${bdi(S.salon?.name || "Buyurtmalar")}</h1><p class="muted" style="margin:0;color:var(--muted)">Rahbar yoki administrator logini bilan kiring.</p>
+    ${S.error ? `<div class="notice">${esc(S.error)}</div>` : ""}
+    <div class="field"><label for="l1">Login</label><input id="l1" autocapitalize="none" autocomplete="username" value="${esc(S.login.login)}"></div>
+    <div class="field"><label for="l2">Parol</label><input id="l2" type="password" autocomplete="current-password"></div>
+    <button class="btn primary big" type="submit">Kirish</button></form>`;
+}
+function render() { $("root").innerHTML = S.user ? mainHtml() : loginHtml(); $("layer").innerHTML = S.user ? drawerHtml() : ""; }
+
+async function loadOpen(quiet = false) {
+  const list = await call("/staff/orders?scope=open");
+  if (S.seen) { const fresh = list.filter((o) => !S.seen.has(o.id)); fresh.forEach((o) => S.fresh.add(o.id)); if (fresh.length && quiet) toast(`Yangi buyurtma #${fresh[fresh.length - 1].number}`); }
+  S.seen = new Set(list.map((o) => o.id)); S.open = list;
+}
+async function boot() {
+  try { await loadOpen(); S.shop = await call("/catalog").then((c) => c.shop).catch(() => null); }
+  catch (e) { if (e.status === 403) { S.error = "Buyurtmalarni rahbar yoki administrator ko'radi."; S.user = null; } else S.error = e.message; }
+  render();
+}
+// Every 15 seconds while visible and nothing is being edited: new orders appear by themselves.
+setInterval(async () => { if (!S.user || S.tab !== "open" || S.drawer || S.ask || S.busy || document.visibilityState !== "visible") return; try { await loadOpen(true); render(); } catch {} }, 15000);
+
+async function shrink(file, max) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(new Error("Rasmni o'qib bo'lmadi")); i.src = url; });
+    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas"); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.85));
+  } finally { URL.revokeObjectURL(url); }
+}
+
+document.addEventListener("click", async (e) => {
+  const t = e.target.closest("button, .scrim"); if (!t || t.disabled) return;
+  const d = t.dataset;
+  if (S.busy && !d.close) return;
+  S.busy = true; S.error = "";
+  try {
+    if (d.close) S.drawer = null;
+    else if (d.tab) { S.tab = d.tab; S.ask = null; render();
+      if (d.tab === "closed") S.closed = await call("/staff/orders?scope=closed");
+      if (d.tab === "products") S.products = await call("/staff/products");
+      if (d.tab === "open") await loadOpen(); }
+    else if (d.move) { const [id, st] = d.move.split(":"); t.disabled = true; const o = await call(`/staff/orders/${id}`, { method: "PATCH", body: JSON.stringify({ status: st }) });
+      S.ask = null; S.fresh.delete(o.id); S.open = S.open.map((x) => (x.id === o.id ? o : x)).filter((x) => !["done", "cancelled"].includes(x.status)); toast(`#${o.number}: ${o.status_label}`); }
+    else if (d.ask) S.ask = +d.ask;
+    else if (d.keep) S.ask = null;
+    else if (d.padd) S.drawer = { name: "", price: "", category: "", description: "" };
+    else if (d.pedit) { const p = S.products.find((x) => x.id === +d.pedit); S.drawer = { ...p, price: String(p.price) }; }
+    else if (d.ptoggle) { const p = S.products.find((x) => x.id === +d.ptoggle), u = await call(`/staff/products/${p.id}`, { method: "PATCH", body: JSON.stringify({ is_active: !p.is_active }) }); S.products = S.products.map((x) => (x.id === u.id ? u : x)); }
+    else if (d.psave) { const F = S.drawer, price = +digits(F.price);
+      if (!F.name.trim()) throw new Error("Nomini yozing");
+      const body = { name: F.name.trim(), price, category: F.category.trim(), description: F.description.trim() };
+      const p = F.id ? await call(`/staff/products/${F.id}`, { method: "PATCH", body: JSON.stringify(body) }) : await call("/staff/products", { method: "POST", body: JSON.stringify(body) });
+      S.products = F.id ? S.products.map((x) => (x.id === p.id ? p : x)) : [...S.products, p];
+      S.drawer = F.id ? null : { ...p, price: String(p.price) }; toast(F.id ? "Saqlandi" : "Qo'shildi. Endi rasm yuklashingiz mumkin."); }
+    else if (d.ssave) { const fee = +digits($("s-fee").value), min = +digits($("s-min").value);
+      S.shop = await call("/staff/shop", { method: "PATCH", body: JSON.stringify({ pickup: $("s-pickup").checked, delivery: $("s-delivery").checked, delivery_fee: fee, min_order: min }) }); toast("Saqlandi"); }
+    else if (d.logout) { await call("/staff/logout", { method: "POST" }); S.user = null; }
+    else return;
+  } catch (err) { S.error = err.message; }
+  finally { S.busy = false; }
+  render();
+});
+document.addEventListener("input", (e) => {
+  const F = S.drawer, id = e.target.id, v = e.target.value;
+  if (id === "l1") S.login.login = v; if (id === "l2") S.login.password = v;
+  if (!F) return;
+  ({ "p-name": () => (F.name = v), "p-price": () => (F.price = v), "p-cat": () => (F.category = v), "p-desc": () => (F.description = v) })[id]?.();
+});
+document.addEventListener("change", async (e) => {
+  if (e.target.id !== "p-photo" || !e.target.files[0]) return;
+  try { const blob = await shrink(e.target.files[0], 1200);
+    const res = await fetch(`/api/s/${SLUG}/staff/products/${S.drawer.id}/photo`, { method: "POST", body: blob, credentials: "same-origin", headers: { "Content-Type": "image/jpeg" } });
+    const p = await res.json(); if (!res.ok) throw new Error(p.detail || "Rasm yuklanmadi");
+    S.products = S.products.map((x) => (x.id === p.id ? p : x)); S.drawer = { ...S.drawer, photo_url: p.photo_url }; toast("Rasm yuklandi"); }
+  catch (err) { S.error = err.message; }
+  render();
+});
+document.addEventListener("submit", async (e) => {
+  if (e.target.id !== "lform") return; e.preventDefault();
+  try { S.user = await call("/staff/login", { method: "POST", body: JSON.stringify({ login: S.login.login, password: S.login.password }) }); S.error = ""; await boot(); }
+  catch (err) { S.error = err.message; render(); }
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.drawer) { S.drawer = null; render(); } });
+
+(async () => {
+  try { S.salon = await call(""); } catch { $("root").innerHTML = `<div class="login"><h1>Topilmadi</h1></div>`; return; }
+  document.title = `${S.salon.name} · Buyurtmalar`;
+  S.user = await call("/staff/me").catch(() => null);
+  if (!S.user && TG_INIT) S.user = await call("/staff/webapp", { method: "POST", body: JSON.stringify({ init_data: TG_INIT }) }).catch(() => null);
+  if (S.user) await boot(); else render();
+})();
+</script>
+</body>

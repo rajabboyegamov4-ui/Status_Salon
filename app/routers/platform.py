@@ -17,7 +17,7 @@ from app.auth import PlatformPrincipal, platform_manager, platform_user
 from app.db import get_session
 from app.models import Booking, Lead, Payment, PlatformUser, Salon, Staff
 from app.ratelimit import client_ip
-from app.routers.telegram import BotError, attach_bot
+from app.routers.telegram import BotError, attach_bot, refresh_menu
 from app.schemas import (
     LeadIn,
     LeadOut,
@@ -65,6 +65,7 @@ async def _out(session: AsyncSession, salon: Salon, who: PlatformPrincipal) -> P
         id=salon.id, slug=salon.slug, name=salon.name, phone=salon.phone, plan=salon.plan, kind=salon.kind,
         paid_until=salon.paid_until, is_active=salon.is_active, active=subscription_active(salon), is_demo=salon.is_demo,
         telegram_bot=salon.tg_bot_username if salon.tg_token_sealed else "", created_at=salon.created_at,
+        modules=(salon.modules or "booking").split(","),
         staff_count=staff_count or 0, bookings_30d=bookings or 0, paid_total=paid, lead_id=lead_id,
     )
 
@@ -162,10 +163,14 @@ async def update_salon(salon_id: int, body: SalonUpdate, who: PlatformPrincipal 
                 lead.status = "paid"
     if body.is_demo is not None:
         salon.is_demo = body.is_demo
+    if body.modules is not None:
+        salon.modules = ",".join(m for m in ("booking", "orders") if m in body.modules)
     if body.is_active is not None:
         salon.is_active = body.is_active
     await session.commit()
     await session.refresh(salon)
+    if body.modules is not None:
+        await refresh_menu(salon)
     return await _out(session, salon, who)
 
 

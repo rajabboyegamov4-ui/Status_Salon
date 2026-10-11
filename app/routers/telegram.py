@@ -55,9 +55,35 @@ def site_url(salon: Salon) -> str:
     return f"{base}/{salon.slug}" if base.startswith("https://") else ""
 
 
-def book_button(salon: Salon) -> dict | None:
+def _mods(salon: Salon) -> list[str]:
+    return (salon.modules or "booking").split(",")
+
+
+def shop_url(salon: Salon) -> str:
     url = site_url(salon)
-    return {"inline_keyboard": [[{"text": "📅 Bron qilish", "web_app": {"url": url}}]]} if url else None
+    return f"{url}/shop" if url else ""
+
+
+def book_button(salon: Salon) -> dict | None:
+    """What a client can do here: book, order, or both."""
+    row = []
+    if "booking" in _mods(salon) and site_url(salon):
+        row.append({"text": "📅 Bron qilish", "web_app": {"url": site_url(salon)}})
+    if "orders" in _mods(salon) and shop_url(salon):
+        row.append({"text": "🛍 Buyurtma berish", "web_app": {"url": shop_url(salon)}})
+    return {"inline_keyboard": [row]} if row else None
+
+
+def action_word(salon: Salon) -> str:
+    m = _mods(salon)
+    return "Bron yoki buyurtma" if "booking" in m and "orders" in m else "Buyurtma berish" if "orders" in m else "Bron qilish"
+
+
+def menu_target(salon: Salon) -> tuple[str, str]:
+    """The round button next to the message box: the shop for an orders-only business, else booking."""
+    if "booking" not in _mods(salon) and shop_url(salon):
+        return "Buyurtma", shop_url(salon)
+    return "Bron qilish", site_url(salon)
 
 
 # ---------- staff: get new-booking messages in the salon's bot ----------
@@ -104,6 +130,18 @@ async def staff_unlink(
     return _state(salon, staff)
 
 
+async def refresh_menu(salon: Salon) -> None:
+    """After the business's modules change, the bot's round button opens the right page."""
+    token = telegram.unseal(salon.tg_token_sealed)
+    label, target = menu_target(salon)
+    if token and target:
+        try:
+            await telegram.get_tg().call(token, "setChatMenuButton",
+                                         menu_button={"type": "web_app", "text": label, "web_app": {"url": target}})
+        except telegram.TelegramError:
+            pass
+
+
 class BotError(Exception):
     def __init__(self, status: int, message: str):
         super().__init__(message)
@@ -133,10 +171,11 @@ async def attach_bot(session: AsyncSession, salon: Salon, token: str, moving_fro
                                      allowed_updates=["message", "callback_query"], drop_pending_updates=True)
     except telegram.TelegramError as e:
         raise BotError(502, f"Telegram webhookni qabul qilmadi: {e}")
-    if site_url(salon):  # the round button next to the message box opens the booking page inside Telegram
+    label, target = menu_target(salon)
+    if target:  # the round button next to the message box opens the booking page (or the shop) inside Telegram
         try:
             await telegram.get_tg().call(token, "setChatMenuButton",
-                                         menu_button={"type": "web_app", "text": "Bron qilish", "web_app": {"url": site_url(salon)}})
+                                         menu_button={"type": "web_app", "text": label, "web_app": {"url": target}})
         except telegram.TelegramError:
             pass
     if moving_from is not None:  # the old salon forgets the bot and the staff chats linked through it
@@ -385,13 +424,13 @@ async def _on_message(session: AsyncSession, salon: Salon, token: str, msg: dict
             await _reply(token, chat_id, "✅ Rahmat! Saytga qayting, bron shu yerdan davom etadi.\nTasdiq va eslatmalar shu chatga keladi.", {"remove_keyboard": True})
             return
         await _reply(token, chat_id, "✅ Obuna bo'ldingiz! Tasdiq va eslatmalar shu chatga keladi.", {"remove_keyboard": True})
-        await _reply(token, chat_id, "Bron qilish uchun pastdagi tugmani bosing 👇", book_button(salon))
+        await _reply(token, chat_id, f"{action_word(salon)} uchun pastdagi tugmani bosing 👇", book_button(salon))
         return
     known = await session.scalar(select(User.id).where(User.salon_id == salon.id, User.tg_chat_id == chat_id))
     if known is None:
         await _greet(session, salon, token, chat_id)
         return
-    await _reply(token, chat_id, "Bron qilish uchun pastdagi tugmani bosing. Bronlaringiz haqidagi xabarlar shu yerga keladi.", book_button(salon))
+    await _reply(token, chat_id, f"{action_word(salon)} uchun pastdagi tugmani bosing. Xabarlar shu yerga keladi.", book_button(salon))
 
 
 async def _greet(session: AsyncSession, salon: Salon, token: str, chat_id: int) -> None:
@@ -404,9 +443,9 @@ async def _greet(session: AsyncSession, salon: Salon, token: str, chat_id: int) 
     user = await session.scalar(select(User).where(User.salon_id == salon.id, User.tg_chat_id == chat_id))
     if user:
         hello = f", {html.escape(iso(user.name))}" if user.name else ""
-        await _reply(token, chat_id, f"Assalomu alaykum{hello}! <b>{name}</b> ga xush kelibsiz.\nBron qilish uchun pastdagi tugmani bosing 👇", book_button(salon))
+        await _reply(token, chat_id, f"Assalomu alaykum{hello}! <b>{name}</b> ga xush kelibsiz.\n{action_word(salon)} uchun pastdagi tugmani bosing 👇", book_button(salon))
         return
-    await _reply(token, chat_id, f"Assalomu alaykum! Bu <b>{name}</b> boti.\nObuna bo'lish va bron qilish uchun telefon raqamingizni yuboring 👇", _contact_keyboard())
+    await _reply(token, chat_id, f"Assalomu alaykum! Bu <b>{name}</b> boti.\nObuna bo'lish uchun telefon raqamingizni yuboring 👇", _contact_keyboard())
 
 
 async def _link_staff(session: AsyncSession, salon: Salon, token: str, chat_id: int, code: str) -> None:
@@ -452,6 +491,9 @@ async def _on_button(session: AsyncSession, salon: Salon, token: str, cq: dict) 
         return
     if parts[0] in ("sx", "sy", "sn"):
         await _answer(token, cq, await staffbot.on_button(session, salon, token, cq, parts))
+        return
+    if parts[0] in ("oa", "or", "ov", "od", "ox", "oy", "on"):
+        await _answer(token, cq, await staffbot.on_order_button(session, salon, token, cq, parts))
         return
     answer = "Bajarildi"
     booking = None
