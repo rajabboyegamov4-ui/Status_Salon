@@ -59,7 +59,7 @@ async def _out(session: AsyncSession, salon: Salon, who: PlatformPrincipal) -> P
     bookings = await session.scalar(
         select(func.count()).where(Booking.salon_id == salon.id, Booking.created_at > now_utc() - timedelta(days=30))
     )
-    paid = await session.scalar(select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.salon_id == salon.id)) if who.manager else None
+    paid = int(await session.scalar(select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.salon_id == salon.id)) or 0) if who.manager else None
     lead_id = await session.scalar(select(Lead.id).where(Lead.salon_id == salon.id))
     return PlatformSalonOut(
         id=salon.id, slug=salon.slug, name=salon.name, phone=salon.phone, plan=salon.plan, kind=salon.kind,
@@ -326,6 +326,6 @@ async def stats(who: PlatformPrincipal = Depends(platform_user), session: AsyncS
         month_ago = now_utc() - timedelta(days=30)
         out["paying"] = await session.scalar(select(func.count()).select_from(Salon).where(
             Salon.is_demo.is_(False), Salon.is_active, Salon.paid_until >= today)) or 0
-        out["income_30d"] = await session.scalar(select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.paid_at > month_ago)) or 0
-        out["income_total"] = await session.scalar(select(func.coalesce(func.sum(Payment.amount), 0))) or 0
+        out["income_30d"] = int(await session.scalar(select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.paid_at > month_ago)) or 0)
+        out["income_total"] = int(await session.scalar(select(func.coalesce(func.sum(Payment.amount), 0))) or 0)
     return out
