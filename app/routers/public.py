@@ -36,6 +36,7 @@ from app.services.availability import NotOffered, branch_tz, eligible_masters, m
 from app.ratelimit import Window, client_ip
 from app.sms import get_sms
 from app.tenancy import active_salon, get_salon
+from app.text import strip_controls
 
 router = APIRouter(prefix="/s/{slug}", tags=["salon"])
 
@@ -325,7 +326,7 @@ async def create_booking(
             master_id=body.master_id,
             service_ids=body.service_ids,
             starts_at=body.starts_at,
-            comment=body.comment,
+            comment=strip_controls(body.comment).strip(),
             idempotency_key=idempotency_key,
         )
     except svc.SlotTaken:

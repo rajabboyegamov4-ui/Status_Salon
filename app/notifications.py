@@ -18,6 +18,7 @@ from app.models import Booking, Reminder, Salon, Staff
 from app.services.availability import branch_tz, now_utc
 from app.sms import send_safely
 from app.tenancy import salon_today, subscription_active
+from app.text import iso, ltr
 
 log = logging.getLogger("salon.notifications")
 
@@ -27,7 +28,8 @@ def _when(booking: Booking) -> str:
 
 
 def _h(s: str) -> str:
-    return html.escape(s or "")
+    """Typed text in a message: HTML-safe and isolated, so a right-to-left name cannot flip the line."""
+    return html.escape(iso(s))
 
 
 def _som(n: int) -> str:
@@ -113,9 +115,11 @@ STAFF_EVENTS = {"new": "🆕 <b>Yangi bron</b>", "cancelled": "❌ <b>Bron bekor
 
 
 def _phone(p: str) -> str:
+    if p == "walk-in" or not p:
+        return ""
     if p.startswith("+998") and len(p) == 13:
-        return f"+998 {p[4:6]} {p[6:9]} {p[9:11]} {p[11:]}"
-    return "" if p == "walk-in" else p
+        p = f"+998 {p[4:6]} {p[6:9]} {p[9:11]} {p[11:]}"
+    return ltr(p)
 
 
 def staff_text(b: Booking, event: str) -> str:
@@ -123,12 +127,13 @@ def staff_text(b: Booking, event: str) -> str:
     client = b.user.name or "Mijoz"
     if b.user.phone == "walk-in" and b.comment:
         client = b.comment.split(". ")[0]
-    lines = [STAFF_EVENTS[event],
-             f"👤 {_h(client)}{(' · ' + _phone(b.user.phone)) if _phone(b.user.phone) else ''}",
-             f"✨ {_h(', '.join(i.service_name for i in b.items))}",
-             f"👩‍🎨 Usta: {_h(b.master.name)}",
-             f"🕒 {local:%d.%m}, {WEEKDAYS[local.weekday()]} {local:%H:%M} · {_h(b.branch.name)}",
-             f"💰 {_som(b.total_price)} so'm"]
+    lines = [STAFF_EVENTS[event], f"👤 {_h(client)}"]
+    if _phone(b.user.phone):  # its own line: next to a right-to-left name a number would read backwards
+        lines.append(f"📞 {_phone(b.user.phone)}")
+    lines += [f"✨ {', '.join(_h(i.service_name) for i in b.items)}",
+              f"👩‍🎨 Usta: {_h(b.master.name)}",
+              f"🕒 {local:%d.%m}, {WEEKDAYS[local.weekday()]} {local:%H:%M} · {_h(b.branch.name)}",
+              f"💰 {_som(b.total_price)} so'm"]
     if b.comment and b.user.phone != "walk-in":
         lines.append(f"💬 {_h(b.comment)}")
     return "\n".join(lines)

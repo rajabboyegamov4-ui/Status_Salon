@@ -24,6 +24,7 @@ from app.security import issue_token
 from app.services import booking as svc
 from app.services import profiles
 from app.services.availability import now_utc
+from app.text import clean_name, iso
 from app.tenancy import active_salon, get_salon
 
 router = APIRouter(tags=["telegram"])
@@ -316,7 +317,7 @@ async def _on_message(session: AsyncSession, salon: Salon, token: str, msg: dict
         except auth.AuthError:
             await _reply(token, chat_id, "Hozircha faqat O'zbekiston raqamlari (+998) qabul qilinadi.", {"remove_keyboard": True})
             return
-        name = " ".join(x for x in (contact.get("first_name"), contact.get("last_name")) if x)[:120]
+        name = clean_name(" ".join(x for x in (contact.get("first_name"), contact.get("last_name")) if x))
         user = await session.scalar(select(User).where(User.salon_id == salon.id, User.phone == phone))
         if user is None:
             user = User(salon_id=salon.id, phone=phone, name=name)
@@ -352,7 +353,7 @@ async def _greet(session: AsyncSession, salon: Salon, token: str, chat_id: int) 
     name = html.escape(salon.name)
     user = await session.scalar(select(User).where(User.salon_id == salon.id, User.tg_chat_id == chat_id))
     if user:
-        hello = f", {html.escape(user.name)}" if user.name else ""
+        hello = f", {html.escape(iso(user.name))}" if user.name else ""
         await _reply(token, chat_id, f"Assalomu alaykum{hello}! <b>{name}</b> ga xush kelibsiz.\nBron qilish uchun pastdagi tugmani bosing 👇", book_button(salon))
         return
     await _reply(token, chat_id, f"Assalomu alaykum! Bu <b>{name}</b> boti.\nObuna bo'lish va bron qilish uchun telefon raqamingizni yuboring 👇", _contact_keyboard())
@@ -366,7 +367,7 @@ async def _link_staff(session: AsyncSession, salon: Salon, token: str, chat_id: 
         return
     staff.tg_chat_id = chat_id
     await session.commit()
-    await _reply(token, chat_id, f"✅ {html.escape(staff.name)}, endi <b>{html.escape(salon.name)}</b>dagi yangi, bekor qilingan va ko'chirilgan bronlar haqida xabar shu chatga keladi.")
+    await _reply(token, chat_id, f"✅ {html.escape(iso(staff.name))}, endi <b>{html.escape(salon.name)}</b>dagi yangi, bekor qilingan va ko'chirilgan bronlar haqida xabar shu chatga keladi.")
 
 
 def _confirm_text(salon: Salon) -> str:

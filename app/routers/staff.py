@@ -30,6 +30,7 @@ from app.services import booking as svc
 from app.services import profiles, team
 from app.services.availability import branch_tz
 from app.tenancy import SUSPENDED_MESSAGE, get_salon, subscription_active
+from app.text import clean_name, strip_controls
 
 router = APIRouter(prefix="/s/{slug}/staff", tags=["staff"])
 WALK_IN_PHONE = "walk-in"  # not a real number: never gets messages
@@ -149,18 +150,18 @@ async def create_for_client(
         if body.master_id not in (None, staff.master_id):
             raise HTTPException(403, "Faqat o'zingizga bron qo'sha olasiz")
         body.master_id = staff.master_id
-    comment = body.comment
+    comment = strip_controls(body.comment).strip()
     if body.client_phone.strip():
         try:
             phone = auth.normalize_phone(body.client_phone)
         except auth.AuthError as e:
             raise HTTPException(422, str(e))
-        name = body.client_name.strip()
+        name = clean_name(body.client_name)
     else:
         # No number given: one shared "walk-in" client per salon; the name goes into the note.
         phone, name = WALK_IN_PHONE, "Telefonsiz mijoz"
-        if body.client_name.strip():
-            comment = f"{body.client_name.strip()}. {comment}".strip(". ").strip()[:500]
+        if clean_name(body.client_name):
+            comment = f"{clean_name(body.client_name)}. {comment}".strip(". ").strip()[:500]
     client = await session.scalar(select(User).where(User.salon_id == salon.id, User.phone == phone))
     if client is None:
         client = User(salon_id=salon.id, phone=phone, name=name)
