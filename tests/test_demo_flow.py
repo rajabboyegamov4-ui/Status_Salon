@@ -241,3 +241,47 @@ async def test_a_client_with_a_russian_or_kazakh_number_subscribes_and_the_salon
         r = await admin.post(f"{API}/staff/bookings", json={"branch_id": 1, "master_id": 3, "service_ids": [1],
                                                             "starts_at": local(tomorrow(), 13).isoformat(), "client_phone": "+7 701 555 44 33", "client_name": "Aigerim"})
         assert r.status_code == 201 and r.json()["client_phone"] == "+77015554433"
+
+
+async def test_the_front_page_is_the_presentation_and_its_address_is_reserved(monkeypatch):
+    async with make_client() as c:
+        for path in ("/", "/taqdimot"):
+            r = await c.get(path)
+            assert r.status_code == 200 and "Navbat" in r.text and "/api/s/" in r.text
+    monkeypatch.setattr(settings, "platform_login", "boss")
+    monkeypatch.setattr(settings, "platform_password_hash", hash_password("platform-pass"))
+    async with make_client() as p:
+        await p.post("/api/platform/login", json={"login": "boss", "password": "platform-pass"})
+        body = {"slug": "taqdimot", "name": "X", "months": 1, "owner_name": "X", "owner_login": "xowner", "owner_password": "secret-1"}
+        assert (await p.post("/api/platform/salons", json=body)).status_code == 422
+
+
+async def test_a_dental_clinic_speaks_of_doctors_and_patients(monkeypatch):
+    monkeypatch.setattr(settings, "platform_login", "boss")
+    monkeypatch.setattr(settings, "platform_password_hash", hash_password("platform-pass"))
+    async with make_client() as p:
+        await p.post("/api/platform/login", json={"login": "boss", "password": "platform-pass"})
+        body = {"slug": "smile", "name": "Smile Dental", "months": 1, "owner_name": "Bosh", "owner_login": "bosh",
+                "owner_password": "smile-2026", "kind": "dental", "sample_masters": True}
+        assert (await p.post("/api/platform/salons", json=body)).status_code == 201
+    api = "/api/s/smile"
+    async with make_client() as c:
+        info = (await c.get(api)).json()
+        assert info["kind"] == "dental" and info["term"] == "Shifokor" and info["client_word"] == "bemor"
+        assert [m["name"] for m in (await c.get(f"{api}/masters")).json()] == ["Dr. Aziza Karimova", "Dr. Sardor Aliyev", "Dr. Malika Yusupova"]
+    async with make_client() as doc:  # 'Dr. Aziza Karimova' logs in as 'aziza'
+        assert (await staff_login(doc, "aziza", "smile-2026", api=api))["role"] == "barber"
+    # The patient's confirmation names a doctor, not a master.
+    assert (await connect_bot(api=api, login="bosh", password="smile-2026")).status_code == 200
+    smile = await salon_row("smile")
+    patient = {"id": 6161, "first_name": "Anvar"}
+    async with make_client() as c:
+        await hook(c, smile, msg(contact={"phone_number": "998901112233", "first_name": "Anvar", "user_id": 6161}, chat=patient))
+        assert (await c.post(f"{api}/auth/webapp", json={"init_data": sign_init(6161)})).status_code == 200
+        branch = (await c.get(f"{api}/branches")).json()[0]["id"]
+        doctor = (await c.get(f"{api}/masters")).json()[0]["id"]
+        service = (await c.get(f"{api}/branches/{branch}/services")).json()[0]["id"]
+        r = await c.post(f"{api}/bookings", json={"branch_id": branch, "master_id": doctor, "service_ids": [service],
+                                                  "starts_at": local(tomorrow(), 12).isoformat()})
+        assert r.status_code == 201, r.text
+    assert "Shifokor: \u2068Dr. Aziza Karimova\u2069" in to(6161)[-1]

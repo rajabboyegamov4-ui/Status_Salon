@@ -558,7 +558,11 @@ const demoApi = (() => {
 
 // ---------- state & flow ----------
 // What a client might write to the master, by kind of salon.
-const COMMENT_HINT = { barber: "Masalan, fade, yon tomonlari kalta", beauty: "Masalan, sochim uzun, rangini o'zgartirmoqchiman", cosmetology: "Masalan, terim sezgir" };
+const COMMENT_HINT = { barber: "Masalan, fade, yon tomonlari kalta", beauty: "Masalan, sochim uzun, rangini o'zgartirmoqchiman", cosmetology: "Masalan, terim sezgir",
+  dental: "Masalan, tishim og'riyapti", clinic: "Masalan, avval ham shu shifokorga kelganman", spa: "Masalan, belim og'riydi", auto: "Masalan, mashina rusumi va muammo",
+  vet: "Masalan, it, 3 yosh", other: "Qo'shimcha ma'lumot" };
+// What the specialist is called in this kind of business (Usta, Shifokor, Kosmetolog...): TERM() for labels, term() inside sentences.
+const TERM = () => S.salon?.term || "Usta", term = () => TERM().toLowerCase();
 // Barber first: pick a barber, read their profile, then book with them.
 const STEPS = ["Usta", "Profil", "Xizmat", "Vaqt", "Kirish", "Tasdiq"];
 const DEMO_SALON = { name: "Premium Barber", description: "Erkaklar uchun premium barbershop: qahva, issiq sochiq va shoshilmasdan ishlaydigan ustalar.", instagram: "premiumbarber.uz", cover_url: DemoArt.cover("premium"), phone: "+998712000000", telegram_bot: "premiumbarber_bot" };
@@ -684,7 +688,7 @@ async function rebook(mid, sids, btn) {
   const n = ++seq;
   try {
     if (!S.loaded) { [S.masters, S.branches] = await Promise.all([api.allMasters(), api.branches()]); S.loaded = true; }
-    if (!S.masters.some((m) => m.id === mid)) throw new ApiError(404, "Bu usta hozir onlayn bron qabul qilmaydi. Boshqa ustani tanlang.");
+    if (!S.masters.some((m) => m.id === mid)) throw new ApiError(404, `Bu ${term()} hozir onlayn bron qabul qilmaydi. Boshqa ${term()}ni tanlang.`);
     setMaster(mid);
     await loadServices(n);
   } catch (e) { if (btn) btn.disabled = false; if (!stale(n)) { S.error = e.message; S.retry = null; render(); } return; }
@@ -933,9 +937,9 @@ const views = {
   0: () => {
     const list = S.masters.filter((m) => S.filter == null || m.branch_id === S.filter);
     return `${salonHtml()}${notice()}
-    <div class="section-head"><h1>Ustalar</h1>${S.loaded && list.length ? `<span>${list.length} ta</span>` : ""}</div>
+    <div class="section-head"><h1>${esc(TERM())}lar</h1>${S.loaded && list.length ? `<span>${list.length} ta</span>` : ""}</div>
     ${S.branches.length > 1 ? `<div class="seg" role="group" aria-label="Filial">${[[null, "Hammasi"], ...S.branches.map((b) => [b.id, b.name])].map(([id, n]) => `<button data-filter="${id ?? ""}" aria-pressed="${S.filter === id}">${esc(n)}</button>`).join("")}</div>` : ""}
-    ${!S.loaded ? (S.error ? "" : '<div class="spinner"></div>') : list.length ? `<div class="grid">${list.map(barberCardHtml).join("")}</div>` : `<div class="empty">Onlayn bron uchun ustalar hali qo'shilmagan.${S.salon?.phone ? ` Salonga qo'ng'iroq qiling: ${telLink(S.salon.phone)}` : ""}</div>`}`;
+    ${!S.loaded ? (S.error ? "" : '<div class="spinner"></div>') : list.length ? `<div class="grid">${list.map(barberCardHtml).join("")}</div>` : `<div class="empty">Onlayn bron uchun ${esc(term())}lar hali qo'shilmagan.${S.salon?.phone ? ` Salonga qo'ng'iroq qiling: ${telLink(S.salon.phone)}` : ""}</div>`}`;
   },
   1: () => {
     const m = chosenMaster(), ig = handle(m.instagram);
@@ -951,7 +955,7 @@ const views = {
   },
   2: () => {
     const cats = [...new Set(S.services.map((s) => s.category))], m = chosenMaster();
-    return `<h1>Xizmatni tanlang</h1>${whoLine(m, "Narxlar shu ustaniki. Bir nechtasini tanlash mumkin.")}${notice()}
+    return `<h1>Xizmatni tanlang</h1>${whoLine(m, `Narxlar shu ${term()}niki. Bir nechtasini tanlash mumkin.`)}${notice()}
     ${cats.map((c) => `${cats.length > 1 ? `<div class="cat">${esc(c)}</div>` : ""}<div class="list">${S.services.filter((s) => s.category === c).map((s) => `
       <button class="svc" data-service="${s.id}" aria-pressed="${S.picked.has(s.id)}">
       <span class="main"><span class="name">${esc(s.name)}</span><span class="sub">${s.duration_min} daqiqa${s.description ? " · " + esc(s.description) : ""}</span><span class="price">${som(s.price)}</span></span>
@@ -964,8 +968,8 @@ const views = {
     if (S.dates.length && !S.dates.some((d) => d.has_slots)) {
       // Nobody likes a dead end: other barbers of the same branch, and the salon's phone.
       const alts = S.masters.filter((x) => x.branch_id === m.branch_id && x.id !== m.id), ph = salonPhone(S.branch);
-      return `${head}<div class="empty">Bu ustada 2 hafta ichida bo'sh vaqt yo'q.${ph ? ` Salonga qo'ng'iroq qiling: ${telLink(ph)}` : ""}</div>
-        ${alts.length ? `<div class="cat">Shu filialdagi boshqa ustalar</div><div class="list">${alts.map((x) => `<button class="card who-line alt" data-switch="${x.id}">${x.photo_url ? `<img src="${esc(x.photo_url)}" alt="">` : `<span class="mini">${esc(x.name[0])}</span>`}<div><b>${esc(x.name)}</b><small>${esc([x.rank, x.reviews_count ? `★ ${x.rating.toFixed(1)}` : ""].filter(Boolean).join(" · "))}</small></div><span class="go">Tanlash</span></button>`).join("")}</div>` : ""}`;
+      return `${head}<div class="empty">Bu ${esc(term())}da 2 hafta ichida bo'sh vaqt yo'q.${ph ? ` Salonga qo'ng'iroq qiling: ${telLink(ph)}` : ""}</div>
+        ${alts.length ? `<div class="cat">Shu filialdagi boshqa ${esc(term())}lar</div><div class="list">${alts.map((x) => `<button class="card who-line alt" data-switch="${x.id}">${x.photo_url ? `<img src="${esc(x.photo_url)}" alt="">` : `<span class="mini">${esc(x.name[0])}</span>`}<div><b>${esc(x.name)}</b><small>${esc([x.rank, x.reviews_count ? `★ ${x.rating.toFixed(1)}` : ""].filter(Boolean).join(" · "))}</small></div><span class="go">Tanlash</span></button>`).join("")}</div>` : ""}`;
     }
     let prevMonth = S.dates[0] && dayInfo(S.dates[0].date).month;
     const chips = S.dates.map((d) => {
@@ -991,10 +995,10 @@ const views = {
     const t = totals(), m = chosenMaster(), di = dayInfo(slotDate());
     return `<h1>Hammasi to'g'rimi?</h1>${notice()}
     <div class="card ticket"><div class="when"><span class="clock">${hhmm(S.slot)}</span><div><b>${di.wd}, ${di.day}-${di.month}</b><small>${t.dur} daqiqa</small></div></div>
-      <div class="rows"><div><span>Usta</span><b>${esc(m.name)}</b></div><div><span>Filial</span><b>${esc(S.branch.name)}</b></div>
+      <div class="rows"><div><span>${esc(TERM())}</span><b>${esc(m.name)}</b></div><div><span>Filial</span><b>${esc(S.branch.name)}</b></div>
       ${pickedServices().map((s) => `<div><span>${esc(s.name)}</span><b>${som(s.price)}</b></div>`).join("")}<div><span>Mijoz</span><b>${esc(S.user?.name || S.name)}</b></div></div>
       <div class="total"><span>Jami</span><span>${som(t.price)}</span></div></div>
-    <div class="field"><label for="comment">Ustaga izoh (ixtiyoriy)</label><textarea id="comment" rows="2" placeholder="${esc(COMMENT_HINT[S.salon?.kind] || COMMENT_HINT.barber)}">${esc(S.comment)}</textarea></div>
+    <div class="field"><label for="comment">${esc(TERM())}ga izoh (ixtiyoriy)</label><textarea id="comment" rows="2" placeholder="${esc(COMMENT_HINT[S.salon?.kind] || COMMENT_HINT.barber)}">${esc(S.comment)}</textarea></div>
     <p class="hint">Bepul bekor qilish: boshlanishidan 2 soat oldingacha. To'lov salonda.</p>`;
   },
   7: () => {
@@ -1010,13 +1014,13 @@ const views = {
   6: () => { const r = S.result, di = dayInfo(tashkentParts(new Date(r.starts_at)).date), b = branchOf(r) || S.branch, ev = calEvent(r); return `<div class="done-mark"><svg width="34" height="34" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 7.5l3 3 6-7"/></svg></div>
     <div class="center"><h1>Bron qilindi!</h1><p class="hint">${useTelegram() ? "Tasdiqni Telegram'ga yubordik" : "SMS orqali tasdiq yubordik"}. Tashrifdan 24 va 2 soat oldin eslatamiz.</p></div>
     <div class="card ticket"><div class="when"><span class="clock">${hhmm(r.starts_at)}</span><div><b>${di.wd}, ${di.day}-${di.month}</b><small>Bron raqami #${r.id}</small></div></div>
-      <div class="rows"><div><span>Usta</span><b>${esc(r.master_name)}</b></div><div><span>Filial</span><b>${esc(r.branch_name)}</b></div></div>
+      <div class="rows"><div><span>${esc(TERM())}</span><b>${esc(r.master_name)}</b></div><div><span>Filial</span><b>${esc(r.branch_name)}</b></div></div>
       <div class="total"><span>To'lov salonda</span><span>${som(r.total_price)}</span></div></div>
     ${b ? `<div class="card place"><b>${esc(b.name || r.branch_name)}</b>${b.address ? `<span class="addr">${esc(b.address)}</span>` : ""}${contactHtml(b)}</div>` : ""}
     <div class="card place"><b>Kalendarga qo'shish</b><span class="hint">Eslatma telefoningizda ham tursin.</span>
       <div class="acts"><a class="small-btn" href="${esc(gcalUrl(ev))}" target="_blank" rel="noopener">Google Calendar</a><button class="small-btn" id="ics">Boshqa (.ics)</button></div></div>
-    <button class="big-btn" id="rebook-last">Yana shu ustaga</button>
-    <button class="big-btn ghost" id="again">Boshqa ustaga bron</button>`; },
+    <button class="big-btn" id="rebook-last">Yana shu ${esc(term())}ga</button>
+    <button class="big-btn ghost" id="again">Boshqa ${esc(term())}ga bron</button>`; },
 };
 
 const TITLES = ["", "Usta", "Xizmat", "Vaqt", "Kirish", "Tasdiqlash", "Tayyor", "Bronlarim"];
@@ -1121,7 +1125,7 @@ document.addEventListener("input", (e) => {
     const info = await fetch(`/api/s/${SLUG}`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
     const closed = (msg) => { $("#bar").hidden = true; $("#back").disabled = true; $("#view").innerHTML = `<h1>${esc(info?.name || "Salon")}</h1><p class="lead">${msg}</p>`; };
     if (!info) return closed("Bunday salon topilmadi. Manzilni tekshiring.");
-    document.title = `${info.name} · Bron`; S.salon = info;
+    document.title = `${info.name} · Bron`; S.salon = info; STEPS[0] = TITLES[1] = TERM();
     if (!info.active) return closed(`Onlayn bron vaqtincha ishlamayapti. Iltimos, salonga qo'ng'iroq qiling${info.phone ? `: <a href="tel:${esc(info.phone)}">${esc(info.phone)}</a>` : "."}`);
     S.user = await realApi.me();
     if (!S.user && TG_INIT) S.user = await realApi.webapp(TG_INIT).catch(() => null);

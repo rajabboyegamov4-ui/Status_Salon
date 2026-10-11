@@ -65,9 +65,11 @@ def _page(name: str) -> str:
 
 
 # Every salon has its own addresses: /{slug} (clients), /{slug}/panel (barbers), /{slug}/admin (owner/admin).
+# The front page is the sales presentation (any kind of business, sample data, plus a live demo salon).
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+@app.get("/taqdimot", response_class=HTMLResponse, include_in_schema=False)
 async def home():
-    return _page("home.html")
+    return _page("taqdimot.html")
 
 
 @app.get("/platform", response_class=HTMLResponse, include_in_schema=False)

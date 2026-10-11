@@ -14,7 +14,7 @@ from app.models import Salon
 from app.services.availability import now_utc
 
 SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$")
-RESERVED_SLUGS = {"api", "platform", "docs", "openapi", "static", "admin", "panel", "www", "app", "health", "media"}
+RESERVED_SLUGS = {"api", "platform", "docs", "openapi", "static", "admin", "panel", "www", "app", "health", "media", "taqdimot"}
 SUSPENDED_MESSAGE = "Salon onlayn bron xizmati vaqtincha to'xtatilgan. Iltimos, salonga qo'ng'iroq qiling."
 
 
