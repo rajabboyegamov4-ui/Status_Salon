@@ -140,7 +140,7 @@ async def test_client_subscribes_in_the_bot_then_books_inside_it_without_a_secon
         r = await app_view.post(f"{API}/bookings", json={"branch_id": 1, "master_id": 1, "service_ids": [1],
                                                           "starts_at": local(tomorrow(), 12).isoformat()})
         assert r.status_code == 201
-        assert "Bron tasdiqlandi" in to(ME["id"])[-1] and "Usta: Jasur" in to(ME["id"])[-1]
+        assert "Bron tasdiqlandi" in to(ME["id"])[-1] and "Usta: \u2068Jasur\u2069" in to(ME["id"])[-1]
 
 
 async def test_mini_app_login_needs_a_genuine_fresh_signature_from_this_salons_bot():
