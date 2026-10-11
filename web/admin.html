@@ -333,7 +333,7 @@ const ICON = {
 
 // The salon comes from the address: /premium/admin -> "premium".
 const SLUG = location.pathname.split("/").filter(Boolean)[0] || "";
-const ROLE = { owner: "Salon rahbari", admin: "Administrator", barber: "Barber" };
+const ROLE = { owner: "Salon rahbari", admin: "Administrator", barber: "Usta" };
 // ---------- real API ----------
 const NET_ERR = "Internet aloqasi yo'q. Qayta urinib ko'ring.", SRV_ERR = "Serverda xatolik, birozdan keyin urinib ko'ring", GONE = "Sessiya tugadi, qaytadan kiring";
 const errText = (d) => (typeof d === "string" ? d : Array.isArray(d) && d[0]?.msg ? String(d[0].msg).replace(/^Value error, /, "") : "Xatolik yuz berdi");
@@ -377,6 +377,7 @@ const realApi = {
   botState() { return this.call("/staff/telegram"); },
   botConnect(token) { return this.call("/staff/telegram", { method: "PUT", body: JSON.stringify({ token }) }); },
   botDisconnect() { return this.call("/staff/telegram", { method: "DELETE" }); },
+  botUnlinkMe() { return this.call("/staff/telegram/me", { method: "DELETE" }); },
   updateBranch(id, p) { return this.call(`/staff/branches/${id}`, { method: "PATCH", body: JSON.stringify(p) }); },
   updateMaster(id, p) { return this.call(`/staff/masters/${id}`, { method: "PATCH", body: JSON.stringify(p) }); },
   upload(kind, ref, blob) { return this.call(`/staff/photos?kind=${kind}${ref != null ? "&ref_id=" + ref : ""}`, { method: "POST", body: blob, headers: { "Content-Type": blob.type || "image/jpeg" } }); },
@@ -641,6 +642,7 @@ const demoApi = (() => {
       Object.assign(demoBot, { connected: true, username: "premiumbarber_bot" }); return Promise.resolve({ ...demoBot });
     },
     botDisconnect() { Object.assign(demoBot, { connected: false, username: "" }); return Promise.resolve(null); },
+    botUnlinkMe() { demoBot.me_linked = false; return Promise.resolve({ ...demoBot }); },
     updateBranch: (id, p) => DemoProfile.updateBranch(id, p),
     updateMaster: (id, p) => DemoProfile.updateMaster(id, p).then((x) => DemoProfile.enrich({ ...masters.find((m) => m.id === id), ...x })),
     upload: (k, r, b) => DemoProfile.upload(k, r, b),
@@ -776,8 +778,8 @@ function salonEditorHtml(x) {
     <div class="pcover">${x.cover_url ? `<img src="${esc(x.cover_url)}" alt="Muqova">` : `<span class="hint">Muqova rasmi yo'q</span>`}</div>
     <div class="prow">${fileBtn(x.cover_url ? "Muqovani almashtirish" : "Muqova rasmi yuklash", "cover")}</div>
     <div class="pgrid">
-      <div class="field wide"><label for="s-description">Salon haqida</label><textarea id="s-description" rows="3" maxlength="2000" placeholder="Masalan: erkaklar uchun premium barbershop, qahva va issiq sochiq">${dv("s-description", x.description)}</textarea></div>
-      <div class="field"><label for="s-instagram">Instagram</label><input id="s-instagram" value="${dv("s-instagram", x.instagram)}" placeholder="premiumbarber.uz"></div>
+      <div class="field wide"><label for="s-description">Salon haqida</label><textarea id="s-description" rows="3" maxlength="2000" placeholder="Masalan: ayollar uchun go'zallik saloni, tajribali ustalar va qulay joy">${dv("s-description", x.description)}</textarea></div>
+      <div class="field"><label for="s-instagram">Instagram</label><input id="s-instagram" value="${dv("s-instagram", x.instagram)}" placeholder="salon.uz"></div>
       <div class="field"><label for="s-phone">Telefon</label><input id="s-phone" inputmode="tel" value="${dv("s-phone", x.phone)}"></div>
     </div><div class="prow"><button class="btn primary w" data-save-salon="1">Saqlash</button></div></section>`;
 }
@@ -786,10 +788,14 @@ function botEditorHtml() {
   const b = S.bot; if (!b) return "";
   const owner = S.user.role === "owner";
   if (b.connected) return `<section class="psec"><div class="phd"><h3>Telegram bot</h3><span class="hint">Ulangan</span></div>
-    <p>Mijozlar <b>@${esc(b.username)}</b> orqali kiradi. Bron tasdig'i, eslatmalar va baho so'rash shu botdan boradi.</p>
-    <div class="prow"><a class="btn" href="https://t.me/${esc(b.username)}" target="_blank" rel="noopener">Botni ochish</a>${owner ? `<button class="btn bad w" data-bot-off="1">Botni uzish</button>` : ""}</div></section>`;
+    <p>Mijozlar <b>@${esc(b.username)}</b> orqali obuna bo'ladi va bron qiladi. Bron tasdig'i, eslatmalar va baho so'rash shu botdan boradi.</p>
+    <div class="prow"><a class="btn" href="https://t.me/${esc(b.username)}" target="_blank" rel="noopener">Botni ochish</a>${owner ? `<button class="btn bad w" data-bot-off="1">Botni uzish</button>` : ""}</div>
+    <div class="phd" style="margin-top:14px"><h3>Yangi bronlar haqida xabar</h3><span class="hint">${b.me_linked ? "Yoqilgan" : "O'chiq"}</span></div>
+    ${b.me_linked ? `<p>Yangi, bekor qilingan va ko'chirilgan bronlar Telegram'ingizga keladi.</p><div class="prow"><button class="btn w" data-bot-unlink="1">Xabarlarni o'chirish</button></div>`
+      : `<p class="hint">Tugmani bosing, Telegram ochiladi: u yerda <b>Start</b> ni bosing. Shundan keyin har bir yangi bron haqida xabar shu Telegram'ga keladi.</p>
+    <div class="prow">${b.me_link ? `<a class="btn primary" href="${esc(b.me_link)}" target="_blank" rel="noopener" data-bot-linking="1">Telegram'da xabar olish</a>` : ""}<button class="btn w" data-bot-check="1">Tekshirish</button></div>`}</section>`;
   return `<section class="psec"><div class="phd"><h3>Telegram bot</h3><span class="hint">Ulanmagan: mijozlar hali kira olmaydi</span></div>
-    <ol class="steps-list"><li>Telegram'da <b>@BotFather</b> ni oching va <b>/newbot</b> deb yozing.</li><li>Bot nomini yozing (masalan, ${esc(S.salonInfo?.name || "Premium Barber")}), keyin oxiri <b>bot</b> bilan tugaydigan username bering.</li><li>BotFather bergan tokenni pastga qo'yib, "Ulash"ni bosing.</li></ol>
+    <ol class="steps-list"><li>Telegram'da <b>@BotFather</b> ni oching va <b>/newbot</b> deb yozing.</li><li>Bot nomini yozing (masalan, ${esc(S.salonInfo?.name || "Salon")}), keyin oxiri <b>bot</b> bilan tugaydigan username bering.</li><li>BotFather bergan tokenni pastga qo'yib, "Ulash"ni bosing.</li></ol>
     ${owner ? `<div class="pgrid"><div class="field wide"><label for="bot-token">Bot tokeni</label><input id="bot-token" value="${dv("bot-token", "")}" placeholder="123456789:AA..." autocomplete="off" spellcheck="false"><span class="hint">Token shifrlab saqlanadi va boshqa hech kimga ko'rinmaydi.</span></div></div>
     <div class="prow"><button class="btn primary w" data-bot-on="1">Ulash</button></div>` : `<p class="hint">Botni salon egasi ulaydi.</p>`}</section>`;
 }
@@ -819,7 +825,7 @@ function masterEditorHtml(m, { canRank }) {
       <div class="pgrid">
         ${canRank ? `<div class="field"><label for="${id("rank")}">Darajasi</label><input id="${id("rank")}" value="${dv(id("rank"), m.rank)}"></div>` : ""}
         <div class="field"><label for="${id("years")}">Tajriba, yil</label><input id="${id("years")}" type="number" min="0" max="60" inputmode="numeric" value="${dv(id("years"), m.experience_years)}"></div>
-        <div class="field"><label for="${id("ig")}">Instagram</label><input id="${id("ig")}" value="${dv(id("ig"), m.instagram)}" placeholder="@jasur.barber" autocapitalize="off"></div>
+        <div class="field"><label for="${id("ig")}">Instagram</label><input id="${id("ig")}" value="${dv(id("ig"), m.instagram)}" placeholder="@usta.instagram" autocapitalize="off"></div>
         <div class="field wide"><label for="${id("spec")}">Yo'nalishlari (vergul bilan)</label><input id="${id("spec")}" value="${esc(spec)}" placeholder="Fade, Soqol dizayni, Klassika"></div>
         <div class="field wide"><label for="${id("bio")}">O'zi haqida</label><textarea id="${id("bio")}" rows="3" maxlength="1500" placeholder="Qayerda o'qigan, qanday uslubda ishlaydi">${dv(id("bio"), m.bio)}</textarea></div>
       </div>
@@ -850,6 +856,8 @@ async function onProfileClick(d) {
     delete D["bot-token"]; toast(`@${S.bot.username} ulandi`); return true;
   }
   if (d.botOff) { await api.botDisconnect(); S.bot = { connected: false, username: "" }; toast("Bot uzildi"); return true; }
+  if (d.botUnlink) { S.bot = await api.botUnlinkMe(); toast("Telegram xabarlari o'chirildi"); return true; }
+  if (d.botCheck) { S.bot = await api.botState(); toast(S.bot.me_linked ? "Xabarlar yoqildi ✅" : "Hali ulanmagan: Telegram'da Start ni bosing"); return true; }
   if (d.saveSalon) {
     S.salonInfo = await api.updateSalon({ description: D["s-description"] ?? S.salonInfo.description, instagram: (D["s-instagram"] ?? S.salonInfo.instagram).replace(/^@/, ""), phone: D["s-phone"] ?? S.salonInfo.phone });
     for (const k of ["s-description", "s-instagram", "s-phone"]) delete D[k];
@@ -919,7 +927,7 @@ function profileViewHtml() {
   if (!S.salonInfo) return `<p class="hint">Yuklanmoqda…</p>`;
   return `${isAdmin() ? salonEditorHtml(S.salonInfo) + botEditorHtml() + S.profBranches.map(branchEditorHtml).join("") : ""}
     ${S.profMasters.map((m) => masterEditorHtml(m, { canRank: isAdmin() })).join("")}
-    ${isAdmin() && !S.profMasters.length ? `<div class="pempty">Barberlar yo'q. "Xodimlar" bo'limidan qo'shing.</div>` : ""}`;
+    ${isAdmin() && !S.profMasters.length ? `<div class="pempty">Ustalar yo'q. "Xodimlar" bo'limidan qo'shing.</div>` : ""}`;
 }
 function reviewsViewHtml() {
   const list = S.reviews || [], vis = list.filter((r) => !r.is_hidden);
@@ -1013,7 +1021,7 @@ function listHtml() {
 function teamHtml() {
   const ago = (iso) => { if (!iso) return "hali kirmagan"; const d = parts(new Date(iso)); return d.date === today() ? `bugun ${hhmm(d.min)}` : `${dinfo(d.date).day}-${dinfo(d.date).month}`; };
   const A = S.offAsk, P = S.myPw;
-  return `${S.creds ? `<div class="creds"><b>${esc(S.creds.name)} uchun kirish ma'lumoti:</b><span>Manzil <code>${esc(location.host + "/" + (SLUG || "premium") + (S.creds.role === "barber" ? "/panel" : "/admin"))}</code></span><span>Login <code>${esc(S.creds.login)}</code></span><span>Parol <code>${esc(S.creds.password)}</code></span><span class="hint">Buni hozir ${S.creds.role === "barber" ? "barberga" : "xodimga"} bering: parol keyin ko'rsatilmaydi.</span></div>` : ""}
+  return `${S.creds ? `<div class="creds"><b>${esc(S.creds.name)} uchun kirish ma'lumoti:</b><span>Manzil <code>${esc(location.host + "/" + (SLUG || "premium") + (S.creds.role === "barber" ? "/panel" : "/admin"))}</code></span><span>Login <code>${esc(S.creds.login)}</code></span><span>Parol <code>${esc(S.creds.password)}</code></span><span class="hint">Buni hozir ${S.creds.role === "barber" ? "ustaga" : "xodimga"} bering: parol keyin ko'rsatilmaydi.</span></div>` : ""}
   ${A ? `<div class="confirm"><b>${esc(A.name)}da keyingi 14 kunda ${A.n} ta faol bron bor.</b><span>O'chirilsa, u saytda ko'rinmaydi va panelga kira olmaydi. Bronlar o'z joyida qoladi: jadvalda alohida ustunda ko'rinadi, mijozlarga qo'ng'iroq qilib boshqa ustaga ko'chiring yoki bekor qiling.</span>
     <div class="row"><button class="btn" data-offno="1">Bekor</button><button class="btn bad w" data-toggle="${A.id}" data-sure="1">Baribir o'chirish</button></div></div>` : ""}
   <div class="table-wrap"><table><thead><tr><th>Ism</th><th>Login</th><th>Lavozim</th><th>Oxirgi kirish</th><th></th></tr></thead><tbody>
@@ -1023,7 +1031,7 @@ function teamHtml() {
       ? `<div class="pw-inline"><input id="pwnew" value="${esc(S.pw)}" aria-label="Yangi parol" autocomplete="off"><button class="btn primary w" data-pwsave="${m.id}">Saqlash</button><button class="btn" data-pwcancel="1">✕</button></div>`
       : `<div class="row-acts">${m.is_active ? `<button class="btn w" data-pw="${m.id}">Yangi parol</button>` : ""}<button class="btn w ${m.is_active ? "bad" : ""}" data-toggle="${m.id}">${m.is_active ? "O'chirish" : "Qayta yoqish"}</button></div>`) : ""}</td></tr>`).join("")}
   </tbody></table></div>
-  <p class="hint">Har bir barber o'z login-paroli bilan faqat o'z bronlarini ko'radi. O'chirilgan barber saytda ko'rinmaydi va panelga kira olmaydi.</p>
+  <p class="hint">Har bir usta o'z login-paroli bilan faqat o'z bronlarini ko'radi. O'chirilgan usta saytda ko'rinmaydi va panelga kira olmaydi.</p>
   <section class="psec"><div class="phd"><h3>Mening parolim</h3><span class="hint">${esc(S.user.name)} · ${esc(S.user.login || "")}</span></div>
     <div class="pgrid"><div class="field"><label for="mp-old">Hozirgi parol</label><input id="mp-old" type="password" autocomplete="current-password" value="${esc(P.old)}"></div>
       <div class="field"><label for="mp-new">Yangi parol (kamida 6 belgi)</label><input id="mp-new" type="password" autocomplete="new-password" value="${esc(P.nw)}"></div></div>
@@ -1039,7 +1047,7 @@ async function loadHours(mid) {
 async function loadExc() { S.exc = await api.exceptions(today(), addDays(today(), 30)); render(); }
 const KIND = { day_off: "Dam olish kuni", break: "Tanaffus", extra: "Qo'shimcha ish" };
 function hoursViewHtml() {
-  if (!S.masters.length) return `<div class="pempty">Barberlar yo'q. "Xodimlar" bo'limidan qo'shing.</div>`;
+  if (!S.masters.length) return `<div class="pempty">Ustalar yo'q. "Xodimlar" bo'limidan qo'shing.</div>`;
   if (!S.sched || !S.exc) return `<p class="hint">Yuklanmoqda…</p>`;
   const H = S.sched, X = S.excForm, mname = (id) => S.masters.find((m) => m.id === id)?.name || S.day.find((b) => b.master_id === id)?.master_name || `Usta #${id}`;
   return `<section class="psec"><div class="phd"><h3>Haftalik ish vaqti</h3><span class="hint">Mijoz saytida faqat shu vaqtdagi bo'sh joylar chiqadi</span></div>
@@ -1090,7 +1098,7 @@ function shellHtml() {
   const tabs = [["grid", ICON.grid, "Kunlik jadval"], ["list", ICON.list, "Bronlar"], ...(A ? [["team", ICON.team, "Xodimlar"], ["hours", ICON.clock, "Ish vaqti"], ["services", ICON.tag, "Xizmatlar"]] : []),
     ["profile", ICON.user, A ? "Salon va ustalar" : "Profilim"], ["reviews", ICON.star, "Baholar"]];
   const pages = { profile: ["Mijoz saytida ko'rinadi", A ? "Salon va ustalar" : "Profilim", profileViewHtml], reviews: ["Mijozlar fikri", "Baholar", reviewsViewHtml],
-    team: [S.user.salon?.name || "", "Xodimlar", teamHtml, `<button class="primary w" id="addm">+ Barber qo'shish</button>`],
+    team: [S.user.salon?.name || "", "Xodimlar", teamHtml, `<button class="primary w" id="addm">+ Usta qo'shish</button>`],
     hours: ["Ustalar jadvali", "Ish vaqti", hoursViewHtml], services: [`Filial: ${S.branch.name}`, "Xizmatlar va narxlar", servicesViewHtml, `<button class="primary w" id="sadd">+ Xizmat qo'shish</button>`] };
   const notice = S.error && !layerOpen() ? `<div class="notice" role="alert">${esc(S.error)}</div>` : "";
   const P = pages[S.view];
@@ -1159,13 +1167,13 @@ function layerHtml() {
   }
   if (S.member) {
     const M = S.member, owner = S.user.role === "owner";
-    return drawer("Yangi xodim", esc(S.user.salon?.name || ""), `Yangi ${M.role === "admin" ? "administrator" : "barber"}`,
-      `${owner ? `<div class="field"><label>Lavozim</label><div class="chips"><button class="chip" data-mrole="barber" aria-pressed="${M.role === "barber"}">Barber</button><button class="chip" data-mrole="admin" aria-pressed="${M.role === "admin"}">Administrator</button></div></div>` : ""}
+    return drawer("Yangi xodim", esc(S.user.salon?.name || ""), `Yangi ${M.role === "admin" ? "administrator" : "usta"}`,
+      `${owner ? `<div class="field"><label>Lavozim</label><div class="chips"><button class="chip" data-mrole="barber" aria-pressed="${M.role === "barber"}">Usta</button><button class="chip" data-mrole="admin" aria-pressed="${M.role === "admin"}">Administrator</button></div></div>` : ""}
       <div class="field"><label for="mname">Ismi</label><input id="mname" value="${esc(M.name)}" placeholder="Masalan, Diyor"></div>
       ${M.role === "barber" ? `<div class="field"><label>Darajasi</label><div class="chips">${["Master", "Top-master"].map((r) => `<button class="chip" data-mrank="${r}" aria-pressed="${M.rank === r}">${r}</button>`).join("")}</div></div>` : ""}
       <div class="field"><label for="mlogin">Login (lotin harf, raqam)</label><input id="mlogin" value="${esc(M.login)}" autocapitalize="none" spellcheck="false" placeholder="diyor"></div>
       <div class="field"><label for="mpass">Parol (kamida 6 belgi)</label><input id="mpass" value="${esc(M.password)}" autocomplete="off"></div>
-      <p class="hint">${M.role === "barber" ? `Barber darhol saytda paydo bo'ladi${S.branches.length > 1 ? ` (${esc(S.branch.name)} filialida)` : ""} va barcha xizmatlarni bajaradi. Ish vaqtini "Ish vaqti" bo'limida sozlang.` : "Administrator barcha bronlarni ko'radi va barber qo'sha oladi."}</p>`,
+      <p class="hint">${M.role === "barber" ? `Usta darhol saytda paydo bo'ladi${S.branches.length > 1 ? ` (${esc(S.branch.name)} filialida)` : ""} va barcha xizmatlarni bajaradi. Ish vaqtini "Ish vaqti" bo'limida sozlang.` : "Administrator barcha bronlarni ko'radi va usta qo'sha oladi."}</p>`,
       `<button class="btn" data-close="1">Bekor</button><button class="btn primary w" id="msave">Qo'shish</button>`);
   }
   if (S.svcForm) {
@@ -1435,9 +1443,9 @@ document.addEventListener("change", async (e) => {
 });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && layerOpen()) { closeLayers(); render(); } });
 
-// Board refresh: every minute while the tab is visible and on focus, never while a drawer or form is open.
+// Board refresh: every 20 seconds while the tab is visible and on focus, never while a drawer or form is open.
 async function autoRefresh() {
-  if (document.visibilityState !== "visible" || !S.user || !S.branch || BUSY || !["grid", "list"].includes(S.view) || layerOpen() || Date.now() - lastSync < 15000) return;
+  if (document.visibilityState !== "visible" || !S.user || !S.branch || BUSY || !["grid", "list"].includes(S.view) || layerOpen() || Date.now() - lastSync < 10000) return;
   const date = S.date, seen = new Set(S.day.map((b) => b.id));
   lastSync = Date.now();
   try {
@@ -1448,8 +1456,13 @@ async function autoRefresh() {
     if (fresh.length) toast(`Yangi bron: ${hhmm(minOf(fresh[0].starts_at))} ${who(fresh[0])} (${fresh[0].master_name})${fresh.length > 1 ? `, yana ${fresh.length - 1} ta` : ""}`);
   } catch { /* quiet: the next minute tries again */ }
 }
-setInterval(autoRefresh, 60000);
+setInterval(autoRefresh, 20000);
 window.addEventListener("focus", autoRefresh);
+// Back from Telegram after pressing Start: the notice switch turns on by itself.
+window.addEventListener("focus", () => {
+  if (!S.user || !S.bot?.connected || S.bot.me_linked) return;
+  api.botState().then((b) => { if (b?.me_linked) { S.bot = b; toast("Xabarlar yoqildi ✅"); render(); } }).catch(() => {});
+});
 document.addEventListener("visibilitychange", autoRefresh);
 
 async function loadBranch() {

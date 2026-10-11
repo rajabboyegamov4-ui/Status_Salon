@@ -40,7 +40,7 @@ async def _master(session: AsyncSession, salon: Salon, staff: Staff, master_id: 
     master = await session.get(Master, master_id)
     branch = await session.get(Branch, master.branch_id) if master else None
     if master is None or branch.salon_id != salon.id:
-        raise HTTPException(404, "Barber topilmadi")
+        raise HTTPException(404, "Usta topilmadi")
     if staff.role == "barber" and staff.master_id != master.id:
         raise HTTPException(403, "Faqat o'z profilingizni o'zgartira olasiz")
     return master

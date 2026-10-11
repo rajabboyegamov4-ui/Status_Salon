@@ -39,7 +39,7 @@ async def _out(session: AsyncSession, salon: Salon) -> PlatformSalonOut:
         select(func.count()).where(Booking.salon_id == salon.id, Booking.created_at > now_utc() - timedelta(days=30))
     )
     return PlatformSalonOut(
-        id=salon.id, slug=salon.slug, name=salon.name, phone=salon.phone, plan=salon.plan,
+        id=salon.id, slug=salon.slug, name=salon.name, phone=salon.phone, plan=salon.plan, kind=salon.kind,
         paid_until=salon.paid_until, is_active=salon.is_active, active=subscription_active(salon),
         created_at=salon.created_at, staff_count=staff_count or 0, bookings_30d=bookings or 0,
     )
@@ -83,6 +83,7 @@ async def create_salon(body: SalonCreate, session: AsyncSession = Depends(get_se
             paid_until=add_months(salon_today(), body.months),
             branch_name=body.branch_name.strip(), branch_address=body.branch_address.strip(),
             owner_name=body.owner_name.strip(), owner_login=body.owner_login, owner_password=body.owner_password,
+            kind=body.kind, sample_masters=body.sample_masters,
         )
     except team.TeamError as e:
         raise HTTPException(409, str(e))

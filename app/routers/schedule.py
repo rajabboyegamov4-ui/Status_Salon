@@ -27,7 +27,7 @@ from app.models import (
     Staff,
     WorkingHours,
 )
-from app.notifications import send_moved
+from app.notifications import notify_staff, send_moved
 from app.routers.public import SLOT_TAKEN_MESSAGE, _slots, parse_ids, salon_branch
 from app.routers.staff import manager_writer, writer
 from app.schemas import AdminBookingOut, SlotsOut
@@ -260,6 +260,7 @@ async def move(
         raise HTTPException(422, str(e))
     if (b.starts_at, b.master_id) != old:
         background.add_task(send_moved, b.id)
+        background.add_task(notify_staff, b.id, "moved", staff.id)
     return AdminBookingOut.of(b)
 
 

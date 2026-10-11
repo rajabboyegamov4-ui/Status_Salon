@@ -1,9 +1,12 @@
 """Telegram: the owner connects the salon's bot; clients log in through it; the bot's webhook."""
 
+import hashlib
 import hmac
 import html
+import json
 import re
 from datetime import timedelta
+from urllib.parse import parse_qsl
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from pydantic import BaseModel, Field
@@ -14,7 +17,7 @@ from app import auth, telegram
 from app.config import settings
 from app.db import get_session
 from app.models import Booking, Salon, Staff, TgLogin, User
-from app.notifications import _when
+from app.notifications import _when, notify_staff
 from app.ratelimit import Window, client_ip
 from app.schemas import UserOut
 from app.security import issue_token
@@ -28,6 +31,7 @@ LOGIN_TTL = timedelta(minutes=5)
 # Keyed by address and salon: many phones share one carrier address in Uzbekistan.
 LOGIN_PER_IP = Window(60, 3600)
 TOKEN_RE = re.compile(r"^\d{5,12}:[A-Za-z0-9_-]{30,50}$")
+STAFF_CODE_RE = re.compile(r"^st\d{1,9}_[0-9a-f]{24}$")
 
 
 # ---------- owner: connect the salon's bot ----------
@@ -40,6 +44,38 @@ class BotState(BaseModel):
     connected: bool
     username: str = ""
     webhook_url: str = ""
+    me_linked: bool = False  # this staff member gets new-booking messages in Telegram
+    me_link: str = ""  # open it in Telegram to start getting them
+
+
+def site_url(salon: Salon) -> str:
+    """The booking page; Telegram opens it inside the bot as a Mini App (needs an https address)."""
+    base = settings.public_url.rstrip("/")
+    return f"{base}/{salon.slug}" if base.startswith("https://") else ""
+
+
+def book_button(salon: Salon) -> dict | None:
+    url = site_url(salon)
+    return {"inline_keyboard": [[{"text": "📅 Bron qilish", "web_app": {"url": url}}]]} if url else None
+
+
+# ---------- staff: get new-booking messages in the salon's bot ----------
+
+def _staff_sig(staff: Staff) -> str:
+    msg = f"staff-tg:{staff.salon_id}:{staff.id}:{staff.token_version}".encode()
+    return hmac.new(settings.jwt_secret.encode(), msg, hashlib.sha256).hexdigest()[:24]
+
+
+def staff_start_code(staff: Staff) -> str:
+    """Goes into t.me/<bot>?start=...; a new password (token_version) makes old links useless."""
+    return f"st{staff.id}_{_staff_sig(staff)}"
+
+
+def _state(salon: Salon, staff: Staff, webhook_url: str = "") -> BotState:
+    connected = bool(salon.tg_token_sealed)
+    link = f"https://t.me/{salon.tg_bot_username}?start={staff_start_code(staff)}" if connected else ""
+    return BotState(connected=connected, username=salon.tg_bot_username if connected else "", webhook_url=webhook_url,
+                    me_linked=connected and staff.tg_chat_id is not None, me_link=link)
 
 
 def _owner(staff: Staff) -> None:
@@ -49,7 +85,16 @@ def _owner(staff: Staff) -> None:
 
 @router.get("/s/{slug}/staff/telegram", response_model=BotState)
 async def bot_state(staff: Staff = Depends(auth.manager), salon: Salon = Depends(get_salon)):
-    return BotState(connected=bool(salon.tg_token_sealed), username=salon.tg_bot_username)
+    return _state(salon, staff)
+
+
+@router.delete("/s/{slug}/staff/telegram/me", response_model=BotState)
+async def staff_unlink(
+    staff: Staff = Depends(auth.current_staff), salon: Salon = Depends(get_salon), session: AsyncSession = Depends(get_session)
+):
+    staff.tg_chat_id = None
+    await session.commit()
+    return _state(salon, staff)
 
 
 @router.put("/s/{slug}/staff/telegram", response_model=BotState)
@@ -79,11 +124,20 @@ async def bot_connect(
                                      allowed_updates=["message", "callback_query"], drop_pending_updates=True)
     except telegram.TelegramError as e:
         raise HTTPException(502, f"Telegram webhookni qabul qilmadi: {e}")
+    if site_url(salon):  # the round button next to the message box opens the booking page inside Telegram
+        try:
+            await telegram.get_tg().call(token, "setChatMenuButton",
+                                         menu_button={"type": "web_app", "text": "Bron qilish", "web_app": {"url": site_url(salon)}})
+        except telegram.TelegramError:
+            pass
+    if salon.tg_bot_username != me["username"]:  # another bot: staff link their chats again
+        await session.execute(update(Staff).where(Staff.salon_id == salon.id).values(tg_chat_id=None))
     salon.tg_token_sealed = telegram.seal(token)
     salon.tg_bot_username = me["username"]
     salon.tg_webhook_secret = secret
     await session.commit()
-    return BotState(connected=True, username=salon.tg_bot_username, webhook_url=url)
+    await session.refresh(staff)
+    return _state(salon, staff, webhook_url=url)
 
 
 @router.delete("/s/{slug}/staff/telegram", status_code=204)
@@ -98,6 +152,7 @@ async def bot_disconnect(
         except telegram.TelegramError:
             pass  # the token may already be revoked; forget it anyway
     salon.tg_token_sealed, salon.tg_bot_username, salon.tg_webhook_secret = None, "", ""
+    await session.execute(update(Staff).where(Staff.salon_id == salon.id).values(tg_chat_id=None))
     await session.commit()
     return Response(status_code=204)
 
@@ -146,6 +201,49 @@ async def login_poll(token: str, response: Response, salon: Salon = Depends(get_
     return LoginState(status="done", user=user)
 
 
+# ---------- client: the booking page opened inside Telegram (Mini App) ----------
+
+class WebAppLogin(BaseModel):
+    init_data: str = Field(max_length=4096)
+
+
+WEBAPP_MAX_AGE = timedelta(days=1)
+
+
+def webapp_user_id(init_data: str, bot_token: str) -> int | None:
+    """Telegram signs what it hands the Mini App with the bot's token; a forged or stale one gives None."""
+    fields = dict(parse_qsl(init_data, keep_blank_values=True))
+    got = fields.pop("hash", "")
+    check = "\n".join(f"{k}={v}" for k, v in sorted(fields.items()))
+    secret = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
+    if not got or not hmac.compare_digest(hmac.new(secret, check.encode(), hashlib.sha256).hexdigest(), got):
+        return None
+    try:
+        signed_at = int(fields.get("auth_date", "0"))
+        user_id = int(json.loads(fields.get("user", "{}")).get("id"))
+    except (ValueError, TypeError):
+        return None
+    if now_utc().timestamp() - signed_at > WEBAPP_MAX_AGE.total_seconds():
+        return None
+    return user_id
+
+
+@router.post("/s/{slug}/auth/webapp", response_model=UserOut)
+async def webapp_login(
+    body: WebAppLogin, response: Response, salon: Salon = Depends(get_salon), session: AsyncSession = Depends(get_session)
+):
+    """Inside the salon's bot the client is already known by the number they shared: no second login."""
+    token = telegram.unseal(salon.tg_token_sealed)
+    user_id = webapp_user_id(body.init_data, token) if token else None
+    if user_id is None:
+        raise HTTPException(401, "Telegram ma'lumoti tasdiqlanmadi")
+    user = await session.scalar(select(User).where(User.salon_id == salon.id, User.tg_chat_id == user_id))
+    if user is None:
+        raise HTTPException(404, "Avval botga telefon raqamingizni yuboring")
+    auth.set_cookie(response, auth.CLIENT_COOKIE, issue_token("client", user.id, salon.id), auth.cookie_path(salon))
+    return UserOut.model_validate(user)
+
+
 # ---------- webhook: what the salon's bot receives ----------
 
 def _contact_keyboard() -> dict:
@@ -190,11 +288,14 @@ async def _on_message(session: AsyncSession, salon: Salon, token: str, msg: dict
     now = now_utc()
     if text.startswith("/start"):
         code = text[6:].strip()
+        if STAFF_CODE_RE.match(code):
+            await _link_staff(session, salon, token, chat_id, code)
+            return
         login = await session.scalar(
             select(TgLogin).where(TgLogin.token == code, TgLogin.salon_id == salon.id, TgLogin.status == "pending", TgLogin.expires_at > now)
         ) if code else None
         if login is None:
-            await _reply(token, chat_id, f"Assalomu alaykum! Bu <b>{html.escape(salon.name)}</b> boti.\nBron qilish uchun salon saytidan \"Telegram orqali kirish\" tugmasini bosing.")
+            await _greet(session, salon, token, chat_id)
             return
         login.chat_id = chat_id
         known = await session.scalar(select(User).where(User.salon_id == salon.id, User.tg_chat_id == chat_id))
@@ -233,9 +334,39 @@ async def _on_message(session: AsyncSession, salon: Salon, token: str, msg: dict
         if login:
             login.user_id, login.status = user.id, "done"
         await session.commit()
-        await _reply(token, chat_id, "✅ Rahmat! Saytga qayting, bron shu yerdan davom etadi.\nTasdiq va eslatmalar shu chatga keladi.", {"remove_keyboard": True})
+        if login:
+            await _reply(token, chat_id, "✅ Rahmat! Saytga qayting, bron shu yerdan davom etadi.\nTasdiq va eslatmalar shu chatga keladi.", {"remove_keyboard": True})
+            return
+        await _reply(token, chat_id, "✅ Obuna bo'ldingiz! Tasdiq va eslatmalar shu chatga keladi.", {"remove_keyboard": True})
+        await _reply(token, chat_id, "Bron qilish uchun pastdagi tugmani bosing 👇", book_button(salon))
         return
-    await _reply(token, chat_id, "Bron qilish uchun salon saytiga kiring. Bronlaringiz haqidagi xabarlar shu yerga keladi.")
+    known = await session.scalar(select(User.id).where(User.salon_id == salon.id, User.tg_chat_id == chat_id))
+    if known is None:
+        await _greet(session, salon, token, chat_id)
+        return
+    await _reply(token, chat_id, "Bron qilish uchun pastdagi tugmani bosing. Bronlaringiz haqidagi xabarlar shu yerga keladi.", book_button(salon))
+
+
+async def _greet(session: AsyncSession, salon: Salon, token: str, chat_id: int) -> None:
+    """A plain /start: a known client gets the booking button, a new one is asked for their number first."""
+    name = html.escape(salon.name)
+    user = await session.scalar(select(User).where(User.salon_id == salon.id, User.tg_chat_id == chat_id))
+    if user:
+        hello = f", {html.escape(user.name)}" if user.name else ""
+        await _reply(token, chat_id, f"Assalomu alaykum{hello}! <b>{name}</b> ga xush kelibsiz.\nBron qilish uchun pastdagi tugmani bosing 👇", book_button(salon))
+        return
+    await _reply(token, chat_id, f"Assalomu alaykum! Bu <b>{name}</b> boti.\nObuna bo'lish va bron qilish uchun telefon raqamingizni yuboring 👇", _contact_keyboard())
+
+
+async def _link_staff(session: AsyncSession, salon: Salon, token: str, chat_id: int, code: str) -> None:
+    head, _, sig = code[2:].partition("_")
+    staff = await session.get(Staff, int(head)) if head.isdigit() else None
+    if staff is None or staff.salon_id != salon.id or not staff.is_active or not hmac.compare_digest(sig, _staff_sig(staff)):
+        await _reply(token, chat_id, "Havola eskirgan. Admin paneldagi \"Telegram'da xabar olish\" tugmasini qaytadan bosing.")
+        return
+    staff.tg_chat_id = chat_id
+    await session.commit()
+    await _reply(token, chat_id, f"✅ {html.escape(staff.name)}, endi <b>{html.escape(salon.name)}</b>dagi yangi, bekor qilingan va ko'chirilgan bronlar haqida xabar shu chatga keladi.")
 
 
 def _confirm_text(salon: Salon) -> str:
@@ -279,6 +410,7 @@ async def _on_button(session: AsyncSession, salon: Salon, token: str, cq: dict) 
             await svc.cancel_booking(session, booking, by_staff=False)
             answer = "Bron bekor qilindi"
             await _reply(token, chat_id, f"❌ {when} dagi bron bekor qilindi.")
+            await notify_staff(booking.id, "cancelled")
         except svc.BookingError as e:
             answer = str(e)[:190]
     elif parts[0] == "come":

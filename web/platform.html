@@ -223,13 +223,15 @@ function loginHtml() {
     ${S.demo ? `<div class="demo-hint">Demo: <b>platform</b> / <b>platform123</b></div>` : ""}</form>`;
 }
 
+const KINDS = [["barber", "Barbershop"], ["beauty", "Ayollar saloni"], ["cosmetology", "Kosmetologiya"]];
 function formHtml() {
   const F = S.form; if (!F) return "";
   const field = (id, label, v, extra = "") => `<div class="field"><label for="${id}">${label}</label><input id="${id}" value="${esc(v)}" ${extra}></div>`;
   return `<div class="scrim" data-close="1"></div><div class="drawer" role="dialog" aria-label="Salon ulash">
     <header><div><small class="hint">Yangi mijoz</small><h2>Salon ulash</h2></div><button class="x" data-close="1" aria-label="Yopish">✕</button></header>
     <div class="body">
-      ${field("fname", "Salon nomi", F.name, 'placeholder="Masalan, Navruz Barber"')}
+      ${field("fname", "Salon nomi", F.name, 'placeholder="Masalan, Gulnoza Beauty"')}
+      <div class="field"><label>Soha</label><div class="months">${KINDS.map(([k, l]) => `<button class="chip" data-kind="${k}" aria-pressed="${F.kind === k}">${l}</button>`).join("")}</div></div>
       <div class="field"><label for="fslug">Manzil</label><div class="slug"><span>${esc(location.host || "sayt.uz")}/</span><input id="fslug" value="${esc(F.slug)}" autocapitalize="none" spellcheck="false"></div></div>
       ${field("fphone", "Salon telefoni", F.phone, 'inputmode="tel" placeholder="+998 71 200 00 00"')}
       ${field("faddr", "Manzili (filial)", F.address, 'placeholder="Toshkent, ..."')}
@@ -238,7 +240,8 @@ function formHtml() {
       ${field("oname", "Ismi", F.owner_name, 'placeholder="Masalan, Aziz"')}
       ${field("ologin", "Login", F.owner_login, 'autocapitalize="none" spellcheck="false"')}
       ${field("opass", "Parol", F.owner_password, 'autocomplete="off"')}
-      <p class="hint">Salon 4 ta standart xizmat va bitta filial bilan ochiladi. Egasi o'zi barberlarni qo'shib, har biriga login-parol beradi.</p>
+      <div class="field"><label>Demo uchun</label><div class="months"><button class="chip" data-sample="1" aria-pressed="${!!F.sample}">3 ta namuna usta qo'shilsin</button></div></div>
+      <p class="hint">Salon tanlangan sohaning standart xizmatlari va bitta filial bilan ochiladi. ${F.sample ? "Namuna ustalarning logini o'z ismi (kichik harfda), paroli egasining paroli bilan bir xil." : "Egasi o'zi ustalarni qo'shib, har biriga login-parol beradi."}</p>
       ${S.error ? `<div class="notice">${esc(S.error)}</div>` : ""}
     </div>
     <footer><button class="btn" data-close="1">Bekor</button><button class="btn primary" id="fsave">Ulash</button></footer></div>`;
@@ -256,13 +259,15 @@ document.addEventListener("click", async (e) => {
   try {
     if (d.close) { S.form = null; S.error = ""; render(); }
     else if (d.filter) { S.filter = d.filter; render(); }
-    else if (t.id === "add") { S.error = ""; S.creds = null; S.form = { name: "", slug: "", slugTouched: false, phone: "", address: "", months: 1, owner_name: "", owner_login: "owner", owner_password: newPassword() }; render(); }
+    else if (t.id === "add") { S.error = ""; S.creds = null; S.form = { name: "", slug: "", slugTouched: false, phone: "", address: "", months: 1, owner_name: "", owner_login: "owner", owner_password: newPassword(), kind: "beauty", sample: false }; render(); }
+    else if (d.kind) { S.form.kind = d.kind; render(); }
+    else if (d.sample) { S.form.sample = !S.form.sample; render(); }
     else if (d.months) { S.form.months = +d.months; render(); }
     else if (t.id === "fsave") {
       const F = S.form;
       if (!F.name.trim() || !F.owner_name.trim()) throw new Error("Salon nomi va egasining ismini yozing");
       const s = await api.create({ slug: F.slug, name: F.name.trim(), phone: F.phone.trim(), months: F.months, branch_address: F.address.trim(),
-        owner_name: F.owner_name.trim(), owner_login: F.owner_login.trim().toLowerCase(), owner_password: F.owner_password });
+        owner_name: F.owner_name.trim(), owner_login: F.owner_login.trim().toLowerCase(), owner_password: F.owner_password, kind: F.kind, sample_masters: F.sample });
       S.creds = { name: s.name, slug: s.slug, login: F.owner_login.trim().toLowerCase(), password: F.owner_password };
       S.form = null; S.error = ""; await load(); toast("Salon ulandi");
     }

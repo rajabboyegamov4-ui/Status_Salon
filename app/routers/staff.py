@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import auth
 from app.db import get_session
 from app.models import Booking, Branch, Master, Salon, Staff, User
-from app.notifications import send_cancelled, send_confirmation, send_review_request
+from app.notifications import notify_staff, send_cancelled, send_confirmation, send_review_request
 from app.routers.public import SLOT_TAKEN_MESSAGE
 from app.schemas import (
     AdminBookingCreate,
@@ -187,6 +187,7 @@ async def create_for_client(
         raise HTTPException(422, str(e))
     if created:
         background.add_task(send_confirmation, booking.id)
+        background.add_task(notify_staff, booking.id, "new", staff.id)
     else:
         response.status_code = 200  # the same request again: nothing new was booked
     return AdminBookingOut.of(booking)
@@ -213,6 +214,7 @@ async def update_status(
         except svc.BookingError as e:
             raise HTTPException(422, str(e))
         background.add_task(send_cancelled, booking_id)
+        background.add_task(notify_staff, booking_id, "cancelled", staff.id)
     else:
         try:
             await svc.mark_visit(session, booking, body.status)

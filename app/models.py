@@ -40,6 +40,7 @@ class Salon(Base):
     name: Mapped[str] = mapped_column(String(120))
     phone: Mapped[str] = mapped_column(String(20), default="")
     plan: Mapped[str] = mapped_column(String(20), default="standard")
+    kind: Mapped[str] = mapped_column(String(20), default="barber", server_default="barber")  # barber | beauty | cosmetology
     paid_until: Mapped[date] = mapped_column(Date)  # subscription is active through this day
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)  # platform can suspend
     description: Mapped[str] = mapped_column(Text, default="")
@@ -74,6 +75,7 @@ class Staff(Base):
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # +1 signs out every device
+    tg_chat_id: Mapped[int | None] = mapped_column(BigInteger)  # new-booking messages go here, once linked through the salon's bot
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

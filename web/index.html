@@ -1,5 +1,5 @@
 <meta charset="utf-8">
-<title>Premium Barber Bron</title>
+<title>Onlayn bron</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap">
@@ -272,7 +272,7 @@ h2 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; margin: 0; }
       <button class="icon-btn" id="back" aria-label="Orqaga">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3.5L5.5 9l5.5 5.5"/></svg>
       </button>
-      <div class="title"><b id="step-title">Premium Barber</b><small id="step-label"></small></div>
+      <div class="title"><b id="step-title">Onlayn bron</b><small id="step-label"></small></div>
       <div class="right"><span class="demo-badge" id="demo-badge" hidden>Demo</span><button class="pill-btn" id="mine" hidden>Bronlarim</button></div>
     </div>
     <div class="progress"><span id="steps" style="width:0"></span></div>
@@ -383,6 +383,13 @@ const DemoArt = (() => {
 
 // The salon comes from the address: /premium -> "premium". Each salon has its own clients and bookings.
 const SLUG = location.pathname.split("/").filter(Boolean)[0] || "";
+// Opened inside the salon's Telegram bot (Mini App): Telegram hands over who the client is, signed with the bot's token.
+const TG_INIT = (() => { try { return new URLSearchParams(location.hash.slice(1)).get("tgWebAppData") || window.Telegram?.WebApp?.initData || ""; } catch { return ""; } })();
+if (TG_INIT) {  // Telegram's helper only inside Telegram: tells it the page is ready and opens it full height
+  const sc = document.createElement("script"); sc.src = "https://telegram.org/js/telegram-web-app.js"; sc.async = true;
+  sc.onload = () => { try { window.Telegram.WebApp.ready(); window.Telegram.WebApp.expand(); } catch {} };
+  document.head.append(sc);
+}
 
 // ---------- real API (served by FastAPI at /api/s/{salon}) ----------
 const realApi = {
@@ -407,6 +414,7 @@ const realApi = {
   dates(b, s, m) { return this.call(`/available-dates?branch_id=${b}&service_ids=${s.join(",")}${m ? "&master_id=" + m : ""}`); },
   slots(b, s, d, m) { return this.call(`/available-slots?branch_id=${b}&service_ids=${s.join(",")}&date=${d}${m ? "&master_id=" + m : ""}`); },
   me() { return this.call("/auth/me").catch(() => null); },
+  webapp(initData) { return this.call("/auth/webapp", { method: "POST", body: JSON.stringify({ init_data: initData }) }); },
   requestCode(phone) { return this.call("/auth/request-code", { method: "POST", body: JSON.stringify({ phone }) }); },
   tgStart() { return this.call("/auth/telegram", { method: "POST" }); },
   tgPoll(token) { return this.call(`/auth/telegram/${token}`); },
@@ -549,8 +557,10 @@ const demoApi = (() => {
 })();
 
 // ---------- state & flow ----------
+// What a client might write to the master, by kind of salon.
+const COMMENT_HINT = { barber: "Masalan, fade, yon tomonlari kalta", beauty: "Masalan, sochim uzun, rangini o'zgartirmoqchiman", cosmetology: "Masalan, terim sezgir" };
 // Barber first: pick a barber, read their profile, then book with them.
-const STEPS = ["Barber", "Profil", "Xizmat", "Vaqt", "Kirish", "Tasdiq"];
+const STEPS = ["Usta", "Profil", "Xizmat", "Vaqt", "Kirish", "Tasdiq"];
 const DEMO_SALON = { name: "Premium Barber", description: "Erkaklar uchun premium barbershop: qahva, issiq sochiq va shoshilmasdan ishlaydigan ustalar.", instagram: "premiumbarber.uz", cover_url: DemoArt.cover("premium"), phone: "+998712000000", telegram_bot: "premiumbarber_bot" };
 const S = { salon: null, profileReviews: null, zoom: null, visits: null, rating: {}, reviewText: {}, step: 0, demo: false, branches: [], filter: null, branch: null, services: [], servicesFor: null, picked: new Set(), masters: [], master: null,
   dates: [], date: null, slots: [], slot: null, slotsLoading: false, jumped: false, user: null, phone: "", name: "", codeSent: false, code: "", comment: "", error: "", retry: null, flash: "", busy: false, act: null, result: null, key: uuid() };
@@ -674,7 +684,7 @@ async function rebook(mid, sids, btn) {
   const n = ++seq;
   try {
     if (!S.loaded) { [S.masters, S.branches] = await Promise.all([api.allMasters(), api.branches()]); S.loaded = true; }
-    if (!S.masters.some((m) => m.id === mid)) throw new ApiError(404, "Bu barber hozir onlayn bron qabul qilmaydi. Boshqa barberni tanlang.");
+    if (!S.masters.some((m) => m.id === mid)) throw new ApiError(404, "Bu usta hozir onlayn bron qabul qilmaydi. Boshqa ustani tanlang.");
     setMaster(mid);
     await loadServices(n);
   } catch (e) { if (btn) btn.disabled = false; if (!stale(n)) { S.error = e.message; S.retry = null; render(); } return; }
@@ -844,13 +854,13 @@ const calStamp = (iso) => new Date(iso).toISOString().replace(/[-:]/g, "").repla
 function calEvent(r) {
   const b = branchOf(r), items = (r.items || []).map((i) => i.service_name).join(" + ");
   const end = r.ends_at || new Date(Date.parse(r.starts_at) + (r.items || []).reduce((a, i) => a + (i.duration_min || 0), 0) * 60000 || Date.parse(r.starts_at) + 3600e3).toISOString();
-  return { title: `${S.salon?.name || "Barber"}: ${r.master_name}`, start: r.starts_at, end, where: [r.branch_name, b?.address].filter(Boolean).join(", "),
+  return { title: `${S.salon?.name || "Bron"}: ${r.master_name}`, start: r.starts_at, end, where: [r.branch_name, b?.address].filter(Boolean).join(", "),
     details: [items, `Bron raqami #${r.id}`, salonPhone(b) && `Tel: ${salonPhone(b)}`].filter(Boolean).join("\n") };
 }
 const gcalUrl = (ev) => `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(ev.title)}&dates=${calStamp(ev.start)}/${calStamp(ev.end)}&location=${encodeURIComponent(ev.where)}&details=${encodeURIComponent(ev.details)}`;
 function downloadIcs(r) {
   const ev = calEvent(r), x = (v) => String(v).replace(/[\\,;]/g, "\\$&").replace(/\n/g, "\\n");
-  const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Barber Bron//UZ", "CALSCALE:GREGORIAN", "BEGIN:VEVENT", `UID:bron-${r.id}-${SLUG || "demo"}@bron`, `DTSTAMP:${calStamp(new Date().toISOString())}`,
+  const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Onlayn Bron//UZ", "CALSCALE:GREGORIAN", "BEGIN:VEVENT", `UID:bron-${r.id}-${SLUG || "demo"}@bron`, `DTSTAMP:${calStamp(new Date().toISOString())}`,
     `DTSTART:${calStamp(ev.start)}`, `DTEND:${calStamp(ev.end)}`, `SUMMARY:${x(ev.title)}`, `LOCATION:${x(ev.where)}`, `DESCRIPTION:${x(ev.details)}`,
     "BEGIN:VALARM", "ACTION:DISPLAY", "TRIGGER:-PT1H", `DESCRIPTION:${x(ev.title)}`, "END:VALARM", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
   try {
@@ -923,9 +933,9 @@ const views = {
   0: () => {
     const list = S.masters.filter((m) => S.filter == null || m.branch_id === S.filter);
     return `${salonHtml()}${notice()}
-    <div class="section-head"><h1>Barberlar</h1>${S.loaded && list.length ? `<span>${list.length} ta</span>` : ""}</div>
+    <div class="section-head"><h1>Ustalar</h1>${S.loaded && list.length ? `<span>${list.length} ta</span>` : ""}</div>
     ${S.branches.length > 1 ? `<div class="seg" role="group" aria-label="Filial">${[[null, "Hammasi"], ...S.branches.map((b) => [b.id, b.name])].map(([id, n]) => `<button data-filter="${id ?? ""}" aria-pressed="${S.filter === id}">${esc(n)}</button>`).join("")}</div>` : ""}
-    ${!S.loaded ? (S.error ? "" : '<div class="spinner"></div>') : list.length ? `<div class="grid">${list.map(barberCardHtml).join("")}</div>` : `<div class="empty">Onlayn bron uchun barberlar hali qo'shilmagan.${S.salon?.phone ? ` Salonga qo'ng'iroq qiling: ${telLink(S.salon.phone)}` : ""}</div>`}`;
+    ${!S.loaded ? (S.error ? "" : '<div class="spinner"></div>') : list.length ? `<div class="grid">${list.map(barberCardHtml).join("")}</div>` : `<div class="empty">Onlayn bron uchun ustalar hali qo'shilmagan.${S.salon?.phone ? ` Salonga qo'ng'iroq qiling: ${telLink(S.salon.phone)}` : ""}</div>`}`;
   },
   1: () => {
     const m = chosenMaster(), ig = handle(m.instagram);
@@ -941,7 +951,7 @@ const views = {
   },
   2: () => {
     const cats = [...new Set(S.services.map((s) => s.category))], m = chosenMaster();
-    return `<h1>Xizmatni tanlang</h1>${whoLine(m, "Narxlar shu barberniki. Bir nechtasini tanlash mumkin.")}${notice()}
+    return `<h1>Xizmatni tanlang</h1>${whoLine(m, "Narxlar shu ustaniki. Bir nechtasini tanlash mumkin.")}${notice()}
     ${cats.map((c) => `${cats.length > 1 ? `<div class="cat">${esc(c)}</div>` : ""}<div class="list">${S.services.filter((s) => s.category === c).map((s) => `
       <button class="svc" data-service="${s.id}" aria-pressed="${S.picked.has(s.id)}">
       <span class="main"><span class="name">${esc(s.name)}</span><span class="sub">${s.duration_min} daqiqa${s.description ? " · " + esc(s.description) : ""}</span><span class="price">${som(s.price)}</span></span>
@@ -954,8 +964,8 @@ const views = {
     if (S.dates.length && !S.dates.some((d) => d.has_slots)) {
       // Nobody likes a dead end: other barbers of the same branch, and the salon's phone.
       const alts = S.masters.filter((x) => x.branch_id === m.branch_id && x.id !== m.id), ph = salonPhone(S.branch);
-      return `${head}<div class="empty">Bu barberda 2 hafta ichida bo'sh vaqt yo'q.${ph ? ` Salonga qo'ng'iroq qiling: ${telLink(ph)}` : ""}</div>
-        ${alts.length ? `<div class="cat">Shu filialdagi boshqa barberlar</div><div class="list">${alts.map((x) => `<button class="card who-line alt" data-switch="${x.id}">${x.photo_url ? `<img src="${esc(x.photo_url)}" alt="">` : `<span class="mini">${esc(x.name[0])}</span>`}<div><b>${esc(x.name)}</b><small>${esc([x.rank, x.reviews_count ? `★ ${x.rating.toFixed(1)}` : ""].filter(Boolean).join(" · "))}</small></div><span class="go">Tanlash</span></button>`).join("")}</div>` : ""}`;
+      return `${head}<div class="empty">Bu ustada 2 hafta ichida bo'sh vaqt yo'q.${ph ? ` Salonga qo'ng'iroq qiling: ${telLink(ph)}` : ""}</div>
+        ${alts.length ? `<div class="cat">Shu filialdagi boshqa ustalar</div><div class="list">${alts.map((x) => `<button class="card who-line alt" data-switch="${x.id}">${x.photo_url ? `<img src="${esc(x.photo_url)}" alt="">` : `<span class="mini">${esc(x.name[0])}</span>`}<div><b>${esc(x.name)}</b><small>${esc([x.rank, x.reviews_count ? `★ ${x.rating.toFixed(1)}` : ""].filter(Boolean).join(" · "))}</small></div><span class="go">Tanlash</span></button>`).join("")}</div>` : ""}`;
     }
     let prevMonth = S.dates[0] && dayInfo(S.dates[0].date).month;
     const chips = S.dates.map((d) => {
@@ -981,10 +991,10 @@ const views = {
     const t = totals(), m = chosenMaster(), di = dayInfo(slotDate());
     return `<h1>Hammasi to'g'rimi?</h1>${notice()}
     <div class="card ticket"><div class="when"><span class="clock">${hhmm(S.slot)}</span><div><b>${di.wd}, ${di.day}-${di.month}</b><small>${t.dur} daqiqa</small></div></div>
-      <div class="rows"><div><span>Barber</span><b>${esc(m.name)}</b></div><div><span>Filial</span><b>${esc(S.branch.name)}</b></div>
+      <div class="rows"><div><span>Usta</span><b>${esc(m.name)}</b></div><div><span>Filial</span><b>${esc(S.branch.name)}</b></div>
       ${pickedServices().map((s) => `<div><span>${esc(s.name)}</span><b>${som(s.price)}</b></div>`).join("")}<div><span>Mijoz</span><b>${esc(S.user?.name || S.name)}</b></div></div>
       <div class="total"><span>Jami</span><span>${som(t.price)}</span></div></div>
-    <div class="field"><label for="comment">Barberga izoh (ixtiyoriy)</label><textarea id="comment" rows="2" placeholder="Masalan, fade, yon tomonlari kalta">${esc(S.comment)}</textarea></div>
+    <div class="field"><label for="comment">Ustaga izoh (ixtiyoriy)</label><textarea id="comment" rows="2" placeholder="${esc(COMMENT_HINT[S.salon?.kind] || COMMENT_HINT.barber)}">${esc(S.comment)}</textarea></div>
     <p class="hint">Bepul bekor qilish: boshlanishidan 2 soat oldingacha. To'lov salonda.</p>`;
   },
   7: () => {
@@ -1000,16 +1010,16 @@ const views = {
   6: () => { const r = S.result, di = dayInfo(tashkentParts(new Date(r.starts_at)).date), b = branchOf(r) || S.branch, ev = calEvent(r); return `<div class="done-mark"><svg width="34" height="34" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 7.5l3 3 6-7"/></svg></div>
     <div class="center"><h1>Bron qilindi!</h1><p class="hint">${useTelegram() ? "Tasdiqni Telegram'ga yubordik" : "SMS orqali tasdiq yubordik"}. Tashrifdan 24 va 2 soat oldin eslatamiz.</p></div>
     <div class="card ticket"><div class="when"><span class="clock">${hhmm(r.starts_at)}</span><div><b>${di.wd}, ${di.day}-${di.month}</b><small>Bron raqami #${r.id}</small></div></div>
-      <div class="rows"><div><span>Barber</span><b>${esc(r.master_name)}</b></div><div><span>Filial</span><b>${esc(r.branch_name)}</b></div></div>
+      <div class="rows"><div><span>Usta</span><b>${esc(r.master_name)}</b></div><div><span>Filial</span><b>${esc(r.branch_name)}</b></div></div>
       <div class="total"><span>To'lov salonda</span><span>${som(r.total_price)}</span></div></div>
     ${b ? `<div class="card place"><b>${esc(b.name || r.branch_name)}</b>${b.address ? `<span class="addr">${esc(b.address)}</span>` : ""}${contactHtml(b)}</div>` : ""}
     <div class="card place"><b>Kalendarga qo'shish</b><span class="hint">Eslatma telefoningizda ham tursin.</span>
       <div class="acts"><a class="small-btn" href="${esc(gcalUrl(ev))}" target="_blank" rel="noopener">Google Calendar</a><button class="small-btn" id="ics">Boshqa (.ics)</button></div></div>
-    <button class="big-btn" id="rebook-last">Yana shu barberga</button>
-    <button class="big-btn ghost" id="again">Boshqa barberga bron</button>`; },
+    <button class="big-btn" id="rebook-last">Yana shu ustaga</button>
+    <button class="big-btn ghost" id="again">Boshqa ustaga bron</button>`; },
 };
 
-const TITLES = ["", "Barber", "Xizmat", "Vaqt", "Kirish", "Tasdiqlash", "Tayyor", "Bronlarim"];
+const TITLES = ["", "Usta", "Xizmat", "Vaqt", "Kirish", "Tasdiqlash", "Tayyor", "Bronlarim"];
 function render() {
   $("#layer").innerHTML = S.zoom ? `<button class="lightbox" data-unzoom="1" aria-label="Yopish"><span style="display:flex;flex-direction:column;align-items:center"><img src="${esc(S.zoom.url)}" alt=""><span>${esc(S.zoom.caption || "")}</span></span></button>` : "";
   $("#mine").hidden = S.step === 7;
@@ -1114,6 +1124,7 @@ document.addEventListener("input", (e) => {
     document.title = `${info.name} · Bron`; S.salon = info;
     if (!info.active) return closed(`Onlayn bron vaqtincha ishlamayapti. Iltimos, salonga qo'ng'iroq qiling${info.phone ? `: <a href="tel:${esc(info.phone)}">${esc(info.phone)}</a>` : "."}`);
     S.user = await realApi.me();
+    if (!S.user && TG_INIT) S.user = await realApi.webapp(TG_INIT).catch(() => null);
   }
   catch { S.demo = true; api = demoApi; S.salon = DEMO_SALON; }
   boot();

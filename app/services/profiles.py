@@ -29,7 +29,7 @@ def salon_info(salon: Salon) -> SalonInfo:
         slug=salon.slug, name=salon.name, phone=salon.phone, paid_until=salon.paid_until,
         active=subscription_active(salon), description=salon.description, instagram=salon.instagram,
         cover_url=salon.cover_url, logo_url=salon.logo_url,
-        telegram_bot=salon.tg_bot_username if salon.tg_token_sealed else "",
+        telegram_bot=salon.tg_bot_username if salon.tg_token_sealed else "", kind=salon.kind or "barber",
         sms_login=settings.sms_backend != "none",
     )
 
