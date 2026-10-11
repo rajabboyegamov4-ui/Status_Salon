@@ -19,7 +19,7 @@ from app.services import booking as svc
 from app.services.availability import branch_tz, now_utc
 from app.staffui import MANAGERS, booking_buttons, staff_keyboard
 from app.tenancy import subscription_active
-from app.text import LRM, iso, ltr
+from app.text import LRM, iso, phone_display
 
 DAY_WORDS = {"/bugun": 0, "📋 bugun": 0, "bugun": 0, "/ertaga": 1, "📋 ertaga": 1, "ertaga": 1}
 WEEKDAYS = ("dushanba", "seshanba", "chorshanba", "payshanba", "juma", "shanba", "yakshanba")
@@ -80,8 +80,8 @@ async def day_list(session, salon: Salon, staff: Staff, offset: int) -> str:
         line = f"{marks.get(b.status, '')}<b>{local:%H:%M}</b> {_h(who)} · {', '.join(_h(i.service_name) for i in b.items)}"
         if staff.role in MANAGERS:
             line += f" · {term}: {_h(b.master.name)}"
-        if b.user.phone not in ("walk-in", ""):
-            line += f"\n      📞 {ltr(b.user.phone)}"
+        if phone_display(b.user.phone):
+            line += f"\n      📞 {phone_display(b.user.phone)}"
         lines.append(line)
     lines += ["", f"💰 {total:,} so'm".replace(",", " ")]
     return "\n".join(LRM + line if line else line for line in lines)

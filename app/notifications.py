@@ -20,7 +20,7 @@ from app.sms import send_safely
 from app.tenancy import salon_today, subscription_active
 from app.kinds import kind_of
 from app.staffui import booking_buttons
-from app.text import LRM, iso, ltr
+from app.text import LRM, iso, phone_display
 
 log = logging.getLogger("salon.notifications")
 
@@ -116,14 +116,7 @@ WEEKDAYS = ("dushanba", "seshanba", "chorshanba", "payshanba", "juma", "shanba",
 STAFF_EVENTS = {"new": "🆕 <b>Yangi bron</b>", "cancelled": "❌ <b>Bron bekor qilindi</b>", "moved": "🔁 <b>Bron vaqti o'zgardi</b>"}
 
 
-def _phone(p: str) -> str:
-    if p == "walk-in" or not p:
-        return ""
-    if p.startswith("+998") and len(p) == 13:
-        p = f"+998 {p[4:6]} {p[6:9]} {p[9:11]} {p[11:]}"
-    elif p.startswith("+7") and len(p) == 12:  # Russia, Kazakhstan
-        p = f"+7 {p[2:5]} {p[5:8]} {p[8:10]} {p[10:]}"
-    return ltr(p)
+_phone = phone_display
 
 
 def staff_text(b: Booking, event: str, term: str = "Usta") -> str:

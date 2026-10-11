@@ -35,3 +35,15 @@ def iso(s: str | None) -> str:
 def ltr(s: str | None) -> str:
     """Numbers and codes: always left to right, even next to Arabic letters."""
     return f"{LRI}{strip_controls(s)}{PDI}"
+
+
+def phone_display(p: str | None) -> str:
+    """'+998901234567' -> '+998 90 123 45 67' inside a left-to-right isolate; '' for a walk-in without a number."""
+    p = p or ""
+    if p == "walk-in" or not p:
+        return ""
+    if p.startswith("+998") and len(p) == 13:
+        p = f"+998 {p[4:6]} {p[6:9]} {p[9:11]} {p[11:]}"
+    elif p.startswith("+7") and len(p) == 12:  # Russia, Kazakhstan
+        p = f"+7 {p[2:5]} {p[5:8]} {p[8:10]} {p[10:]}"
+    return ltr(p)
