@@ -94,6 +94,8 @@ h2 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; margin: 0; }
 .seg button { flex: none; border: 0; background: var(--surface); box-shadow: var(--shadow); border-radius: 99px; padding: 9px 16px; font-weight: 600; font-size: 14px; }
 .seg button[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); }
 
+.any-card{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;padding:14px 16px;margin:0 0 12px;border:1px dashed currentColor;border-radius:16px;background:none;cursor:pointer}
+.any-card small{opacity:.7}
 /* barber grid */
 .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .bcard { display: flex; flex-direction: column; gap: 10px; text-align: left; border: 0; padding: 8px 8px 12px; background: var(--surface); border-radius: 22px; box-shadow: var(--shadow); min-width: 0; transition: transform .15s ease; }
@@ -572,7 +574,10 @@ let api = realApi;
 
 const pickedServices = () => S.services.filter((s) => S.picked.has(s.id));
 const ids = () => [...S.picked].sort((a, b) => a - b);
-const chosenMaster = () => S.masters.find((m) => m.id === S.master);
+// "Farqi yo'q": any free master of the branch; the server picks one when the time is chosen.
+const ANY_ID = 0;
+const anyMaster = () => { const b = (S.filter != null && S.branches.find((x) => x.id === S.filter)) || S.branches[0] || {}; return { id: ANY_ID, name: `Istalgan ${term()}`, branch_id: b.id, branch_name: b.name, any: true }; };
+const chosenMaster = () => (S.master === ANY_ID ? anyMaster() : S.masters.find((m) => m.id === S.master));
 const phoneDigits = () => S.phone.replace(/\D/g, "");
 const slotDate = () => (S.slot ? tashkentParts(new Date(S.slot)).date : S.date);  // the day of the picked time, never a day tapped later
 const branchOf = (x) => S.branches.find((b) => b.id === x?.branch_id) || S.branches.find((b) => b.name === x?.branch_name) || null;
@@ -590,7 +595,7 @@ const stale = (n) => n !== seq;
 
 async function loadServices(n) {
   if (S.servicesFor === S.master) return;
-  const want = S.master, list = await api.masterServices(want);
+  const want = S.master, list = want === ANY_ID ? await api.services(S.branch.id) : await api.masterServices(want);
   if (!stale(n) && S.master === want) { S.services = list; S.servicesFor = want; }
 }
 
@@ -630,7 +635,7 @@ async function go(step, fromHistory = false) {
     if (step >= 2 && step <= 5) await loadServices(n);
     if (step === 4 && useTelegram()) await startTelegram(n);
     if (step === 3) {
-      const dates = await api.dates(S.branch.id, ids(), S.master); if (stale(n)) return;
+      const dates = await api.dates(S.branch.id, ids(), S.master || null); if (stale(n)) return;
       S.dates = dates;
       if (!S.date || !S.dates.find((d) => d.date === S.date && d.has_slots)) {
         S.date = (S.dates.find((d) => d.has_slots) || {}).date || null;
@@ -668,7 +673,7 @@ window.addEventListener("focus", wake);
 
 async function loadSlots(n = seq) {
   S.slot = null; S.slots = []; S.slotsLoading = true;
-  const list = S.date ? (await api.slots(S.branch.id, ids(), S.date, S.master)).slots : [];
+  const list = S.date ? (await api.slots(S.branch.id, ids(), S.date, S.master || null)).slots : [];
   if (!stale(n)) { S.slots = list; S.slotsLoading = false; }
 }
 // A day tap: the old day's times disappear before anything else is drawn.
@@ -680,7 +685,7 @@ async function pickDate(ymd) {
   if (!stale(n)) render();
 }
 
-function openBarber(id) { setMaster(id); go(1); }
+function openBarber(id) { setMaster(id); go(id === ANY_ID ? 2 : 1); }
 
 // Book again with a barber: same services (where they still offer them), straight to the time step.
 async function rebook(mid, sids, btn) {
@@ -762,7 +767,7 @@ async function confirmBooking() {
   if (S.busy) return;
   S.busy = true; S.error = ""; render();
   try {
-    S.result = await api.book({ branch_id: S.branch.id, master_id: S.master, service_ids: ids(), starts_at: S.slot, comment: S.comment }, S.key);
+    S.result = await api.book({ branch_id: S.branch.id, master_id: S.master || null, service_ids: ids(), starts_at: S.slot, comment: S.comment }, S.key);
     S.key = uuid();  // the next booking is a new request, not a repeat of this one
     S.step = 6; S.busy = false; remember(6, true); render(); window.scrollTo(0, 0);
   } catch (e) {
@@ -787,7 +792,7 @@ async function boot() {
   if (!sv || typeof sv !== "object") return go(0, true);
   try {
     [S.masters, S.branches] = await Promise.all([api.allMasters(), api.branches()]); S.loaded = true;
-    if (S.masters.some((m) => m.id === sv.master)) {
+    if (sv.master === ANY_ID || S.masters.some((m) => m.id === sv.master)) {
       setMaster(sv.master);
       await loadServices(seq);
       S.picked = new Set((sv.picked || []).filter((id) => S.services.some((s) => s.id === id)));
@@ -939,6 +944,7 @@ const views = {
     return `${salonHtml()}${notice()}
     <div class="section-head"><h1>${esc(TERM())}lar</h1>${S.loaded && list.length ? `<span>${list.length} ta</span>` : ""}</div>
     ${S.branches.length > 1 ? `<div class="seg" role="group" aria-label="Filial">${[[null, "Hammasi"], ...S.branches.map((b) => [b.id, b.name])].map(([id, n]) => `<button data-filter="${id ?? ""}" aria-pressed="${S.filter === id}">${esc(n)}</button>`).join("")}</div>` : ""}
+    ${S.loaded && list.length > 1 ? `<button class="card any-card" data-open="0"><b>⚡ Farqi yo'q</b><small>Eng yaqin bo'sh vaqtga istalgan ${esc(term())}ga yozilish</small></button>` : ""}
     ${!S.loaded ? (S.error ? "" : '<div class="spinner"></div>') : list.length ? `<div class="grid">${list.map(barberCardHtml).join("")}</div>` : `<div class="empty">Onlayn bron uchun ${esc(term())}lar hali qo'shilmagan.${S.salon?.phone ? ` Salonga qo'ng'iroq qiling: ${telLink(S.salon.phone)}` : ""}</div>`}`;
   },
   1: () => {
