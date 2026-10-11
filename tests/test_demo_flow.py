@@ -184,7 +184,7 @@ async def test_a_beauty_salon_starts_with_its_own_services_and_sample_masters(mo
 
 async def test_a_right_to_left_name_does_not_flip_the_number_and_hidden_marks_are_dropped():
     """A client named "س" in Telegram: the salon's message must still show +998 90 ... in order."""
-    from app.text import FSI, LRI, PDI
+    from app.text import FSI, LRI, LRM, PDI
     await connect_bot()
     await link_staff("owner", "owner123", OWNER_CHAT)
     salon = await salon_row()
@@ -200,6 +200,6 @@ async def test_a_right_to_left_name_does_not_flip_the_number_and_hidden_marks_ar
         assert r.status_code == 201
     text = to(OWNER_CHAT)[-1]
     lines = text.split("\n")
-    assert lines[1] == f"👤 {FSI}س Ali{PDI}"  # the name alone on its line, isolated
-    assert lines[2] == f"📞 {LRI}+998 90 123 45 67{PDI}"  # the number on its own line, left to right
+    assert lines[1] == f"{LRM}👤 {FSI}س Ali{PDI}"  # the name alone on its line, isolated
+    assert lines[2] == f"{LRM}📞 {LRI}+998 90 123 45 67{PDI}"  # the number on its own line, left to right
     assert "‮" not in text and f"💬 {FSI}izoh{PDI}" in text

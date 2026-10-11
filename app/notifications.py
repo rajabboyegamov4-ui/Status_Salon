@@ -18,7 +18,7 @@ from app.models import Booking, Reminder, Salon, Staff
 from app.services.availability import branch_tz, now_utc
 from app.sms import send_safely
 from app.tenancy import salon_today, subscription_active
-from app.text import iso, ltr
+from app.text import LRM, iso, ltr
 
 log = logging.getLogger("salon.notifications")
 
@@ -136,7 +136,9 @@ def staff_text(b: Booking, event: str) -> str:
               f"💰 {_som(b.total_price)} so'm"]
     if b.comment and b.user.phone != "walk-in":
         lines.append(f"💬 {_h(b.comment)}")
-    return "\n".join(lines)
+    # Telegram aligns each line by its first letter; a mark in front keeps every line left-aligned,
+    # even "👤 س" whose only letter is Arabic.
+    return "\n".join(LRM + line for line in lines)
 
 
 async def notify_staff(booking_id: int, event: str, exclude_staff_id: int | None = None) -> int:

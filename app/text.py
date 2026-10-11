@@ -10,8 +10,9 @@ text is isolated so it cannot reorder its neighbours, and phone numbers are alwa
 import re
 import unicodedata
 
-FSI, LRI, PDI = "⁨", "⁦", "⁩"  # first-strong isolate, left-to-right isolate, pop isolate
-_KEEP = {"‌", "‍"}  # zero-width (non-)joiners: needed inside Persian words and emoji sequences
+FSI, LRI, PDI = "\u2068", "\u2066", "\u2069"  # first-strong isolate, left-to-right isolate, pop isolate
+LRM = "\u200e"  # left-to-right mark: sets the direction of a line that starts with an emoji
+_KEEP = {"\u200c", "\u200d"}  # zero-width (non-)joiners: needed inside Persian words and emoji sequences
 _SPACES = re.compile(r"\s+")
 
 
