@@ -32,4 +32,20 @@ jobs:
         run: |
           PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE salon_migrate"
           alembic upgrade head
-      - run: pytest -q
+      - name: pytest
+        shell: bash
+        run: |
+          set -o pipefail
+          pytest -q -rf --tb=short -p no:cacheprovider 2>&1 | tee pytest.txt
+      - name: failures as annotations (readable without the log download)
+        if: failure()
+        shell: bash
+        run: |
+          python - <<'PY'
+          lines = open("pytest.txt", encoding="utf-8", errors="replace").read().splitlines()
+          chunk = 40
+          tail = lines[-400:]
+          for i in range(0, len(tail), chunk):
+              body = "%0A".join(l.replace("%", "%25").replace("\r", "") for l in tail[i:i + chunk])
+              print(f"::error title=pytest {i // chunk}::{body}")
+          PY
