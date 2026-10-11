@@ -128,7 +128,7 @@ async def on_order_button(session, salon: Salon, token: str, cq: dict, parts: li
 
     chat_id = cq.get("from", {}).get("id")
     staff = await staff_of_chat(session, salon, chat_id)
-    order = await session.get(Order, int(parts[1])) if len(parts) == 2 and parts[1].isdigit() else None
+    order = await osvc.lock_order(session, int(parts[1])) if len(parts) == 2 and parts[1].isdigit() else None
     if staff is None or order is None or order.salon_id != salon.id or staff.role not in MANAGERS:
         return "Bu buyurtma topilmadi"
     if parts[0] == "ox":

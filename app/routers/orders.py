@@ -186,7 +186,7 @@ async def my_orders(salon: Salon = Depends(get_salon), user: User = Depends(auth
 @router.post("/s/{slug}/orders/{order_id}/cancel", response_model=OrderOut)
 async def cancel_order(order_id: int, background: BackgroundTasks, salon: Salon = Depends(get_salon),
                        user: User = Depends(auth.current_client), session: AsyncSession = Depends(get_session)):
-    order = await session.get(Order, order_id, with_for_update=True)
+    order = await svc.lock_order(session, order_id)
     if order is None or order.salon_id != salon.id or order.user_id != user.id:
         raise HTTPException(404, "Buyurtma topilmadi")
     try:
@@ -212,7 +212,7 @@ async def staff_orders(scope: str = Query("open", pattern="^(open|closed)$"), st
 async def staff_move(order_id: int, body: StatusIn, background: BackgroundTasks, staff: Staff = Depends(orders_writer),
                      salon: Salon = Depends(get_salon), session: AsyncSession = Depends(get_session)):
     actor = staff.id
-    order = await session.get(Order, order_id, with_for_update=True)  # two taps on two phones: one wins
+    order = await svc.lock_order(session, order_id)
     if order is None or order.salon_id != salon.id:
         raise HTTPException(404, "Buyurtma topilmadi")
     try:

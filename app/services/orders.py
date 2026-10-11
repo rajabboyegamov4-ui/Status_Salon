@@ -86,8 +86,14 @@ async def create_order(
 
 
 async def load_order(session: AsyncSession, order_id: int) -> Order | None:
-    session.expire_all()
-    return await session.scalar(select(Order).where(Order.id == order_id))
+    """Fresh from the database (status, items), without expiring anything else the caller holds."""
+    return await session.scalar(select(Order).where(Order.id == order_id).execution_options(populate_existing=True))
+
+
+async def lock_order(session: AsyncSession, order_id: int) -> Order | None:
+    """Two taps on two phones: the second waits for the first and sees its result."""
+    await session.execute(select(Order.id).where(Order.id == order_id).with_for_update())
+    return await load_order(session, order_id)
 
 
 async def move(session: AsyncSession, order: Order, status: str, by_client: bool = False) -> Order:
