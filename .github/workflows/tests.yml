@@ -44,7 +44,11 @@ jobs:
           python - <<'PY'
           lines = open("pytest.txt", encoding="utf-8", errors="replace").read().splitlines()
           chunk = 40
-          tail = lines[-400:]
+          start = next((i for i, l in enumerate(lines) if "short test summary" in l), None)
+          if start is not None:  # the list of failed tests first, then the first tracebacks
+              body = "%0A".join(l.replace("%", "%25") for l in lines[start:start + 60])
+              print(f"::error title=pytest summary::{body}")
+          tail = [l for l in lines if l.startswith(("E ", "tests/", "app/", "____"))][:300]
           for i in range(0, len(tail), chunk):
               body = "%0A".join(l.replace("%", "%25").replace("\r", "") for l in tail[i:i + chunk])
               print(f"::error title=pytest {i // chunk}::{body}")

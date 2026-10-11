@@ -405,12 +405,12 @@ async def _on_button(session: AsyncSession, salon: Salon, token: str, cq: dict) 
     if booking is None or booking.salon_id != salon.id or user is None or user.tg_chat_id != chat_id:
         answer = "Bu bron topilmadi"
     elif parts[0] == "cancel":
-        when = _when(booking)
+        when, booking_id = _when(booking), booking.id
         try:
             await svc.cancel_booking(session, booking, by_staff=False)
             answer = "Bron bekor qilindi"
             await _reply(token, chat_id, f"❌ {when} dagi bron bekor qilindi.")
-            await notify_staff(booking.id, "cancelled")
+            await notify_staff(booking_id, "cancelled")
         except svc.BookingError as e:
             answer = str(e)[:190]
     elif parts[0] == "come":

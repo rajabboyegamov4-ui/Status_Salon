@@ -244,6 +244,7 @@ async def move(
     booking_id: int, body: MoveIn, background: BackgroundTasks, staff: Staff = Depends(writer),
     salon: Salon = Depends(get_salon), session: AsyncSession = Depends(get_session),
 ):
+    actor = staff.id  # read before any commit expires the row
     b = await session.get(Booking, booking_id)
     if b is None or b.salon_id != salon.id:
         raise HTTPException(404, "Bron topilmadi")
@@ -260,7 +261,7 @@ async def move(
         raise HTTPException(422, str(e))
     if (b.starts_at, b.master_id) != old:
         background.add_task(send_moved, b.id)
-        background.add_task(notify_staff, b.id, "moved", staff.id)
+        background.add_task(notify_staff, b.id, "moved", actor)
     return AdminBookingOut.of(b)
 
 
