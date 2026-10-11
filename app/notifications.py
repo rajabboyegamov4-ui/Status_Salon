@@ -19,6 +19,7 @@ from app.services.availability import branch_tz, now_utc
 from app.sms import send_safely
 from app.tenancy import salon_today, subscription_active
 from app.kinds import kind_of
+from app.staffui import booking_buttons
 from app.text import LRM, iso, ltr
 
 log = logging.getLogger("salon.notifications")
@@ -155,11 +156,14 @@ async def notify_staff(booking_id: int, event: str, exclude_staff_id: int | None
         people = (await session.scalars(
             select(Staff).where(Staff.salon_id == b.salon_id, Staff.is_active, Staff.tg_chat_id.is_not(None))
         )).all()
-        chats = {p.tg_chat_id for p in people
-                 if p.id != exclude_staff_id and (p.role in ("owner", "admin") or p.master_id == b.master_id)}
+        rank = {"owner": 0, "admin": 1, "barber": 2}
+        chats: dict[int, Staff] = {}  # one message per chat; a person with two accounts gets the higher role's buttons
+        for p in sorted(people, key=lambda p: rank.get(p.role, 3)):
+            if p.id != exclude_staff_id and (p.role in ("owner", "admin") or p.master_id == b.master_id):
+                chats.setdefault(p.tg_chat_id, p)
         text, sent = staff_text(b, event, kind_of(salon.kind).term), 0
-        for chat_id in sorted(chats):
-            sent += await telegram.send(token, chat_id, text)
+        for chat_id, person in sorted(chats.items()):
+            sent += await telegram.send(token, chat_id, text, booking_buttons(salon, person, b.id, event))
         return sent
 
 

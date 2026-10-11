@@ -209,6 +209,10 @@ const TAG = { completed: "Keldi", no_show: "Kelmadi", cancelled: "Bekor qilingan
 
 // The salon comes from the address: /premium/panel -> "premium".
 const SLUG = location.pathname.split("/").filter(Boolean)[0] || "";
+// Opened from the salon bot's "Boshqaruv" button (Telegram Mini App): the linked Telegram account logs in, no password.
+const TG_INIT = (() => { try { return new URLSearchParams(location.hash.slice(1)).get("tgWebAppData") || ""; } catch { return ""; } })();
+if (TG_INIT) { const sc = document.createElement("script"); sc.src = "https://telegram.org/js/telegram-web-app.js"; sc.async = true;
+  sc.onload = () => { try { window.Telegram.WebApp.ready(); window.Telegram.WebApp.expand(); } catch {} }; document.head.append(sc); }
 const NET_MSG = "Internet aloqasi yo'q. Qayta urinib ko'ring.", SRV_MSG = "Serverda xatolik, birozdan keyin urinib ko'ring", GONE_MSG = "Sessiya tugadi, qaytadan kiring";
 const RO_MSG = "Obuna muddati tugagan. Panel faqat ko'rish rejimida ishlaydi.", TAKEN_MSG = "Bu vaqt hozirgina band bo'ldi. Iltimos, boshqa vaqtni tanlang.";
 const WALK_IN = "walk-in", noPhone = (p) => !p || p === WALK_IN;
@@ -224,7 +228,7 @@ const realApi = {
       text = await res.text();
     } catch { throw new ApiError(0, NET_MSG); } finally { clearTimeout(timer); }
     // Password changed elsewhere or account switched off: back to the login form.
-    if (res.status === 401 && path !== "/staff/login" && path !== "/staff/me") { resetSession(GONE_MSG); throw new ApiError(401, GONE_MSG); }
+    if (res.status === 401 && path !== "/staff/login" && path !== "/staff/me" && path !== "/staff/webapp") { resetSession(GONE_MSG); throw new ApiError(401, GONE_MSG); }
     if (res.status === 204) return null;
     let body; try { body = text ? JSON.parse(text) : null; } catch { body = undefined; }
     if (res.status >= 500 || body === undefined) throw new ApiError(res.status, SRV_MSG);
@@ -607,6 +611,8 @@ function parseMapLink(text) {
 }
 
 async function onProfileClick(d) {
+  if (d.tgOff) { S.tg = await realApi.call("/staff/telegram/me", { method: "DELETE" }); toast("Telegram xabarlari o'chirildi"); return true; }
+  if (d.tgCheck) { S.tg = await realApi.call("/staff/telegram/me"); toast(S.tg.me_linked ? "Xabarlar yoqildi ✅" : "Hali ulanmagan: Telegram'da Start ni bosing"); return true; }
   if (d.saveSalon) {
     S.salonInfo = await api.updateSalon({ description: D["s-description"] ?? S.salonInfo.description, instagram: (D["s-instagram"] ?? S.salonInfo.instagram).replace(/^@/, ""), phone: D["s-phone"] ?? S.salonInfo.phone });
     for (const k of ["s-description", "s-instagram", "s-phone"]) delete D[k];
@@ -665,6 +671,7 @@ function onProfileInput(el) {
 }
 
 async function loadProfile() {
+  if (!S.demo) S.tg = await realApi.call("/staff/telegram/me").catch(() => null);
   const masters = await api.masters(S.branch.id);
   S.masters = masters;
   S.profMasters = isAdmin() ? masters : masters.filter((m) => m.id === S.user.master_id);
@@ -674,7 +681,7 @@ async function loadReviews() { S.reviews = null; render(); S.reviews = await api
 function profileTabHtml() {
   if (!S.profMasters.length) return S.error ? `<div class="notice">${esc(S.error)}</div>${passwordHtml()}` : `<div class="pempty">Yuklanmoqda…</div>`;
   return `${S.error ? `<div class="notice">${esc(S.error)}</div>` : ""}<p class="hint" style="margin:14px 0 0">Bu ma'lumot mijoz saytida ko'rinadi: yuzingiz, tajribangiz va ishlaringiz rasmlari.</p>
-    ${S.profMasters.map((m) => masterEditorHtml(m, { canRank: isAdmin() })).join("")}${passwordHtml()}`;
+    ${S.profMasters.map((m) => masterEditorHtml(m, { canRank: isAdmin() })).join("")}${telegramHtml()}${passwordHtml()}`;
 }
 function reviewsTabHtml() {
   const vis = (S.reviews || []).filter((r) => !r.is_hidden);
@@ -966,6 +973,13 @@ async function changePassword() {
   S.pw = { old: "", new1: "", new2: "" }; S.error = ""; render();
   toast("Parol o'zgartirildi");
 }
+// Telegram: new and cancelled bookings of this master come to their own Telegram; the panel opens from the bot.
+function telegramHtml() {
+  const b = S.tg; if (!b || !b.connected) return "";
+  return `<section class="psec"><div class="phd"><h3>Telegram xabarlari</h3><span class="hint">${b.me_linked ? "Yoqilgan" : "O'chiq"}</span></div>
+    ${b.me_linked ? `<p>Sizga yozilgan yangi va bekor qilingan bronlar Telegram'ga keladi. Botdagi "Boshqaruv" tugmasi shu panelni ochadi.</p><div class="prow"><button class="btn" data-tg-off="1">O'chirish</button></div>`
+      : `<p class="hint">Tugmani bosing, Telegram ochiladi: <b>Start</b> ni bosing. Keyin har bir yangi bron haqida xabar keladi va panelni botdan ochasiz.</p><div class="prow">${b.me_link ? `<a class="btn primary" href="${esc(b.me_link)}" target="_blank" rel="noopener">Telegram'da xabar olish</a>` : ""}<button class="btn" data-tg-check="1">Tekshirish</button></div>`}</section>`;
+}
 function passwordHtml() {
   return `<section class="psec"><div class="phd"><h3>Parolni o'zgartirish</h3><span class="hint">Boshqa telefonlarda qaytadan kirish kerak bo'ladi</span></div>
     <div class="pgrid">
@@ -1071,6 +1085,7 @@ async function boot() {
     const info = await fetch(`/api/s/${SLUG}`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
     if (!info) { S.error = "Salon topilmadi. Manzilni tekshiring."; return render(); }
     S.salonName = info.name; S.user = await realApi.me();
+    if (!S.user && TG_INIT) S.user = await realApi.call("/staff/webapp", { method: "POST", body: JSON.stringify({ init_data: TG_INIT }) }).catch(() => null);
   }
   catch { S.demo = true; api = demoApi; S.salonName = DEMO_SALON.name; S.user = await api.me(); }
   try { await boot(); } catch (err) { S.error = err.message; render(); }
