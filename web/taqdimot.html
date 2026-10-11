@@ -1,0 +1,495 @@
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Navbat · onlayn yozilish</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600&display=swap">
+<style>
+/* Sales presentation: presenter bar on top; stage = phone with the client's Telegram bot beside the business's
+   admin panel (sample data, any kind of business); then the live demo on the real system, gains and prices. */
+:root{
+  --accent:#0E7C86;
+  --bg:#f2f4f5; --surface:#ffffff; --sunk:#e8ecee; --line:#d6dde1;
+  --fg:#16212a; --muted:#5d6c75;
+  --chat-bg:#dfe7e3; --bubble:#ffffff; --bubble-me:color-mix(in oklab,var(--accent) 16%,white);
+  --accent-fg:var(--accent); --accent-soft:color-mix(in oklab,var(--accent) 12%,white); --on-accent:#ffffff;
+  --ok:#1f7a45; --ok-soft:#dcefe3; --bad:#b3261e; --bad-soft:#f7dedc;
+  --f-display:"Unbounded","Golos Text",system-ui,sans-serif;
+  --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1519; --surface:#172127; --sunk:#1d2a31; --line:#2b3b43; --fg:#e4ecef; --muted:#95a7af;
+  --chat-bg:#0e1a1f; --bubble:#1f2c33; --bubble-me:color-mix(in oklab,var(--accent) 35%,#1f2c33);
+  --accent-fg:color-mix(in oklab,var(--accent) 65%,white); --accent-soft:color-mix(in oklab,var(--accent) 22%,#172127);
+  --ok:#6cc78f; --ok-soft:#173527; --bad:#f08a82; --bad-soft:#3d1c1a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1519; --surface:#172127; --sunk:#1d2a31; --line:#2b3b43; --fg:#e4ecef; --muted:#95a7af;
+  --chat-bg:#0e1a1f; --bubble:#1f2c33; --bubble-me:color-mix(in oklab,var(--accent) 35%,#1f2c33);
+  --accent-fg:color-mix(in oklab,var(--accent) 65%,white); --accent-soft:color-mix(in oklab,var(--accent) 22%,#172127);
+  --ok:#6cc78f; --ok-soft:#173527; --bad:#f08a82; --bad-soft:#3d1c1a; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.45;padding-bottom:env(safe-area-inset-bottom,0px)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent-fg);outline-offset:2px}
+h1,h2,h3{margin:0;text-wrap:balance}
+[hidden]{display:none!important}
+.wrap{max-width:1240px;margin:0 auto;padding-inline:16px;padding-block:0 56px}
+.num{font-variant-numeric:tabular-nums}
+.label{font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.btn{border:1px solid var(--line);background:var(--surface);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:500;white-space:nowrap;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.ghost{background:none;border-color:transparent;color:var(--muted)}
+input,select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+
+/* presenter bar */
+.bar{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top,0px)}
+.bar-in{max-width:1240px;margin:0 auto;padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
+.bar .brand{font-family:var(--f-display);font-weight:600;font-size:15px;margin-right:4px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;flex:1 1 520px;min-width:0}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;cursor:pointer;font-size:13.5px;font-weight:500;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.namebox{display:flex;gap:8px;flex:1 1 300px;min-width:0}
+.namebox input{flex:1;min-width:0}
+body.present .bar .cfg{display:none}
+
+/* hero */
+.hero{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px;padding-block:24px 18px}
+.hero h1{font-family:var(--f-display);font-weight:600;font-size:clamp(24px,3.4vw,38px);letter-spacing:-.02em;line-height:1.1}
+.hero h1 span{color:var(--accent-fg)}
+.hero p{margin:6px 0 0;color:var(--muted);max-width:60ch}
+.steps-legend{display:flex;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.steps-legend b{color:var(--fg)}
+
+/* stage */
+.stage{display:grid;grid-template-columns:360px minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:980px){.stage{grid-template-columns:minmax(0,1fr)}}
+.phone{width:min(360px,100%);margin:0 auto;border-radius:34px;background:#0c1114;padding:10px;box-shadow:0 18px 40px -18px rgb(0 0 0/.45)}
+.screen{border-radius:26px;overflow:hidden;background:var(--chat-bg);display:flex;flex-direction:column;height:640px}
+.tg-head{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface);border-bottom:1px solid var(--line)}
+.ava{width:38px;height:38px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font-weight:700;font-size:15px;flex:none}
+.tg-head .t{font-weight:600;font-size:15px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tg-head .s{font-size:12.5px;color:var(--muted)}
+.tg-head .reset{margin-left:auto;font-size:12.5px;padding:5px 9px}
+.chat{flex:1;overflow-y:auto;padding:12px 10px 16px;display:flex;flex-direction:column;gap:8px;scroll-behavior:smooth}
+.msg{max-width:86%;padding:8px 11px;border-radius:14px;background:var(--bubble);font-size:14px;line-height:1.4;box-shadow:0 1px 1px rgb(0 0 0/.06);white-space:pre-line}
+.msg.me{align-self:flex-end;background:var(--bubble-me);border-bottom-right-radius:4px}
+.msg.bot{align-self:flex-start;border-bottom-left-radius:4px}
+.msg .time{display:block;text-align:right;font-size:11px;color:var(--muted);margin-top:2px}
+.msg.sys{align-self:center;background:color-mix(in oklab,var(--fg) 12%,transparent);color:var(--fg);font-size:12px;padding:4px 10px;border-radius:99px;box-shadow:none}
+.kb{display:grid;grid-template-columns:1fr 1fr;gap:5px;max-width:92%;align-self:flex-start;width:92%}
+.kb.one{grid-template-columns:1fr}
+.kb button{background:color-mix(in oklab,var(--bubble) 70%,var(--accent) 12%);border:0;border-radius:9px;padding:9px 6px;font-size:13px;font-weight:500;color:var(--accent-fg);cursor:pointer;line-height:1.25}
+.kb button:hover{background:var(--accent-soft)}
+.kb button:disabled{opacity:.45;cursor:default}
+.kb button small{display:block;color:var(--muted);font-weight:400;font-size:11.5px}
+.reply-kb{padding:8px;background:var(--surface);border-top:1px solid var(--line)}
+.reply-kb button{width:100%;border:0;border-radius:9px;padding:11px;background:var(--accent);color:var(--on-accent);font-weight:600;cursor:pointer}
+.composer{display:flex;gap:8px;padding:9px 12px;background:var(--surface);border-top:1px solid var(--line);color:var(--muted);font-size:13.5px}
+.composer span{flex:1;background:var(--sunk);border-radius:99px;padding:7px 12px}
+
+/* admin */
+.admin{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;min-width:0}
+.ad-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.ad-head h2{font-size:16px;font-weight:600}
+.ad-head .sub{color:var(--muted);font-size:13px}
+.days{display:flex;gap:4px;background:var(--sunk);padding:3px;border-radius:9px;margin-left:auto;flex-wrap:wrap}
+.days button{border:0;background:none;padding:5px 10px;border-radius:7px;cursor:pointer;font-size:13px;color:var(--muted);font-weight:500}
+.days button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgb(0 0 0/.08)}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-bottom:1px solid var(--line)}
+@media (max-width:620px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{padding:12px 16px;border-right:1px solid var(--line);display:grid;gap:2px;min-width:0}
+.kpi:last-child{border-right:0}
+.kpi .v{font-family:var(--f-display);font-weight:500;font-size:20px;letter-spacing:-.01em}
+.kpi .h{font-size:12.5px;color:var(--muted)}
+.grid-box{overflow-x:auto}
+.sched{display:grid;min-width:560px;position:relative}
+.sched .hcell{position:sticky;top:0;background:var(--surface);z-index:2;padding:10px 8px;border-bottom:1px solid var(--line);font-weight:600;font-size:13.5px;display:flex;gap:8px;align-items:center;min-width:0}
+.sched .hcell .mini{width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent-fg);display:grid;place-items:center;font-size:11.5px;font-weight:700;flex:none}
+.sched .hcell span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.times{border-right:1px solid var(--line)}
+.times div{height:44px;font-size:11.5px;color:var(--muted);padding:2px 6px;text-align:right;font-variant-numeric:tabular-nums}
+.col{position:relative;border-right:1px solid var(--line);background:repeating-linear-gradient(to bottom,transparent 0,transparent 43px,var(--sunk) 43px,var(--sunk) 44px)}
+.col:last-child{border-right:0}
+.bk{position:absolute;left:4px;right:4px;border-radius:7px;padding:4px 7px;font-size:12px;line-height:1.25;background:var(--accent-soft);border-left:3px solid var(--accent);cursor:pointer;overflow:hidden;text-align:left;border-top:0;border-right:0;border-bottom:0;color:var(--fg)}
+.bk b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bk .meta{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.bk.done{background:var(--ok-soft);border-left-color:var(--ok)}
+.bk.noshow{background:var(--bad-soft);border-left-color:var(--bad)}
+.bk.new{box-shadow:0 0 0 2px var(--accent)}
+.src{display:inline-block;font-size:10.5px;font-weight:600;padding:0 5px;border-radius:4px;background:var(--surface);color:var(--muted);margin-left:4px}
+@media (prefers-reduced-motion:no-preference){.bk.new{animation:pop 1.2s ease-out 2}@keyframes pop{50%{box-shadow:0 0 0 6px color-mix(in oklab,var(--accent) 30%,transparent)}}}
+.toast{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:30;background:var(--fg);color:var(--bg);padding:11px 14px;border-radius:10px;font-size:14px;max-width:min(360px,calc(100% - 32px));box-shadow:0 8px 24px -8px rgb(0 0 0/.4)}
+.toast b{display:block}
+.pop{position:fixed;inset:0;z-index:25;display:grid;place-items:center;background:rgb(8 14 17/.4);padding:16px}
+.pop .card{background:var(--surface);border-radius:14px;padding:18px;width:min(380px,100%);display:grid;gap:10px;border:1px solid var(--line)}
+.pop .row{display:flex;justify-content:space-between;gap:12px;font-size:14px}
+.pop .row span:first-child{color:var(--muted)}
+.pop .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:4px}
+
+/* live demo on the real system */
+.live{margin-top:24px;background:var(--surface);border:1px solid var(--accent);border-radius:14px;padding:18px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px;align-items:center}
+@media (max-width:620px){.live{grid-template-columns:minmax(0,1fr);justify-items:start}}
+.live .qr{width:168px;height:168px;background:#fff;border-radius:12px;padding:8px;display:grid;place-items:center}
+.live .qr svg{width:100%;height:100%}
+.live h2{font-family:var(--f-display);font-weight:500;font-size:20px;margin-bottom:6px}
+.live p{margin:0 0 12px;color:var(--muted);max-width:62ch}
+.live .acts{display:flex;flex-wrap:wrap;gap:8px}
+
+/* offer */
+.offer{margin-top:36px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:20px}
+@media (max-width:900px){.offer{grid-template-columns:minmax(0,1fr)}}
+.offer h2{font-family:var(--f-display);font-weight:500;font-size:20px;margin-bottom:12px}
+.gains{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.gains li{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:start}
+.gains .ic{width:28px;height:28px;border-radius:8px;background:var(--accent-soft);color:var(--accent-fg);display:grid;place-items:center}
+.gains b{display:block}
+.gains span{color:var(--muted);font-size:14px}
+.tariffs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:620px){.tariffs{grid-template-columns:minmax(0,1fr)}}
+.tariff{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:6px;align-content:start}
+.tariff.hl{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.tariff .nm{font-weight:700}
+.tariff .pr{font-family:var(--f-display);font-weight:500;font-size:18px}
+.tariff .pr small{font-family:var(--f-body);font-size:12.5px;color:var(--muted);font-weight:400}
+.tariff ul{margin:4px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:grid;gap:3px}
+.note{font-size:12.5px;color:var(--muted);margin-top:10px}
+
+/* settings sheet */
+.sheet{position:fixed;top:0;right:0;bottom:0;width:min(440px,100%);background:var(--bg);border-left:1px solid var(--line);z-index:26;display:flex;flex-direction:column}
+.sheet header{display:flex;align-items:center;gap:10px;padding:calc(12px + env(safe-area-inset-top,0px)) 16px 12px;border-bottom:1px solid var(--line);background:var(--surface)}
+.sheet header h3{font-size:15px;margin-right:auto}
+.sheet .body{padding:16px;overflow-y:auto;display:grid;gap:14px;align-content:start}
+.sheet label{font-size:12.5px;color:var(--muted);font-weight:500;display:block;margin-bottom:4px}
+.sheet textarea{width:100%;min-height:130px;font-family:var(--f-body);font-size:14px;resize:vertical}
+.sheet input{width:100%}
+.hint{font-size:12.5px;color:var(--muted)}
+</style>
+<body>
+<header class="bar">
+  <div class="bar-in">
+    <div class="brand">Navbat</div>
+    <div class="chips cfg" id="chips" role="group" aria-label="Soha"></div>
+    <div class="namebox cfg">
+      <input id="bizname" placeholder="Biznes nomini yozing" aria-label="Biznes nomi" autocomplete="off">
+      <button class="btn" id="open-set" type="button">Sozlash</button>
+    </div>
+    <button class="btn primary" id="present" type="button">Taqdimot rejimi</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <div>
+      <div class="label" id="h-kind">Stomatologiya</div>
+      <h1><span id="h-name">Smile Dental</span> uchun onlayn yozilish</h1>
+      <p id="h-lead">Bemor Telegram botda o'zi yoziladi, administrator hammasini bitta jadvalda ko'radi, eslatmalar avtomatik ketadi.</p>
+    </div>
+    <div class="steps-legend"><span><b>Chapda:</b> mijoz ko'radigan bot</span><span><b>O'ngda:</b> sizning admin panelingiz</span></div>
+  </section>
+
+  <section class="stage">
+    <div class="phone" aria-label="Telegram bot namoyishi">
+      <div class="screen">
+        <div class="tg-head"><div class="ava" id="ava">SD</div><div style="min-width:0"><div class="t" id="tg-title">Smile Dental</div><div class="s">bot</div></div><button class="btn reset" id="reset" type="button">Qaytadan</button></div>
+        <div class="chat" id="chat" aria-live="polite"></div>
+        <div class="reply-kb" id="replykb" hidden></div>
+        <div class="composer"><span>Xabar</span></div>
+      </div>
+    </div>
+
+    <div class="admin">
+      <div class="ad-head">
+        <div><h2 id="ad-title">Smile Dental</h2><div class="sub">Administrator paneli · namuna ma'lumotlar</div></div>
+        <div class="days" id="days" role="group" aria-label="Kun"></div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><span class="label">Yozuvlar</span><span class="v num" id="k-count">0</span><span class="h" id="k-count-h"></span></div>
+        <div class="kpi"><span class="label">Kutilayotgan tushum</span><span class="v num" id="k-sum">0</span><span class="h">so'm, xizmatlar narxi bo'yicha</span></div>
+        <div class="kpi"><span class="label">Bot orqali</span><span class="v num" id="k-bot">0%</span><span class="h">administratorsiz kelgan yozuvlar</span></div>
+        <div class="kpi"><span class="label">Bo'sh vaqtlar</span><span class="v num" id="k-free">0</span><span class="h">30 daqiqalik oraliqlar</span></div>
+      </div>
+      <div class="grid-box"><div class="sched" id="sched"></div></div>
+    </div>
+  </section>
+
+  <section class="live" id="live" hidden aria-labelledby="live-t">
+    <div class="qr" id="live-qr" aria-label="Botga o'tish uchun QR kod"></div>
+    <div>
+      <div class="label">Haqiqiy tizim</div>
+      <h2 id="live-t">Endi o'z telefoningizda sinab ko'ring</h2>
+      <p id="live-p">Kamerani QR kodga qarating yoki tugmani bosing: botda Start bosing, raqamingizni yuboring va yoziling. Yozuv shu zahoti admin panelda paydo bo'ladi, administratorga Telegram'da xabar keladi.</p>
+      <div class="acts"><a class="btn primary" id="live-bot" target="_blank" rel="noopener">Botni ochish</a><a class="btn" id="live-admin" target="_blank" rel="noopener">Admin panel</a><a class="btn" id="live-site" target="_blank" rel="noopener">Yozilish sahifasi</a></div>
+    </div>
+  </section>
+
+  <section class="offer">
+    <div>
+      <h2>Nima o'zgaradi</h2>
+      <ul class="gains" id="gains"></ul>
+    </div>
+    <div>
+      <h2>Narxlar</h2>
+      <div class="tariffs">
+        <div class="tariff"><span class="nm">Start</span><span class="pr num">300 000 <small>so'm / oy</small></span><span class="hint num">O'rnatish 1 200 000 so'm</span><ul><li id="t1">1–3 mutaxassis</li><li>Telegram bot va admin panel</li><li>Avtomatik eslatmalar</li></ul></div>
+        <div class="tariff hl"><span class="nm">Biznes</span><span class="pr num">500 000 <small>so'm / oy</small></span><span class="hint num">O'rnatish 1 500 000 so'm</span><ul><li id="t2">4–10 mutaxassis</li><li>Mijozlar bazasi va tarix</li><li>Statistika</li></ul></div>
+        <div class="tariff"><span class="nm">Pro</span><span class="pr num">800 000 <small>so'm / oydan</small></span><span class="hint">O'rnatish kelishuv bo'yicha</span><ul><li>Bir nechta filial</li><li>Maxsus sozlash</li><li>Ustuvor yordam</li></ul></div>
+      </div>
+      <p class="note">Birinchi oy o'rnatish narxiga kiradi. 14 kun tekin sinov: o'zimiz sozlab beramiz va administratorni o'rgatamiz.</p>
+    </div>
+  </section>
+</main>
+
+<aside class="sheet" id="sheet" hidden role="dialog" aria-labelledby="sheet-t">
+  <header><h3 id="sheet-t">Taqdimotni sozlash</h3><button class="btn ghost" id="close-set" type="button">Yopish</button></header>
+  <div class="body">
+    <div><label for="s-live">Jonli demo: salon manzili</label><input id="s-live" placeholder="masalan sabina-salon" autocapitalize="none" spellcheck="false" autocomplete="off"><p class="hint">Platformada ochilgan demo salonning manzili. Kiritilsa, sahifa pastida o'sha salon botiga QR kod va havolalar chiqadi.</p></div>
+    <div><label for="s-staff">Mutaxassislar (har qatorda bittasi)</label><textarea id="s-staff"></textarea></div>
+    <div><label for="s-svc">Xizmatlar: nomi | narxi (so'm) | davomiyligi (daqiqa)</label><textarea id="s-svc"></textarea><p class="hint">Masalan: Soch olish | 80000 | 45. Narx 0 bo'lsa "bepul" deb chiqadi.</p></div>
+    <div><label for="s-term">Mutaxassis qanday ataladi</label><input id="s-term"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="s-default" type="button">Asl holatiga qaytarish</button><button class="btn primary" id="s-save" type="button">Qo'llash</button></div>
+  </div>
+</aside>
+<div class="pop" id="pop" hidden></div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script>
+// Kinds of business: the same keys as app/kinds.py, so a live demo salon of a kind matches what was shown.
+const P={
+ dental:{label:"Stomatologiya",color:"#0E7C86",name:"Smile Dental",term:"Shifokor",client:"bemor",
+  staff:["Dr. Aziza Karimova","Dr. Sardor Aliyev","Dr. Malika Yusupova"],
+  svc:[["Ko'rik va maslahat",50000,30],["Professional tish tozalash",250000,60],["Plomba qo'yish",350000,60],["Tish oqartirish",900000,90],["Implant bo'yicha maslahat",0,30]]},
+ clinic:{label:"Ko'p tarmoqli klinika",color:"#2457C5",name:"Shifo Med",term:"Shifokor",client:"bemor",
+  staff:["Dr. Bekzod Rahimov · terapevt","Dr. Nilufar Saidova · kardiolog","Dr. Jasur Toshmatov · nevrolog"],
+  svc:[["Terapevt qabuli",150000,30],["Kardiolog qabuli",200000,30],["EKG",80000,30],["UZI tekshiruvi",180000,30],["Nevrolog qabuli",200000,30]]},
+ cosmetology:{label:"Kosmetologiya",color:"#7E57C2",name:"Glow Clinic",term:"Kosmetolog",client:"mijoz",
+  staff:["Nigora","Kamola","Zarina"],
+  svc:[["Yuzni tozalash",300000,60],["Kimyoviy piling",350000,45],["Lazer epilyatsiya",250000,30],["Kosmetolog konsultatsiyasi",100000,30]]},
+ barber:{label:"Erkaklar sartaroshxonasi",color:"#B07A1E",name:"Gentlemen Barbershop",term:"Usta",client:"mijoz",
+  staff:["Jasur","Bekzod","Sardor"],
+  svc:[["Soch olish",120000,30],["Soqol olish",80000,30],["Soch + soqol",180000,60],["Kompleks parvarish",300000,90]]},
+ beauty:{label:"Ayollar go'zallik saloni",color:"#B5487A",name:"Malika Beauty",term:"Usta",client:"mijoz",
+  staff:["Dilnoza · soch ustasi","Madina · manikyur","Sevara · qosh va kiprik"],
+  svc:[["Manikyur + gel lak",150000,90],["Pedikyur",180000,75],["Soch bo'yash",400000,150],["Soch turmagi",150000,60],["Qosh va kiprik dizayni",100000,45]]},
+ spa:{label:"SPA va massaj",color:"#3D7A57",name:"Orom SPA",term:"Massajchi",client:"mijoz",
+  staff:["Rustam","Nodira","Azamat"],
+  svc:[["Klassik massaj",250000,60],["Bosh va yelka massaji",150000,30],["Butun tana massaji",350000,90],["Hammom va massaj",450000,120]]},
+ auto:{label:"Avtoservis",color:"#C7621B",name:"Avto Pro Servis",term:"Usta",client:"mijoz",
+  staff:["Usta Akmal · 1-post","Usta Farrux · 2-post","Usta Doniyor · 3-post"],
+  svc:[["Moy almashtirish",150000,30],["Kompyuter diagnostika",200000,60],["Tormoz kolodkalari",250000,60],["Shina almashtirish",100000,30]]},
+ vet:{label:"Veterinariya",color:"#4F7A23",name:"Doktor Vet",term:"Veterinar",client:"mijoz",
+  staff:["Dr. Anvar Qodirov","Dr. Zarina Hamidova"],
+  svc:[["Ko'rik",100000,30],["Emlash",150000,30],["Gruming",200000,60],["UZI tekshiruvi",180000,30]]},
+ other:{label:"Boshqa biznes",color:"#3A6EA5",name:"Sizning biznesingiz",term:"Mutaxassis",client:"mijoz",
+  staff:["Aziz","Laylo","Timur"],
+  svc:[["Konsultatsiya",100000,30],["Asosiy xizmat",200000,60],["Premium xizmat",400000,90]]}
+};
+const ORDER=["dental","clinic","cosmetology","barber","beauty","spa","auto","vet","other"];
+const OLD_KEYS={stom:"dental",klinika:"clinic",kosmo:"cosmetology",ayol:"beauty",avto:"auto",boshqa:"other"};
+const CLIENTS=["Dilnoza R.","Javohir T.","Kamola S.","Otabek M.","Shahzoda N.","Sherzod A.","Gulbahor Y.","Aziz K.","Munisa H.","Bobur E.","Nigora Q.","Islom D.","Lola B.","Ulug'bek F.","Feruza O.","Doston I."];
+const MON=["yanvar","fevral","mart","aprel","may","iyun","iyul","avgust","sentabr","oktabr","noyabr","dekabr"];
+const WD=["Yakshanba","Dushanba","Seshanba","Chorshanba","Payshanba","Juma","Shanba"];
+const OPEN=9*60, CLOSE=19*60, STEP=30, ROWH=44;
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const som=n=>n?Math.round(n).toLocaleString("ru-RU").replace(/\s/g," ")+" so'm":"bepul";
+const hm=m=>String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
+const initials=s=>s.replace(/^(Dr\.|Usta)\s*/,"").split(/[\s·]+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+function tz(){const p=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Tashkent",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(new Date());const g=k=>+p.find(x=>x.type===k).value;return {y:g("year"),m:g("month"),d:g("day"),min:g("hour")*60+g("minute")}}
+const NOW=tz();
+const DAYS=[0,1,2,3].map(i=>{const dt=new Date(Date.UTC(NOW.y,NOW.m-1,NOW.d+i));return {i,date:dt.getUTCDate(),mon:dt.getUTCMonth(),wd:dt.getUTCDay(),label:i===0?"Bugun":i===1?"Ertaga":WD[dt.getUTCDay()]}});
+const dayText=d=>`${d.label}, ${d.date}-${MON[d.mon]}`;
+
+let key="dental", cfg=null, name="", day=0, bookings=[], flow={}, lastNew=null;
+function rng(seed){let h=2166136261;for(const c of seed)h=Math.imul(h^c.charCodeAt(0),16777619);return()=>{h=Math.imul(h^(h>>>15),2246822507);h=Math.imul(h^(h>>>13),3266489909);h^=h>>>16;return (h>>>0)/4294967296}}
+function loadCfg(k){const base=JSON.parse(JSON.stringify(P[k]));const s=store.get("nv-cfg-"+k);if(s){try{return Object.assign(base,JSON.parse(s))}catch(e){}}return base}
+
+/* sample schedule */
+function genBookings(){
+  bookings=[];
+  cfg.staff.forEach((st,si)=>{
+    DAYS.forEach(d=>{
+      const r=rng(key+"|"+si+"|"+d.i+"|"+cfg.svc.length);
+      let t=OPEN+Math.floor(r()*3)*STEP, busyShare=d.i===0?.62:d.i===1?.45:.3;
+      while(t<CLOSE){
+        const sv=cfg.svc[Math.floor(r()*cfg.svc.length)], dur=Math.max(STEP,Math.ceil(sv[2]/STEP)*STEP);
+        if(t+dur>CLOSE)break;
+        if(r()<busyShare){
+          const past=d.i===0&&t+dur<=NOW.min;
+          const st=past?(r()<.88?"done":"noshow"):"wait";
+          const src=r()<.62?"bot":r()<.6?"tel":"admin";
+          bookings.push({day:d.i,staff:si,start:t,dur,svc:sv[0],price:sv[1],client:CLIENTS[Math.floor(r()*CLIENTS.length)],phone:"+998 9"+Math.floor(r()*10)+" "+String(100+Math.floor(r()*899))+"-"+String(10+Math.floor(r()*89))+"-"+String(10+Math.floor(r()*89)),src,status:st,sample:true});
+          t+=dur;
+        } else t+=STEP;
+      }
+    });
+  });
+}
+const busy=(d,s,start,dur)=>bookings.some(b=>b.day===d&&b.staff===s&&b.status!=="cancel"&&start<b.start+b.dur&&b.start<start+dur);
+function freeSlots(d,s,dur){const out=[];for(let t=OPEN;t+dur<=CLOSE;t+=STEP){if(d===0&&t<=NOW.min+30)continue;if(!busy(d,s,t,dur))out.push(t)}return out}
+
+/* admin */
+function renderDays(){$("days").innerHTML=DAYS.map(d=>`<button type="button" data-day="${d.i}" aria-pressed="${d.i===day}">${esc(d.label)} <span class="num">${d.date}</span></button>`).join("")}
+function renderAdmin(){
+  const list=bookings.filter(b=>b.day===day&&b.status!=="cancel");
+  $("k-count").textContent=list.length;
+  const done=list.filter(b=>b.status==="done").length, ns=list.filter(b=>b.status==="noshow").length;
+  $("k-count-h").textContent=day===0?`${done} ta keldi, ${ns} ta kelmadi`:dayText(DAYS[day]);
+  $("k-sum").textContent=list.filter(b=>b.status!=="noshow").reduce((a,b)=>a+b.price,0).toLocaleString("ru-RU").replace(/\s/g," ");
+  $("k-bot").textContent=list.length?Math.round(list.filter(b=>b.src==="bot").length/list.length*100)+"%":"0%";
+  let free=0;cfg.staff.forEach((_,s)=>{for(let t=OPEN;t<CLOSE;t+=STEP){if(day===0&&t<NOW.min)continue;if(!busy(day,s,t,STEP))free++}});
+  $("k-free").textContent=free;
+  const n=cfg.staff.length;
+  const sched=$("sched");
+  sched.style.gridTemplateColumns=`52px repeat(${n},minmax(150px,1fr))`;
+  let h=`<div class="hcell" style="justify-content:flex-end"></div>`+cfg.staff.map(s=>`<div class="hcell"><span class="mini">${esc(initials(s))}</span><span title="${esc(s)}">${esc(s)}</span></div>`).join("");
+  h+=`<div class="times">`+Array.from({length:(CLOSE-OPEN)/STEP},(_,i)=>`<div>${i%2===0?hm(OPEN+i*STEP):""}</div>`).join("")+`</div>`;
+  cfg.staff.forEach((_,s)=>{
+    h+=`<div class="col" style="height:${(CLOSE-OPEN)/STEP*ROWH}px">`+list.filter(b=>b.staff===s).map(b=>{
+      const idx=bookings.indexOf(b), top=(b.start-OPEN)/STEP*ROWH+2, ht=b.dur/STEP*ROWH-4;
+      const cls=b.status==="done"?" done":b.status==="noshow"?" noshow":"";
+      const srcT=b.src==="bot"?"bot":b.src==="tel"?"tel":"admin";
+      return `<button type="button" class="bk${cls}${b===lastNew?" new":""}" data-b="${idx}" style="top:${top}px;height:${ht}px"><b>${esc(b.client)}<span class="src">${srcT}</span></b><span class="meta num">${hm(b.start)}–${hm(b.start+b.dur)} · ${esc(b.svc)}</span></button>`;
+    }).join("")+`</div>`;
+  });
+  sched.innerHTML=h;
+}
+function openBooking(i){
+  const b=bookings[i];if(!b)return;
+  const st={wait:"Kutilmoqda",done:"Keldi",noshow:"Kelmadi"}[b.status];
+  $("pop").innerHTML=`<div class="card" role="dialog" aria-label="Yozuv"><strong>${esc(b.client)}</strong>
+  <div class="row"><span>Xizmat</span><span>${esc(b.svc)}</span></div>
+  <div class="row"><span>${esc(cfg.term)}</span><span>${esc(cfg.staff[b.staff])}</span></div>
+  <div class="row"><span>Vaqt</span><span class="num">${esc(dayText(DAYS[b.day]))}, ${hm(b.start)}</span></div>
+  <div class="row"><span>Telefon</span><span class="num">${esc(b.phone)}</span></div>
+  <div class="row"><span>Narx</span><span class="num">${som(b.price)}</span></div>
+  <div class="row"><span>Holat</span><span>${st}</span></div>
+  <div class="row"><span>Qayerdan</span><span>${b.src==="bot"?"Telegram bot":b.src==="tel"?"Telefon orqali":"Administrator kiritdi"}</span></div>
+  <div class="acts"><button class="btn" data-st="noshow" type="button">Kelmadi</button><button class="btn" data-st="done" type="button">Keldi</button><button class="btn primary" data-close type="button">Yopish</button></div></div>`;
+  $("pop").hidden=false;
+  $("pop").onclick=e=>{const s=e.target.closest("[data-st]");if(s){b.status=s.dataset.st;renderAdmin();$("pop").hidden=true;return}if(e.target===$("pop")||e.target.closest("[data-close]"))$("pop").hidden=true};
+}
+
+/* bot */
+const chat=()=>$("chat");
+function clock(){const t=tz();return hm(t.min)}
+function push(html,cls){const d=document.createElement("div");d.className="msg "+cls;d.innerHTML=html+(cls==="sys"?"":`<span class="time num">${clock()}</span>`);chat().appendChild(d);chat().scrollTop=chat().scrollHeight;return d}
+function kb(buttons,one){const d=document.createElement("div");d.className="kb"+(one?" one":"");d.innerHTML=buttons.map((b,i)=>`<button type="button" data-k="${i}"${b.dis?" disabled":""}>${b.html}</button>`).join("");d.onclick=e=>{const x=e.target.closest("button");if(!x||x.disabled)return;d.querySelectorAll("button").forEach(z=>z.disabled=true);buttons[+x.dataset.k].go()};chat().appendChild(d);chat().scrollTop=chat().scrollHeight}
+function botSay(text,then){setTimeout(()=>{push(esc(text),"bot");then&&then()},420)}
+function startBot(){
+  chat().innerHTML="";$("replykb").hidden=true;flow={};
+  push("Bugun","sys");
+  push("/start","me");
+  botSay(`Assalomu alaykum! ${name} botiga xush kelibsiz.\nBu yerda ${cfg.client==="bemor"?"qabulga":"xizmatga"} 1 daqiqada yozilasiz. Xizmatni tanlang:`,askService);
+}
+function askService(){kb(cfg.svc.map(s=>({html:`${esc(s[0])}<small class="num">${som(s[1])} · ${s[2]} daq</small>`,go:()=>{flow.svc=s;push(esc(s[0]),"me");botSay(`Qaysi ${cfg.term.toLowerCase()}ga yozilasiz?`,askStaff)}})))}
+function askStaff(){const b=cfg.staff.map((s,i)=>({html:esc(s),go:()=>{flow.staff=i;push(esc(s),"me");botSay("Qaysi kun qulay?",askDay)}}));b.push({html:"Farqi yo'q",go:()=>{flow.staff=-1;push("Farqi yo'q","me");botSay("Qaysi kun qulay?",askDay)}});kb(b)}
+function durOf(){return Math.max(STEP,Math.ceil(flow.svc[2]/STEP)*STEP)}
+function slotsFor(d){const dur=durOf();if(flow.staff>=0)return freeSlots(d,flow.staff,dur).map(t=>({t,s:flow.staff}));const m=new Map();cfg.staff.forEach((_,s)=>freeSlots(d,s,dur).forEach(t=>{if(!m.has(t))m.set(t,s)}));return [...m].sort((a,b)=>a[0]-b[0]).map(([t,s])=>({t,s}))}
+function askDay(){kb(DAYS.map(d=>{const n=slotsFor(d.i).length;return {html:`${esc(d.label)}<small>${d.date}-${MON[d.mon]} · ${n?n+" ta bo'sh vaqt":"bo'sh vaqt yo'q"}</small>`,dis:!n,go:()=>{flow.day=d.i;push(esc(dayText(d)),"me");botSay("Bo'sh vaqtlar:",askTime)}}}))}
+function askTime(){const sl=slotsFor(flow.day).slice(0,8);kb(sl.map(x=>({html:`<span class="num">${hm(x.t)}</span>`,go:()=>{flow.t=x.t;flow.s=x.s;push(hm(x.t),"me");botSay("Yozuvni tasdiqlash uchun telefon raqamingizni yuboring. Tugmani bosing:",askPhone)}})))}
+function askPhone(){const r=$("replykb");r.innerHTML=`<button type="button">Raqamni yuborish</button>`;r.hidden=false;r.firstChild.onclick=()=>{r.hidden=true;push("Kontakt: +998 90 123-45-67","me");botSay(`Tekshiring:\n${flow.svc[0]}\n${cfg.term}: ${cfg.staff[flow.s]}\n${dayText(DAYS[flow.day])}, ${hm(flow.t)}\nNarxi: ${som(flow.svc[1])}`,askConfirm)}}
+function askConfirm(){kb([{html:"Tasdiqlash",go:confirm},{html:"Bekor qilish",go:()=>{push("Bekor qilish","me");botSay("Yozuv bekor qilindi. Qayta yozilish uchun /start bosing.")}}])}
+function confirm(){
+  push("Tasdiqlash","me");
+  const b={day:flow.day,staff:flow.s,start:flow.t,dur:durOf(),svc:flow.svc[0],price:flow.svc[1],client:"Siz (demo)",phone:"+998 90 123-45-67",src:"bot",status:"wait"};
+  bookings.push(b);lastNew=b;
+  botSay(`Yozuvingiz tasdiqlandi.\n${dayText(DAYS[b.day])}, ${hm(b.start)} da kutamiz.\nManzil va yo'nalishni yozuvdan oldin yuboramiz.`,()=>{
+    day=b.day;renderDays();renderAdmin();
+    toast(`Yangi yozuv botdan`,`${hm(b.start)} · ${b.svc} · ${cfg.staff[b.staff]}`);
+    setTimeout(()=>{push("Namoyish: eslatma 1 kun oldin keladi","sys");push(esc(`Eslatma: ertaga ${hm(b.start)} da ${name}da ${b.svc.toLowerCase()} uchun yozuvingiz bor.`),"bot");kb([{html:"Kelaman",go:()=>{push("Kelaman","me");botSay("Rahmat! Sizni kutamiz.")}},{html:"Vaqtni ko'chirish",go:()=>{push("Vaqtni ko'chirish","me");botSay("Yangi kunni tanlang:",askDay)}}])},1600);
+  });
+}
+function toast(t,s){const el=$("toast");el.innerHTML=`<b>${esc(t)}</b>${esc(s)}`;el.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>el.hidden=true,4200)}
+
+/* gains */
+function renderGains(){
+  const c=cfg.client, T=cfg.term.toLowerCase();
+  const items=[
+    ["M5 12l4 4L19 6",`${c==="bemor"?"Bemorlar":"Mijozlar"} kechasi ham yoziladi`,`Telegram botda 1 daqiqada: ilova yuklash, qo'ng'iroq qilish shart emas.`],
+    ["M12 7v5l3 2",`Kelmay qolish kamayadi`,`Yozuvdan 1 kun va 2 soat oldin avtomatik eslatma, "kelaman" yoki "ko'chirish" tugmasi bilan.`],
+    ["M4 6h16M4 12h16M4 18h10",`Administrator yengillashadi`,`Barcha ${T}lar jadvali bitta panelda, telefon va daftarsiz. Ikki kishi bir vaqtga yozilib qolmaydi.`],
+    ["M4 19V9m6 10V5m6 14v-7m4 7H2",`Raqamlar ko'rinadi`,`Kunlik yozuvlar, tushum, qaysi ${T} band, qancha mijoz botdan kelgani.`]
+  ];
+  $("gains").innerHTML=items.map(([d,b,s])=>`<li><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg></span><div><b>${esc(b)}</b><span>${esc(s)}</span></div></li>`).join("");
+  $("t1").textContent=`1–3 ${T}`;$("t2").textContent=`4–10 ${T}`;
+}
+
+/* live demo: a salon opened on this platform, with its real bot */
+async function renderLive(){
+  const slug=(store.get("nv-live")||"").trim().toLowerCase(), box=$("live");
+  if(!slug){box.hidden=true;return}
+  let info=null;
+  try{const r=await fetch(`/api/s/${encodeURIComponent(slug)}`);if(r.ok)info=await r.json()}catch(e){}
+  if(!info||!info.telegram_bot){box.hidden=true;if(!info)toast("Jonli demo topilmadi",`"${slug}" manzilli salon yo'q.`);else toast("Jonli demoda bot yo'q","Admin paneldan botni ulang.");return}
+  const bot=`https://t.me/${info.telegram_bot}`;
+  $("live-bot").href=bot;$("live-admin").href=`/${slug}/admin`;$("live-site").href=`/${slug}`;
+  $("live-t").textContent=`${info.name}: o'z telefoningizda sinab ko'ring`;
+  try{const q=qrcode(0,"M");q.addData(bot);q.make();$("live-qr").innerHTML=q.createSvgTag({cellSize:4,margin:0,scalable:true})}catch(e){$("live-qr").textContent="@"+info.telegram_bot}
+  box.hidden=false;
+}
+
+/* apply */
+function apply(k,keepName){
+  key=k;cfg=loadCfg(k);
+  if(!keepName)name=cfg.name;
+  document.documentElement.style.setProperty("--accent",cfg.color);
+  document.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",String(c.dataset.k===k)));
+  $("bizname").value=name===P[k].name?"":name;
+  $("h-kind").textContent=cfg.label;$("h-name").textContent=name;
+  $("h-lead").textContent=`${cfg.client==="bemor"?"Bemor":"Mijoz"} Telegram botda o'zi yoziladi, administrator hammasini bitta jadvalda ko'radi, eslatmalar avtomatik ketadi.`;
+  $("tg-title").textContent=name;$("ad-title").textContent=name;$("ava").textContent=initials(name)||"N";
+  document.title=`${name} · onlayn yozilish`;
+  lastNew=null;day=0;genBookings();renderDays();renderAdmin();renderGains();startBot();
+  store.set("nv-key",k);store.set("nv-name",name);
+}
+$("chips").innerHTML=ORDER.map(k=>`<button type="button" class="chip" data-k="${k}" aria-pressed="false">${esc(P[k].label)}</button>`).join("");
+$("chips").onclick=e=>{const c=e.target.closest(".chip");if(c)apply(c.dataset.k)};
+let nameT;
+$("bizname").addEventListener("input",e=>{
+  const v=e.target.value.trim();clearTimeout(nameT);
+  nameT=setTimeout(()=>{
+    name=v||P[key].name;
+    $("h-name").textContent=name;$("tg-title").textContent=name;$("ad-title").textContent=name;$("ava").textContent=initials(name)||"N";
+    document.title=`${name} · onlayn yozilish`;
+    store.set("nv-name",name);
+    startBot();
+  },350);
+});
+$("days").onclick=e=>{const b=e.target.closest("[data-day]");if(b){day=+b.dataset.day;renderDays();renderAdmin()}};
+$("sched").onclick=e=>{const b=e.target.closest("[data-b]");if(b)openBooking(+b.dataset.b)};
+$("reset").onclick=startBot;
+$("present").onclick=()=>{const on=document.body.classList.toggle("present");$("present").textContent=on?"Sozlashga qaytish":"Taqdimot rejimi"};
+/* settings */
+function openSet(){$("s-live").value=store.get("nv-live")||"";$("s-staff").value=cfg.staff.join("\n");$("s-svc").value=cfg.svc.map(s=>`${s[0]} | ${s[1]} | ${s[2]}`).join("\n");$("s-term").value=cfg.term;$("sheet").hidden=false}
+$("open-set").onclick=openSet;$("close-set").onclick=()=>$("sheet").hidden=true;
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){$("sheet").hidden=true;$("pop").hidden=true}});
+$("s-save").onclick=()=>{
+  const staff=$("s-staff").value.split("\n").map(s=>s.trim()).filter(Boolean).slice(0,6);
+  const svc=$("s-svc").value.split("\n").map(l=>l.split("|").map(x=>x.trim())).filter(p=>p[0]).map(p=>[p[0],Number(String(p[1]||"0").replace(/\D/g,""))||0,Math.max(15,Number(p[2])||30)]).slice(0,8);
+  if(!staff.length||!svc.length){toast("Saqlanmadi","Kamida bitta mutaxassis va bitta xizmat kiriting.");return}
+  const term=$("s-term").value.trim()||cfg.term;
+  store.set("nv-cfg-"+key,JSON.stringify({staff,svc,term}));
+  const live=$("s-live").value.trim().toLowerCase();live?store.set("nv-live",live):store.del("nv-live");
+  cfg=Object.assign(cfg,{staff,svc,term});
+  $("sheet").hidden=true;apply(key,true);renderLive();
+  toast("Qo'llandi",`${cfg.label} uchun sozlamalar bu brauzerda saqlandi.`);
+};
+$("s-default").onclick=()=>{store.del("nv-cfg-"+key);$("sheet").hidden=true;apply(key,true)};
+/* boot: ?soha=beauty&nom=Sabina%20Salon&demo=sabina-salon opens a ready presentation from a link */
+(function(){
+  const q=new URLSearchParams(location.search);
+  let k=OLD_KEYS[store.get("nv-key")]||store.get("nv-key")||"dental", n=store.get("nv-name");
+  const h=location.hash.replace("#",""), qk=q.get("soha");
+  if(P[OLD_KEYS[h]||h]){k=OLD_KEYS[h]||h;n=null}
+  if(qk&&P[qk]){k=qk;n=null}
+  if(q.get("nom"))n=q.get("nom").slice(0,80);
+  if(q.get("demo"))store.set("nv-live",q.get("demo").toLowerCase().slice(0,40));
+  if(!P[k])k="dental";
+  if(n){key=k;name=n;apply(k,true)}else apply(k);
+  renderLive();
+})();
+</script>
+</body>

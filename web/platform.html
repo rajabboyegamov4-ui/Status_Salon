@@ -186,7 +186,7 @@ function rowHtml(s) {
   const acts = S.stopAsk === s.id
     ? `<span class="hint">To'xtatilsinmi?</span><button class="btn" data-keep="1">Yo'q</button><button class="btn bad" data-stop="${s.id}">Ha</button>`
     : `<button class="btn pay" data-extend="${s.id}">+1 oy</button><button class="btn" data-extend3="${s.id}">+3 oy</button>${s.is_active ? `<button class="btn bad" data-ask="${s.id}">To'xtatish</button>` : `<button class="btn" data-resume="${s.id}">Yoqish</button>`}`;
-  return `<tr><td class="name"><b>${esc(s.name)}</b><a href="/${esc(s.slug)}" target="_blank" rel="noopener">/${esc(s.slug)}</a></td>
+  return `<tr><td class="name"><b>${esc(s.name)}</b><a href="/${esc(s.slug)}" target="_blank" rel="noopener">/${esc(s.slug)}</a> <span class="hint">· ${esc(kindLabel(s.kind))}</span> <a href="${esc(showUrl(s))}" target="_blank" rel="noopener">· Taqdimot</a></td>
     <td><span class="pill ${st}">${STATE_LABEL[st]}</span></td>
     <td class="num">${fmtDate(s.paid_until)}<span class="days">${left}</span></td>
     <td class="num c-stats">${s.staff_count} xodim · ${s.bookings_30d} bron / 30 kun</td>
@@ -200,7 +200,7 @@ function mainHtml() {
   const chip = (k, label) => `<button class="chip" data-filter="${k}" aria-pressed="${S.filter === k}">${label}</button>`;
   return `<div class="wrap">
     <div class="top"><h1><small>PLATFORMA</small>Salonlar</h1>${S.demo ? '<span class="badge">DEMO</span>' : ""}<button class="ghost" id="logout">Chiqish</button><button class="primary" id="add">+ Salon ulash</button></div>
-    ${S.creds ? `<div class="creds"><b>${esc(S.creds.name)} ulandi.</b><span>Admin panel <code>${esc(location.host)}/${esc(S.creds.slug)}/admin</code></span><span>Login <code>${esc(S.creds.login)}</code></span><span>Parol <code>${esc(S.creds.password)}</code></span><span class="hint">Salon egasiga hozir bering: parol keyin ko'rsatilmaydi.</span></div>` : ""}
+    ${S.creds ? `<div class="creds"><b>${esc(S.creds.name)} ulandi.</b><span>Admin panel <code>${esc(location.host)}/${esc(S.creds.slug)}/admin</code></span><span>Login <code>${esc(S.creds.login)}</code></span><span>Parol <code>${esc(S.creds.password)}</code></span><span class="hint">Salon egasiga hozir bering: parol keyin ko'rsatilmaydi. Botni ulagach, ro'yxatdagi "Taqdimot" havolasi shu biznes uchun tayyor taqdimotni ochadi.</span></div>` : ""}
     ${S.error && !S.form ? `<div class="notice">${esc(S.error)}</div>` : ""}
     <div class="stats">
       <div class="stat"><span>Jami salon</span><b>${S.salons.length}</b></div>
@@ -223,12 +223,15 @@ function loginHtml() {
     ${S.demo ? `<div class="demo-hint">Demo: <b>platform</b> / <b>platform123</b></div>` : ""}</form>`;
 }
 
-const KINDS = [["barber", "Barbershop"], ["beauty", "Ayollar saloni"], ["cosmetology", "Kosmetologiya"]];
+const KINDS = [["beauty", "Ayollar saloni"], ["barber", "Barbershop"], ["cosmetology", "Kosmetologiya"], ["dental", "Stomatologiya"], ["clinic", "Klinika"], ["spa", "SPA va massaj"], ["auto", "Avtoservis"], ["vet", "Veterinariya"], ["other", "Boshqa"]];
+const kindLabel = (k) => (KINDS.find((x) => x[0] === k) || ["", "Barbershop"])[1];
+// The presentation page set up for this business: its kind, its name and its live demo bot.
+const showUrl = (s) => `/taqdimot?soha=${encodeURIComponent(s.kind || "barber")}&nom=${encodeURIComponent(s.name)}&demo=${encodeURIComponent(s.slug)}`;
 function formHtml() {
   const F = S.form; if (!F) return "";
   const field = (id, label, v, extra = "") => `<div class="field"><label for="${id}">${label}</label><input id="${id}" value="${esc(v)}" ${extra}></div>`;
   return `<div class="scrim" data-close="1"></div><div class="drawer" role="dialog" aria-label="Salon ulash">
-    <header><div><small class="hint">Yangi mijoz</small><h2>Salon ulash</h2></div><button class="x" data-close="1" aria-label="Yopish">✕</button></header>
+    <header><div><small class="hint">Yangi mijoz</small><h2>Biznes ulash</h2></div><button class="x" data-close="1" aria-label="Yopish">✕</button></header>
     <div class="body">
       ${field("fname", "Salon nomi", F.name, 'placeholder="Masalan, Gulnoza Beauty"')}
       <div class="field"><label>Soha</label><div class="months">${KINDS.map(([k, l]) => `<button class="chip" data-kind="${k}" aria-pressed="${F.kind === k}">${l}</button>`).join("")}</div></div>

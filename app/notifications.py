@@ -18,6 +18,7 @@ from app.models import Booking, Reminder, Salon, Staff
 from app.services.availability import branch_tz, now_utc
 from app.sms import send_safely
 from app.tenancy import salon_today, subscription_active
+from app.kinds import kind_of
 from app.text import LRM, iso, ltr
 
 log = logging.getLogger("salon.notifications")
@@ -36,14 +37,14 @@ def _som(n: int) -> str:
     return f"{n:,}".replace(",", " ")
 
 
-def confirmation_text(b: Booking) -> str:
-    return (f"✅ <b>Bron tasdiqlandi</b>\n{_when(b)} · {_h(b.branch.name)}\nUsta: {_h(b.master.name)}\n"
+def confirmation_text(b: Booking, term: str = "Usta") -> str:
+    return (f"✅ <b>Bron tasdiqlandi</b>\n{_when(b)} · {_h(b.branch.name)}\n{term}: {_h(b.master.name)}\n"
             f"Manzil: {_h(b.branch.address)}\nJami: {_som(b.total_price)} so'm")
 
 
-def reminder_text(b: Booking, kind: str) -> str:
+def reminder_text(b: Booking, kind: str, term: str = "Usta") -> str:
     lead = "Ertaga" if kind == "24h" else "2 soatdan keyin"
-    return f"⏰ {lead} ({_when(b)}) sizni kutamiz.\nUsta: {_h(b.master.name)} · {_h(b.branch.name)}"
+    return f"⏰ {lead} ({_when(b)}) sizni kutamiz.\n{term}: {_h(b.master.name)} · {_h(b.branch.name)}"
 
 
 def cancellation_text(b: Booking) -> str:
@@ -90,7 +91,7 @@ async def send_confirmation(booking_id: int) -> None:
     async with SessionLocal() as session:
         b, salon = await _load(session, booking_id)
         if b:
-            await deliver(salon, b, confirmation_text(b), [cancel_button(b)])
+            await deliver(salon, b, confirmation_text(b, kind_of(salon.kind).term), [cancel_button(b)])
 
 
 async def send_cancelled(booking_id: int) -> None:
@@ -104,7 +105,7 @@ async def send_moved(booking_id: int) -> None:
     async with SessionLocal() as session:
         b, salon = await _load(session, booking_id)
         if b:
-            text = f"🔁 <b>Bron vaqti o'zgardi</b>\nYangi vaqt: {_when(b)} · {_h(b.branch.name)}\nUsta: {_h(b.master.name)}"
+            text = f"🔁 <b>Bron vaqti o'zgardi</b>\nYangi vaqt: {_when(b)} · {_h(b.branch.name)}\n{kind_of(salon.kind).term}: {_h(b.master.name)}"
             await deliver(salon, b, text, [cancel_button(b)])
 
 
@@ -124,7 +125,7 @@ def _phone(p: str) -> str:
     return ltr(p)
 
 
-def staff_text(b: Booking, event: str) -> str:
+def staff_text(b: Booking, event: str, term: str = "Usta") -> str:
     local = b.starts_at.astimezone(branch_tz(b.branch))
     client = b.user.name or "Mijoz"
     if b.user.phone == "walk-in" and b.comment:
@@ -133,7 +134,7 @@ def staff_text(b: Booking, event: str) -> str:
     if _phone(b.user.phone):  # its own line: next to a right-to-left name a number would read backwards
         lines.append(f"📞 {_phone(b.user.phone)}")
     lines += [f"✨ {', '.join(_h(i.service_name) for i in b.items)}",
-              f"👩‍🎨 Usta: {_h(b.master.name)}",
+              f"👩‍🎨 {term}: {_h(b.master.name)}",
               f"🕒 {local:%d.%m}, {WEEKDAYS[local.weekday()]} {local:%H:%M} · {_h(b.branch.name)}",
               f"💰 {_som(b.total_price)} so'm"]
     if b.comment and b.user.phone != "walk-in":
@@ -156,7 +157,7 @@ async def notify_staff(booking_id: int, event: str, exclude_staff_id: int | None
         )).all()
         chats = {p.tg_chat_id for p in people
                  if p.id != exclude_staff_id and (p.role in ("owner", "admin") or p.master_id == b.master_id)}
-        text, sent = staff_text(b, event), 0
+        text, sent = staff_text(b, event, kind_of(salon.kind).term), 0
         for chat_id in sorted(chats):
             sent += await telegram.send(token, chat_id, text)
         return sent
@@ -207,7 +208,7 @@ async def send_due_reminders(batch: int = 50) -> int:
             if b is None or b.status != "confirmed":
                 continue
             buttons = [[{"text": "✅ Kelaman", "callback_data": f"come:{b.id}"}, *cancel_button(b)]]
-            if await deliver(salon, b, reminder_text(b, kind), buttons):
+            if await deliver(salon, b, reminder_text(b, kind, kind_of(salon.kind).term), buttons):
                 sent += 1
     if claimed:
         log.info("reminders: %d claimed, %d sent", len(claimed), sent)

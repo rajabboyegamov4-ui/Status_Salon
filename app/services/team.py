@@ -1,47 +1,26 @@
 """Creating salons, branches and staff accounts (used by the platform, the salon owner and the seed)."""
 
+import re
 from datetime import date, time
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.kinds import KINDS
 from app.models import Branch, BranchService, Master, MasterService, Salon, Service, Staff, WorkingHours
 from app.security import hash_password
 
-# A new salon starts with the services of its kind; the owner adjusts names and prices later.
-TEMPLATES = {
-    # name, category, price (so'm), duration (min)
-    "barber": [
-        ("Soch olish", "Soch", 120_000, 30),
-        ("Soqol olish", "Soqol", 80_000, 20),
-        ("Soch + soqol", "Kompleks", 180_000, 50),
-        ("Kompleks (soch, soqol, yuz parvarishi)", "Kompleks", 300_000, 90),
-    ],
-    "beauty": [
-        ("Soch turmagi (ukladka)", "Soch", 150_000, 60),
-        ("Soch bo'yash", "Soch", 400_000, 150),
-        ("Manikyur + gel lak", "Tirnoq", 150_000, 90),
-        ("Pedikyur", "Tirnoq", 180_000, 75),
-        ("Qosh va kiprik dizayni", "Qosh va kiprik", 100_000, 45),
-        ("Kechki makiyaj", "Makiyaj", 300_000, 60),
-    ],
-    "cosmetology": [
-        ("Yuzni tozalash", "Yuz", 300_000, 60),
-        ("Kimyoviy piling", "Yuz", 350_000, 45),
-        ("Yuz massaji", "Yuz", 200_000, 40),
-        ("Kiprik laminatsiyasi", "Qosh va kiprik", 200_000, 60),
-        ("Lazer epilyatsiya (bir zona)", "Epilyatsiya", 250_000, 30),
-        ("Kosmetolog konsultatsiyasi", "Konsultatsiya", 100_000, 20),
-    ],
-}
+# A new salon starts with the services of its kind (app/kinds.py); the owner adjusts names and prices later.
+TEMPLATES = {k: [tuple(x) for x in v.services] for k, v in KINDS.items()}
 DEFAULT_SERVICES = TEMPLATES["barber"]
-# Demo salons get three sample masters so a presentation starts with a full schedule.
-SAMPLE_MASTERS = {
-    "barber": [("Jasur", "Top-master", "Fade, Soqol dizayni"), ("Bekzod", "Master", "Klassik qirqim"), ("Sardor", "Master", "Crop, Bolalar")],
-    "beauty": [("Dilnoza", "Top-master", "Soch bo'yash, Ukladka"), ("Madina", "Master", "Manikyur, Pedikyur"), ("Sevara", "Master", "Makiyaj, Qosh dizayni")],
-    "cosmetology": [("Nigora", "Top-master", "Yuz tozalash, Piling"), ("Kamola", "Master", "Kiprik laminatsiyasi"), ("Zarina", "Master", "Lazer epilyatsiya")],
-}
-LOGIN_SAFE = str.maketrans({"'": "", "`": "", "ʻ": "", "ʼ": ""})
+
+
+def sample_login(name: str) -> str:
+    """'Dr. Aziza Karimova' -> 'aziza': the first real word, latin letters and digits only."""
+    words = [w for w in re.split(r"[\s·]+", name) if w and w.lower().rstrip(".") not in ("dr", "usta")]
+    return re.sub(r"[^a-z0-9]", "", (words[0] if words else "usta").lower()) or "usta"
+
+
 DEFAULT_HOURS = (time(10), time(21))
 
 
@@ -83,10 +62,12 @@ async def create_salon(
                       name=owner_name, role="owner"))
     await session.flush()
     if sample_masters:
-        for name_, rank, specialties in SAMPLE_MASTERS[kind]:
-            login = name_.lower().translate(LOGIN_SAFE)
-            if login == owner_login.lower():
+        taken = {owner_login.lower()}
+        for name_, rank, specialties in KINDS[kind].sample:
+            login = sample_login(name_)
+            while login in taken or len(login) < 3:
                 login += "1"
+            taken.add(login)
             member = await create_member(session, salon, name=name_, login=login, password=owner_password, rank=rank,
                                          price_factor=1.2 if rank == "Top-master" else None)
             master = await session.get(Master, member.master_id)

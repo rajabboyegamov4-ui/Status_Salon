@@ -1,5 +1,4 @@
 from datetime import date, datetime
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -202,7 +201,9 @@ class SalonInfo(ORM):
     cover_url: str | None = None
     logo_url: str | None = None
     telegram_bot: str = ""  # clients log in and get messages through this bot
-    kind: str = "barber"  # barber | beauty | cosmetology: wording and examples on the site
+    kind: str = "barber"  # see app/kinds.py
+    term: str = "Usta"  # what the specialist is called: Usta, Shifokor, Kosmetolog...
+    client_word: str = "mijoz"  # mijoz | bemor
     sms_login: bool = False  # SMS codes are switched on for this server (fallback when there is no bot)
 
 
@@ -287,7 +288,15 @@ class SalonCreate(BaseModel):
     owner_name: str = Field(min_length=1, max_length=120)
     owner_login: str = Field(pattern=LOGIN_PATTERN)
     owner_password: str = Field(min_length=6, max_length=128)
-    kind: Literal["barber", "beauty", "cosmetology"] = "barber"  # picks the starting services
+    kind: str = "barber"  # one of app/kinds.py: picks the starting services and the words used
+
+    @field_validator("kind")
+    @classmethod
+    def _known_kind(cls, v: str) -> str:
+        from app.kinds import KINDS
+        if v not in KINDS:
+            raise ValueError("Soha noto'g'ri")
+        return v
     sample_masters: bool = False  # demo salons: three sample masters (logins = their names, owner's password)
 
 
