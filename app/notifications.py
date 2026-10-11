@@ -19,7 +19,8 @@ from app.services.availability import branch_tz, now_utc
 from app.sms import send_safely
 from app.tenancy import salon_today, subscription_active
 from app.kinds import kind_of
-from app.text import LRM, iso, ltr
+from app.staffui import booking_buttons
+from app.text import LRM, iso, phone_display
 
 log = logging.getLogger("salon.notifications")
 
@@ -115,14 +116,7 @@ WEEKDAYS = ("dushanba", "seshanba", "chorshanba", "payshanba", "juma", "shanba",
 STAFF_EVENTS = {"new": "🆕 <b>Yangi bron</b>", "cancelled": "❌ <b>Bron bekor qilindi</b>", "moved": "🔁 <b>Bron vaqti o'zgardi</b>"}
 
 
-def _phone(p: str) -> str:
-    if p == "walk-in" or not p:
-        return ""
-    if p.startswith("+998") and len(p) == 13:
-        p = f"+998 {p[4:6]} {p[6:9]} {p[9:11]} {p[11:]}"
-    elif p.startswith("+7") and len(p) == 12:  # Russia, Kazakhstan
-        p = f"+7 {p[2:5]} {p[5:8]} {p[8:10]} {p[10:]}"
-    return ltr(p)
+_phone = phone_display
 
 
 def staff_text(b: Booking, event: str, term: str = "Usta") -> str:
@@ -155,11 +149,14 @@ async def notify_staff(booking_id: int, event: str, exclude_staff_id: int | None
         people = (await session.scalars(
             select(Staff).where(Staff.salon_id == b.salon_id, Staff.is_active, Staff.tg_chat_id.is_not(None))
         )).all()
-        chats = {p.tg_chat_id for p in people
-                 if p.id != exclude_staff_id and (p.role in ("owner", "admin") or p.master_id == b.master_id)}
+        rank = {"owner": 0, "admin": 1, "barber": 2}
+        chats: dict[int, Staff] = {}  # one message per chat; a person with two accounts gets the higher role's buttons
+        for p in sorted(people, key=lambda p: rank.get(p.role, 3)):
+            if p.id != exclude_staff_id and (p.role in ("owner", "admin") or p.master_id == b.master_id):
+                chats.setdefault(p.tg_chat_id, p)
         text, sent = staff_text(b, event, kind_of(salon.kind).term), 0
-        for chat_id in sorted(chats):
-            sent += await telegram.send(token, chat_id, text)
+        for chat_id, person in sorted(chats.items()):
+            sent += await telegram.send(token, chat_id, text, booking_buttons(salon, person, b.id, event))
         return sent
 
 

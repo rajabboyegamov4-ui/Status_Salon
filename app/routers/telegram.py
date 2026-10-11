@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app import auth, telegram
+from app import auth, staffbot, telegram
 from app.config import settings
 from app.db import get_session
 from app.models import Booking, Salon, Staff, TgLogin, User
@@ -86,6 +86,12 @@ def _owner(staff: Staff) -> None:
 
 @router.get("/s/{slug}/staff/telegram", response_model=BotState)
 async def bot_state(staff: Staff = Depends(auth.manager), salon: Salon = Depends(get_salon)):
+    return _state(salon, staff)
+
+
+@router.get("/s/{slug}/staff/telegram/me", response_model=BotState)
+async def staff_state(staff: Staff = Depends(auth.current_staff), salon: Salon = Depends(get_salon)):
+    """Any staff member, a master too: is my Telegram linked, and the link to do it."""
     return _state(salon, staff)
 
 
@@ -245,6 +251,23 @@ async def webapp_login(
     return UserOut.model_validate(user)
 
 
+@router.post("/s/{slug}/staff/webapp")
+async def staff_webapp_login(
+    body: WebAppLogin, response: Response, salon: Salon = Depends(get_salon), session: AsyncSession = Depends(get_session)
+):
+    """The panel opened from the bot's "Boshqaruv" button: the linked Telegram account is the login."""
+    from app.routers.staff import _me
+    token = telegram.unseal(salon.tg_token_sealed)
+    user_id = webapp_user_id(body.init_data, token) if token else None
+    if user_id is None:
+        raise HTTPException(401, "Telegram ma'lumoti tasdiqlanmadi")
+    staff = await staffbot.staff_of_chat(session, salon, user_id)
+    if staff is None:
+        raise HTTPException(404, "Bu Telegram panelga ulanmagan. Avval login va parol bilan kiring.")
+    auth.set_cookie(response, auth.STAFF_COOKIE, auth.staff_token(staff), auth.cookie_path(salon))
+    return await _me(session, staff, salon)
+
+
 # ---------- webhook: what the salon's bot receives ----------
 
 def _contact_keyboard() -> dict:
@@ -307,6 +330,8 @@ async def _on_message(session: AsyncSession, salon: Salon, token: str, msg: dict
         await session.commit()
         await _reply(token, chat_id, f"<b>{html.escape(salon.name)}</b> saytiga kirish uchun telefon raqamingizni yuboring 👇", _contact_keyboard())
         return
+    if text and await staffbot.on_text(session, salon, token, chat_id, text):
+        return
     contact = msg.get("contact")
     if contact:
         if contact.get("user_id") != msg.get("from", {}).get("id"):
@@ -351,6 +376,10 @@ async def _on_message(session: AsyncSession, salon: Salon, token: str, msg: dict
 async def _greet(session: AsyncSession, salon: Salon, token: str, chat_id: int) -> None:
     """A plain /start: a known client gets the booking button, a new one is asked for their number first."""
     name = html.escape(salon.name)
+    staff = await staffbot.staff_of_chat(session, salon, chat_id)
+    if staff:
+        await staffbot.send_menu(salon, token, chat_id, staff, f"Assalomu alaykum, {html.escape(iso(staff.name))}! <b>{name}</b> boshqaruvi pastdagi tugmalarda.")
+        return
     user = await session.scalar(select(User).where(User.salon_id == salon.id, User.tg_chat_id == chat_id))
     if user:
         hello = f", {html.escape(iso(user.name))}" if user.name else ""
@@ -367,7 +396,10 @@ async def _link_staff(session: AsyncSession, salon: Salon, token: str, chat_id: 
         return
     staff.tg_chat_id = chat_id
     await session.commit()
-    await _reply(token, chat_id, f"✅ {html.escape(iso(staff.name))}, endi <b>{html.escape(salon.name)}</b>dagi yangi, bekor qilingan va ko'chirilgan bronlar haqida xabar shu chatga keladi.")
+    await staffbot.send_menu(salon, token, chat_id, staff,
+                             f"✅ {html.escape(iso(staff.name))}, endi <b>{html.escape(salon.name)}</b>dagi yangi, bekor qilingan va ko'chirilgan "
+                             "bronlar haqida xabar shu chatga keladi.\n\n📋 <b>Bugun</b> va <b>Ertaga</b> tugmalari kunlik ro'yxatni ko'rsatadi, "
+                             "⚙️ <b>Boshqaruv</b> panelni shu yerning o'zida ochadi.")
 
 
 def _confirm_text(salon: Salon) -> str:
@@ -396,6 +428,9 @@ async def _on_button(session: AsyncSession, salon: Salon, token: str, cq: dict) 
         if answer.startswith("✅"):
             await _reply(token, chat_id, "✅ Kirdingiz. Saytga qayting, bronni davom ettiring.")
         await _answer(token, cq, answer)
+        return
+    if parts[0] in ("sx", "sy", "sn"):
+        await _answer(token, cq, await staffbot.on_button(session, salon, token, cq, parts))
         return
     answer = "Bajarildi"
     booking = None
