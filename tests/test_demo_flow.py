@@ -203,3 +203,41 @@ async def test_a_right_to_left_name_does_not_flip_the_number_and_hidden_marks_ar
     assert lines[1] == f"{LRM}👤 {FSI}س Ali{PDI}"  # the name alone on its line, isolated
     assert lines[2] == f"{LRM}📞 {LRI}+998 90 123 45 67{PDI}"  # the number on its own line, left to right
     assert "‮" not in text and f"💬 {FSI}izoh{PDI}" in text
+
+
+async def test_a_client_with_a_russian_or_kazakh_number_subscribes_and_the_salon_sees_it():
+    from app import auth
+    from app.text import LRI, LRM, PDI
+    assert auth.normalize_phone("+7 916 123-45-67", foreign=True) == "+79161234567"
+    assert auth.normalize_phone("90 123 45 67", foreign=True) == "+998901234567"
+    for bad in ("+7 916", "0012345678", "+1234567890123456"):
+        try:
+            auth.normalize_phone(bad, foreign=True)
+            raise AssertionError(bad)
+        except auth.AuthError:
+            pass
+    try:  # SMS codes stay Uzbek-only
+        auth.normalize_phone("+79161234567")
+        raise AssertionError("foreign number accepted for SMS")
+    except auth.AuthError:
+        pass
+
+    await connect_bot()
+    await link_staff("owner", "owner123", OWNER_CHAT)
+    salon = await salon_row()
+    ru = {"id": 5151, "first_name": "Olga"}
+    async with make_client() as c:
+        await hook(c, salon, msg(contact={"phone_number": "79161234567", "first_name": "Olga", "user_id": 5151}, chat=ru))
+        assert "Obuna bo'ldingiz" in to(5151)[-2]
+        r = await c.post(f"{API}/auth/webapp", json={"init_data": sign_init(5151)})
+        assert r.status_code == 200 and r.json()["phone"] == "+79161234567"
+        r = await c.post(f"{API}/bookings", json={"branch_id": 1, "master_id": 2, "service_ids": [1],
+                                                  "starts_at": local(tomorrow(), 13).isoformat()})
+        assert r.status_code == 201
+    assert to(OWNER_CHAT)[-1].split("\n")[2] == f"{LRM}📞 {LRI}+7 916 123 45 67{PDI}"
+
+    async with make_client() as admin:  # a caller with a Kazakh number, typed by the administrator
+        await staff_login(admin, "malika", "admin123")
+        r = await admin.post(f"{API}/staff/bookings", json={"branch_id": 1, "master_id": 3, "service_ids": [1],
+                                                            "starts_at": local(tomorrow(), 13).isoformat(), "client_phone": "+7 701 555 44 33", "client_name": "Aigerim"})
+        assert r.status_code == 201 and r.json()["client_phone"] == "+77015554433"

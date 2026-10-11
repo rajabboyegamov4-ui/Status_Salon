@@ -32,14 +32,19 @@ class AuthError(Exception):
         self.status = status
 
 
-def normalize_phone(raw: str) -> str:
-    """Accepts '90 123 45 67', '+998901234567', '998901234567' -> '+998901234567'."""
+def normalize_phone(raw: str, foreign: bool = False) -> str:
+    """Accepts '90 123 45 67', '+998901234567', '998901234567' -> '+998901234567'.
+    With foreign=True also any international number ('+7 916 123 45 67' -> '+79161234567'):
+    many clients in Tashkent keep a Russian or Kazakh SIM in Telegram. SMS codes stay Uzbek-only."""
     digits = re.sub(r"\D", "", raw or "")
     if len(digits) == 9:
         digits = "998" + digits
-    if len(digits) != 12 or not digits.startswith("998"):
-        raise AuthError("Telefon raqam noto'g'ri. Namuna: +998 90 123 45 67")
-    return "+" + digits
+    if digits.startswith("998"):
+        if len(digits) == 12:
+            return "+" + digits
+    elif foreign and 8 <= len(digits) <= 15 and digits[0] != "0":
+        return "+" + digits
+    raise AuthError("Telefon raqam noto'g'ri. Namuna: +998 90 123 45 67" + (" yoki +7 916 123 45 67" if foreign else ""))
 
 
 def _token(request: Request, cookie: str) -> dict | None:

@@ -1195,7 +1195,7 @@ function layerHtml() {
     const F = S.form, dg = digitsOf(F.phone), ok = F.slot && !F.busy && (!dg || dg.length >= 9);
     return drawer("Yangi bron", `${dinfo(S.date).day}-${dinfo(S.date).month} · telefon yoki o'zi kelgan mijoz`, "Yangi bron",
       `<div class="field"><label for="fname">Mijoz ismi</label><input id="fname" value="${esc(F.name)}" placeholder="Masalan, Aziz"></div>
-      <div class="field"><label for="fphone">Telefon (ixtiyoriy)</label><input id="fphone" inputmode="tel" value="${esc(F.phone)}" placeholder="+998 90 123 45 67"><span class="hint">O'zi kelib, raqam bermasa bo'sh qoldiring: "Telefonsiz" bo'lib yoziladi.</span></div>
+      <div class="field"><label for="fphone">Telefon (ixtiyoriy)</label><input id="fphone" inputmode="tel" value="${esc(F.phone)}" placeholder="+998 90 123 45 67"><span class="hint">Xorijiy raqamni + bilan yozing (masalan +7 916 123 45 67). O'zi kelib, raqam bermasa bo'sh qoldiring: "Telefonsiz" bo'lib yoziladi.</span></div>
       <div class="field"><label>Master</label><div class="chips">${S.masters.map((m) => `<button class="chip" data-fm="${m.id}" aria-pressed="${F.master === m.id}">${esc(m.name)}</button>`).join("")}</div></div>
       <div class="field"><label>Xizmat</label><div class="chips">${S.services.map((s) => `<button class="chip" data-svc="${s.id}" aria-pressed="${F.sids.includes(s.id)}">${esc(s.name)} · ${s.duration_min} daq</button>`).join("")}</div></div>
       <div class="field"><label for="fslot">Vaqt (faqat bo'sh)</label><select id="fslot" ${F.slots.length ? "" : "disabled"}>${F.slots.length ? F.slots.map((x) => `<option value="${x.start}" ${x.start === F.slot ? "selected" : ""}>${slotLabel(x.start, S.date)}</option>`).join("") : `<option>${F.loading ? "Yuklanmoqda…" : "Bo'sh vaqt yo'q"}</option>`}</select></div>`,
@@ -1338,7 +1338,7 @@ document.addEventListener("click", async (e) => {
     else if (t.id === "fsave") {
       const F = S.form, dg = digitsOf(F.phone);
       F.busy = true; render();
-      try { await api.create({ branch_id: S.branch.id, master_id: F.master, service_ids: F.sids, starts_at: F.slot, client_phone: dg ? "+" + (dg.length === 9 ? "998" + dg : dg) : "", client_name: F.name.trim(), comment: "" }, F.key); }
+      try { await api.create({ branch_id: S.branch.id, master_id: F.master, service_ids: F.sids, starts_at: F.slot, client_phone: dg ? (F.phone.trim().startsWith("+") ? "+" + dg : dg.length === 9 ? "+998" + dg : dg.length === 11 && dg[0] === "8" ? "+7" + dg.slice(1) : "+" + dg) : "", client_name: F.name.trim(), comment: "" }, F.key); }
       catch (err) { F.busy = false; if (err.status === 409) await refreshSlots().catch(() => {}); throw err; }
       S.form = null; await loadDay(); toast("Bron qo'shildi");
     }

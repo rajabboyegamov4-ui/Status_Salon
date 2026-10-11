@@ -313,9 +313,9 @@ async def _on_message(session: AsyncSession, salon: Salon, token: str, msg: dict
             await _reply(token, chat_id, "Faqat o'zingizning raqamingizni yuboring: pastdagi tugmani bosing.", _contact_keyboard())
             return
         try:
-            phone = auth.normalize_phone(contact.get("phone_number", ""))
+            phone = auth.normalize_phone(contact.get("phone_number", ""), foreign=True)
         except auth.AuthError:
-            await _reply(token, chat_id, "Hozircha faqat O'zbekiston raqamlari (+998) qabul qilinadi.", {"remove_keyboard": True})
+            await _reply(token, chat_id, "Telefon raqamingizni qabul qila olmadik. Iltimos, salonga qo'ng'iroq qiling.", {"remove_keyboard": True})
             return
         name = clean_name(" ".join(x for x in (contact.get("first_name"), contact.get("last_name")) if x))
         user = await session.scalar(select(User).where(User.salon_id == salon.id, User.phone == phone))
