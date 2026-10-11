@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -278,26 +279,33 @@ class PlatformLogin(BaseModel):
     password: str = Field(max_length=128)
 
 
+def _kind(v: str) -> str:
+    from app.kinds import KINDS
+    if v not in KINDS:
+        raise ValueError("Soha noto'g'ri")
+    return v
+
+
 class SalonCreate(BaseModel):
     slug: str
     name: str = Field(min_length=1, max_length=120)
     phone: str = Field("", max_length=20)
     months: int = Field(1, ge=0, le=24)
+    trial_days: int = Field(0, ge=0, le=31)  # free days on top of paid months (a demo gets 14)
     branch_name: str = Field("", max_length=120)
     branch_address: str = Field("", max_length=255)
     owner_name: str = Field(min_length=1, max_length=120)
     owner_login: str = Field(pattern=LOGIN_PATTERN)
     owner_password: str = Field(min_length=6, max_length=128)
     kind: str = "barber"  # one of app/kinds.py: picks the starting services and the words used
+    sample_masters: bool = False  # demo salons: three sample masters (logins = their names, owner's password)
+    is_demo: bool = False
+    lead_id: int | None = None  # the lead this business came from
 
     @field_validator("kind")
     @classmethod
     def _known_kind(cls, v: str) -> str:
-        from app.kinds import KINDS
-        if v not in KINDS:
-            raise ValueError("Soha noto'g'ri")
-        return v
-    sample_masters: bool = False  # demo salons: three sample masters (logins = their names, owner's password)
+        return _kind(v)
 
 
 class SalonUpdate(BaseModel):
@@ -305,7 +313,9 @@ class SalonUpdate(BaseModel):
     phone: str | None = Field(None, max_length=20)
     paid_until: date | None = None
     extend_months: int | None = Field(None, ge=1, le=24)
+    amount: int | None = Field(None, ge=0, le=1_000_000_000)  # so'm received for extend_months
     is_active: bool | None = None
+    is_demo: bool | None = None
 
 
 class PlatformSalonOut(ORM):
@@ -318,6 +328,113 @@ class PlatformSalonOut(ORM):
     paid_until: date
     is_active: bool
     active: bool
+    is_demo: bool = False
+    telegram_bot: str = ""
     created_at: datetime
     staff_count: int = 0
     bookings_30d: int = 0
+    paid_total: int | None = None  # managers only
+    lead_id: int | None = None
+
+
+class TakeBot(BaseModel):
+    from_salon_id: int
+
+
+class PlatformMe(BaseModel):
+    id: int | None
+    name: str
+    role: str
+
+
+class TeamIn(BaseModel):
+    login: str = Field(pattern=LOGIN_PATTERN)
+    name: str = Field(min_length=1, max_length=120)
+    password: str = Field(min_length=8, max_length=128)
+    role: Literal["partner", "sales"] = "sales"
+
+
+class TeamPatch(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=120)
+    password: str | None = Field(None, min_length=8, max_length=128)
+    role: Literal["partner", "sales"] | None = None
+    is_active: bool | None = None
+
+
+class TeamOut(ORM):
+    id: int
+    login: str
+    name: str
+    role: str
+    is_active: bool
+    last_login_at: datetime | None = None
+
+
+LeadStatus = Literal["new", "talked", "demo", "trial", "paid", "lost"]
+
+
+class LeadIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    kind: str = "other"
+    phone: str = Field("", max_length=20)
+    contact: str = Field("", max_length=120)
+    address: str = Field("", max_length=255)
+    status: LeadStatus = "new"
+    assigned_to: int | None = None
+    next_step_on: date | None = None
+    next_step: str = Field("", max_length=200)
+    note: str = Field("", max_length=4000)
+
+    @field_validator("kind")
+    @classmethod
+    def _known_kind(cls, v: str) -> str:
+        return _kind(v)
+
+
+class LeadPatch(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=120)
+    kind: str | None = None
+    phone: str | None = Field(None, max_length=20)
+    contact: str | None = Field(None, max_length=120)
+    address: str | None = Field(None, max_length=255)
+    status: LeadStatus | None = None
+    assigned_to: int | None = None
+    clear_assignee: bool = False  # assigned_to=None means "unchanged"; this hands the lead back to the owner
+    next_step_on: date | None = None
+    clear_next_step_on: bool = False
+    next_step: str | None = Field(None, max_length=200)
+    note: str | None = Field(None, max_length=4000)
+
+    @field_validator("kind")
+    @classmethod
+    def _known(cls, v: str | None) -> str | None:
+        return None if v is None else _kind(v)
+
+
+class LeadOut(ORM):
+    id: int
+    name: str
+    kind: str
+    phone: str
+    contact: str
+    address: str
+    status: str
+    assigned_to: int | None
+    assigned_name: str = ""
+    salon_id: int | None
+    salon_slug: str = ""
+    next_step_on: date | None
+    next_step: str
+    note: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class PaymentOut(ORM):
+    id: int
+    salon_id: int
+    salon_name: str = ""
+    amount: int
+    months: int
+    note: str
+    paid_at: datetime

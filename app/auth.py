@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import re
 import secrets
+from dataclasses import dataclass
 from datetime import timedelta
 
 from fastapi import Depends, HTTPException, Request
@@ -12,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db import get_session
-from app.models import OtpCode, Salon, Staff, User
+from app.models import OtpCode, PlatformUser, Salon, Staff, User
 from app.ratelimit import Window
 from app.security import decode_token, issue_token, verify_password
 from app.services.availability import now_utc
@@ -193,26 +194,63 @@ async def manager(staff: Staff = Depends(current_staff)) -> Staff:
     return staff
 
 
-# ---------- platform admin (the business selling subscriptions) ----------
+# ---------- the platform: owner (PLATFORM_LOGIN), partner, sales people ----------
 
 PLATFORM_FAILS = Window(MAX_FAILED_LOGINS, LOCK_MINUTES * 60)
+MANAGER_ROLES = ("owner", "partner")
 
 
-def platform_login(login: str, password: str, ip: str) -> str:
-    if not settings.platform_login or not settings.platform_password_hash:
-        raise AuthError("Platforma admini sozlanmagan", 503)
+@dataclass(frozen=True)
+class PlatformPrincipal:
+    id: int | None  # None: the owner from PLATFORM_LOGIN, who has no row
+    role: str  # owner | partner | sales
+    name: str
+
+    @property
+    def manager(self) -> bool:
+        return self.role in MANAGER_ROLES
+
+
+async def platform_login(session: AsyncSession, login: str, password: str, ip: str) -> str:
     if PLATFORM_FAILS.blocked(ip):
         raise AuthError(f"Ko'p xato urinish. {LOCK_MINUTES} daqiqadan keyin qayta urinib ko'ring.", 429)
-    ok_login = hmac.compare_digest(login.strip().lower(), settings.platform_login.lower())
-    ok_pass = verify_password(password, settings.platform_password_hash)
-    if not (ok_login and ok_pass):
-        PLATFORM_FAILS.hit(ip)
-        raise AuthError("Login yoki parol noto'g'ri", 401)
-    PLATFORM_FAILS.clear(ip)
-    return issue_token("platform", 0, None, days=1)
+    login = login.strip().lower()
+    if settings.platform_login and settings.platform_password_hash and hmac.compare_digest(login, settings.platform_login.lower()):
+        if verify_password(password, settings.platform_password_hash):
+            PLATFORM_FAILS.clear(ip)
+            return issue_token("platform", 0, None, days=1)
+    else:
+        user = await session.scalar(select(PlatformUser).where(PlatformUser.login == login))
+        if user is not None and user.is_active and verify_password(password, user.password_hash):
+            PLATFORM_FAILS.clear(ip)
+            user.last_login_at = now_utc()
+            await session.commit()
+            return issue_token("platform", user.id, None, days=1, version=user.token_version)
+        if user is None:
+            verify_password(password, "scrypt$AAAAAAAAAAAAAAAAAAAAAA==$AAAA")  # same cost whether or not the login exists
+    if not settings.platform_login and not await session.scalar(select(func.count()).select_from(PlatformUser)):
+        raise AuthError("Platforma admini sozlanmagan", 503)
+    PLATFORM_FAILS.hit(ip)
+    raise AuthError("Login yoki parol noto'g'ri", 401)
 
 
-async def platform_admin(request: Request) -> None:
+async def platform_user(request: Request, session: AsyncSession = Depends(get_session)) -> PlatformPrincipal:
     data = _token(request, PLATFORM_COOKIE)
     if not data or data.get("kind") != "platform":
         raise HTTPException(401, "Platforma paneliga kiring")
+    if str(data.get("sub")) == "0":
+        return PlatformPrincipal(None, "owner", "Ega")
+    user = await session.get(PlatformUser, int(data["sub"]))
+    if user is None or not user.is_active or data.get("ver", 0) != user.token_version:
+        raise HTTPException(401, "Platforma paneliga kiring")
+    return PlatformPrincipal(user.id, user.role, user.name)
+
+
+platform_admin = platform_user  # any signed-in member of the team
+
+
+async def platform_manager(who: PlatformPrincipal = Depends(platform_user)) -> PlatformPrincipal:
+    """Owner or partner: money, subscriptions, the team."""
+    if not who.manager:
+        raise HTTPException(403, "Bu amal faqat platforma egasi yoki sherigi uchun")
+    return who

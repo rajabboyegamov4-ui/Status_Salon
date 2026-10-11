@@ -104,6 +104,53 @@ async def staff_unlink(
     return _state(salon, staff)
 
 
+class BotError(Exception):
+    def __init__(self, status: int, message: str):
+        super().__init__(message)
+        self.status = status
+
+
+async def attach_bot(session: AsyncSession, salon: Salon, token: str, moving_from: Salon | None = None) -> str:
+    """Point a bot at this salon: webhook with a fresh secret, the menu button, the token sealed. No commit.
+    `moving_from`: a demo salon giving its bot away (the platform reuses demo bots)."""
+    if not TOKEN_RE.match(token):
+        raise BotError(422, "Token noto'g'ri ko'rinishda. @BotFather bergan tokenni to'liq nusxalang.")
+    if not settings.public_url and settings.telegram_backend == "live":
+        raise BotError(503, "Server manzili (PUBLIC_URL) sozlanmagan")
+    try:
+        me = await telegram.get_tg().call(token, "getMe")
+    except telegram.TelegramError:
+        raise BotError(422, "Telegram bu tokenni tanimadi. @BotFather'dan qayta nusxalang.")
+    others = select(Salon.id).where(Salon.tg_bot_username == me["username"], Salon.id != salon.id)
+    if moving_from is not None:
+        others = others.where(Salon.id != moving_from.id)
+    if await session.scalar(others):
+        raise BotError(409, "Bu bot boshqa salonga ulangan. Har bir salon o'z botini ochadi.")
+    secret = telegram.new_secret()
+    url = f"{settings.public_url.rstrip('/')}/api/tg/{salon.id}"
+    try:
+        await telegram.get_tg().call(token, "setWebhook", url=url, secret_token=secret,
+                                     allowed_updates=["message", "callback_query"], drop_pending_updates=True)
+    except telegram.TelegramError as e:
+        raise BotError(502, f"Telegram webhookni qabul qilmadi: {e}")
+    if site_url(salon):  # the round button next to the message box opens the booking page inside Telegram
+        try:
+            await telegram.get_tg().call(token, "setChatMenuButton",
+                                         menu_button={"type": "web_app", "text": "Bron qilish", "web_app": {"url": site_url(salon)}})
+        except telegram.TelegramError:
+            pass
+    if moving_from is not None:  # the old salon forgets the bot and the staff chats linked through it
+        moving_from.tg_token_sealed, moving_from.tg_bot_username, moving_from.tg_webhook_secret = None, "", ""
+        await session.execute(update(Staff).where(Staff.salon_id == moving_from.id).values(tg_chat_id=None))
+        await session.flush()
+    if salon.tg_bot_username != me["username"]:  # another bot: staff link their chats again
+        await session.execute(update(Staff).where(Staff.salon_id == salon.id).values(tg_chat_id=None))
+    salon.tg_token_sealed = telegram.seal(token)
+    salon.tg_bot_username = me["username"]
+    salon.tg_webhook_secret = secret
+    return url
+
+
 @router.put("/s/{slug}/staff/telegram", response_model=BotState)
 async def bot_connect(
     body: BotConnect,
@@ -112,36 +159,10 @@ async def bot_connect(
     session: AsyncSession = Depends(get_session),
 ):
     _owner(staff)
-    token = body.token.strip()
-    if not TOKEN_RE.match(token):
-        raise HTTPException(422, "Token noto'g'ri ko'rinishda. @BotFather bergan tokenni to'liq nusxalang.")
-    if not settings.public_url and settings.telegram_backend == "live":
-        raise HTTPException(503, "Server manzili (PUBLIC_URL) sozlanmagan")
     try:
-        me = await telegram.get_tg().call(token, "getMe")
-    except telegram.TelegramError:
-        raise HTTPException(422, "Telegram bu tokenni tanimadi. @BotFather'dan qayta nusxalang.")
-    taken = await session.scalar(select(Salon.id).where(Salon.tg_bot_username == me["username"], Salon.id != salon.id))
-    if taken:
-        raise HTTPException(409, "Bu bot boshqa salonga ulangan. Har bir salon o'z botini ochadi.")
-    secret = telegram.new_secret()
-    url = f"{settings.public_url.rstrip('/')}/api/tg/{salon.id}"
-    try:
-        await telegram.get_tg().call(token, "setWebhook", url=url, secret_token=secret,
-                                     allowed_updates=["message", "callback_query"], drop_pending_updates=True)
-    except telegram.TelegramError as e:
-        raise HTTPException(502, f"Telegram webhookni qabul qilmadi: {e}")
-    if site_url(salon):  # the round button next to the message box opens the booking page inside Telegram
-        try:
-            await telegram.get_tg().call(token, "setChatMenuButton",
-                                         menu_button={"type": "web_app", "text": "Bron qilish", "web_app": {"url": site_url(salon)}})
-        except telegram.TelegramError:
-            pass
-    if salon.tg_bot_username != me["username"]:  # another bot: staff link their chats again
-        await session.execute(update(Staff).where(Staff.salon_id == salon.id).values(tg_chat_id=None))
-    salon.tg_token_sealed = telegram.seal(token)
-    salon.tg_bot_username = me["username"]
-    salon.tg_webhook_secret = secret
+        url = await attach_bot(session, salon, body.token.strip())
+    except BotError as e:
+        raise HTTPException(e.status, str(e))
     await session.commit()
     await session.refresh(staff)
     return _state(salon, staff, webhook_url=url)
