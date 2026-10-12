@@ -129,12 +129,38 @@ select.mini { width: auto; padding: 6px 8px; font-size: 13px; font-weight: 700; 
 .btn.link { text-decoration: none; color: inherit; display: inline-flex; align-items: center; }
 .steps { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13.5px; display: grid; gap: 4px; }
 .st-later { background: var(--sunken); color: var(--muted); }
+/* businesses as cards: who and what on the left, the subscription in the middle, one main action and a menu on the right */
+.biz-list { display: grid; gap: 10px; }
+.biz { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; grid-template-columns: minmax(0, 1fr) 190px auto; gap: 8px 20px; align-items: center; }
+.biz.warn { border-color: var(--warn); }
+.biz h3 { margin: 0; font-size: 16px; font-weight: 800; }
+.biz .sub { color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; gap: 2px 10px; }
+.biz .sub a { color: inherit; }
+.biz .term { display: grid; gap: 2px; font-size: 13.5px; }
+.biz .term .pill { justify-self: start; }
+.acts .main { min-width: 96px; }
+.more-wrap { position: relative; }
+.more { width: 36px; height: 34px; padding: 0; font-size: 18px; line-height: 1; letter-spacing: 1px; }
+.menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 15; background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / .16); min-width: 220px; padding: 6px; display: grid; gap: 2px; }
+.menu button, .menu a { display: flex; align-items: center; gap: 10px; text-align: left; padding: 10px 12px; border-radius: 8px; border: 0; background: none; font-weight: 700; font-size: 14px; color: var(--fg); text-decoration: none; white-space: nowrap; }
+.menu button:hover, .menu a:hover { background: var(--sunken); }
+.menu .bad { color: var(--bad); }
+.menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 6px; }
+.lead h3 button { all: unset; cursor: pointer; }
+.lead h3 button:hover { color: var(--brass); }
+.confirm { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+/* phone: an app shell with a tab bar at the bottom and the add button in the middle */
+.bottom-nav { display: none; }
+.top .menu-only { display: none; }
 .goal { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; align-items: center; }
 .goal b { font: 800 22px/1.1 var(--display); font-variant-numeric: tabular-nums; }
 .goal .hint { display: block; }
 .goal .bar { grid-column: 1 / -1; height: 8px; background: var(--sunken); border-radius: 99px; overflow: hidden; }
 .goal .bar i { display: block; height: 100%; background: var(--brass); border-radius: 99px; }
 .tools { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.tools .count { margin-left: auto; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .tools select { width: auto; padding: 7px 10px; font-size: 13px; font-weight: 700; background: var(--panel); }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .seg button { border: 0; background: var(--panel); padding: 7px 12px; font-size: 13px; font-weight: 700; color: var(--muted); }
@@ -150,6 +176,44 @@ select.mini { width: auto; padding: 6px 8px; font-size: 13px; font-weight: 700; 
 .notes small { color: var(--muted); font-size: 12px; }
 .lead .talk { font-size: 12.5px; color: var(--muted); }
 .lead .lost { grid-column: 1 / -1; color: var(--bad); font-size: 13px; }
+@media (max-width: 760px) {
+  .wrap { padding: 14px 12px calc(96px + env(safe-area-inset-bottom, 0px)); gap: 12px; }
+  .top h1 { font-size: 26px; }
+  .top .desk { display: none; }
+  .top .menu-only { display: block; }
+  .tabs { display: none; }
+  .stats { display: flex; overflow-x: auto; gap: 8px; scroll-snap-type: x mandatory; margin: 0 -12px; padding: 0 12px; scrollbar-width: none; }
+  .stat { flex: 0 0 44%; scroll-snap-align: start; padding: 10px 12px; }
+  .filters { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 8px; }
+  .filters .search { order: -1; width: 100%; margin: 0; }
+  .filters > .hint { display: none; }
+  .chips { flex-wrap: nowrap; overflow-x: auto; margin: 0 -12px; padding: 0 12px 2px; scrollbar-width: none; }
+  .chips .chip { flex: none; }
+  .tools { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .tools select { width: 100%; }
+  .tools .seg { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .tools .count, .tools .io { display: none; }
+  .tools select:only-of-type { grid-column: 1 / -1; }
+  .stat b { font-size: 21px !important; white-space: nowrap; }
+  .stat span { font-size: 11.5px; }
+  .goal { padding: 10px 12px; gap: 6px 10px; }
+  .goal b { font-size: 18px; }
+  .goal .hint { font-size: 12px; }
+  .biz { grid-template-columns: minmax(0, 1fr) auto; padding: 12px 14px; }
+  .biz .term { grid-column: 1 / -1; grid-row: 2; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+  .biz .acts { grid-column: 1 / -1; }
+  .biz .acts .main, .lead .acts .main { flex: 1; justify-content: center; }
+  .menu { position: fixed; left: 8px; right: 8px; top: auto; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); z-index: 30; min-width: 0; padding: 8px; }
+  .menu button, .menu a { padding: 13px 14px; font-size: 15px; }
+  .lead .acts { flex-wrap: nowrap; }
+  .bottom-nav { display: grid; position: fixed; left: 0; right: 0; bottom: 0; z-index: 12; grid-auto-flow: column; grid-auto-columns: 1fr; align-items: end;
+    background: color-mix(in srgb, var(--panel) 94%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line); padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px)); }
+  .bottom-nav button { border: 0; background: none; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; font-size: 11px; font-weight: 800; color: var(--muted); position: relative; }
+  .bottom-nav button[aria-current="page"] { color: var(--brass); }
+  .bottom-nav .n { position: absolute; top: 0; left: calc(50% + 6px); background: var(--bad); color: #fff; border-radius: 99px; font-size: 10px; padding: 0 5px; min-width: 16px; }
+  .bottom-nav .fab { width: 54px; height: 54px; border-radius: 50%; background: var(--brass); color: var(--brass-ink); justify-self: center; margin-top: -24px; box-shadow: 0 8px 20px rgb(0 0 0 / .22); padding: 0; display: grid; place-items: center; }
+}
 @media (max-width: 760px) { .stat b { font-size: 24px; } .lead { grid-template-columns: minmax(0, 1fr); } .lead .side { align-items: flex-start; flex-direction: row; flex-wrap: wrap; } .row2 { grid-template-columns: 1fr; } }
 </style>
 
@@ -225,7 +289,7 @@ function leadHtml(l) {
   const salon = l.salon_id ? S.salons.find((s) => s.id === l.salon_id) : null;
   const tel = digits(l.phone);
   return `<article class="lead${isDue(l) ? " due" : ""}">
-    <div><h3>${bdi(l.name)}</h3>
+    <div><h3><button data-ledit="${l.id}">${bdi(l.name)}</button></h3>
       <div class="meta"><span>${esc(kindLabel(l.kind))}${l.size ? ` · ${esc(sizeLabel(l.size))}` : ""}${l.staff_count ? ` · ${l.staff_count} xodim` : ""}</span>${l.contact ? `<span>${bdi(l.contact)}</span>` : ""}${l.phone ? `<a href="tel:+${tel}">⁦${esc(l.phone)}⁩</a>` : ""}${l.district ? `<span>${bdi(l.district)}</span>` : ""}${l.address ? `<span>${bdi(l.address)}</span>` : ""}${manager() ? `<span>· ${esc(l.assigned_name || "Ega")}</span>` : ""}</div>
       ${l.next_step || when ? `<div class="next">Keyingi qadam: ${bdi(l.next_step || "—")}${when ? ` · ${when}` : ""}</div>` : ""}
       ${l.notes_count ? `<div class="talk">💬 ${l.notes_count} ta suhbat · oxirgisi ${fmtDate(l.last_note_on)}</div>` : ""}</div>
@@ -233,11 +297,15 @@ function leadHtml(l) {
     ${l.status === "lost" && l.lost_reason ? `<div class="lost">Sababi: ${bdi(l.lost_reason)}</div>` : ""}
     ${l.note ? `<div class="note">${bdi(l.note)}</div>` : ""}
     <div class="acts">
-      <button class="btn" data-notes="${l.id}">${l.notes_count ? `Suhbatlar (${l.notes_count})` : "Suhbat yozish"}</button>
-      ${tel ? `<a class="btn link" href="tel:+${tel}">Qo'ng'iroq</a>` : ""}
-      ${salon ? `<a class="btn link" href="${esc(showUrl(salon))}" target="_blank" rel="noopener">Taqdimot</a><a class="btn link" href="/${esc(salon.slug)}/admin" target="_blank" rel="noopener">Admin panel</a>${salon.telegram_bot ? "" : `<button class="btn" data-takebot="${salon.id}">Bot ulash</button>`}`
-        : `<button class="btn primary" style="font-size:13px;padding:7px 11px" data-demo="${l.id}">Demo ochish</button>`}
-      <button class="btn" data-ledit="${l.id}">Tahrirlash</button>
+      ${salon ? `<a class="btn link main" href="${esc(showUrl(salon))}" target="_blank" rel="noopener">Taqdimot</a>` : `<button class="btn primary main" style="font-size:13px;padding:7px 11px" data-demo="${l.id}">Demo ochish</button>`}
+      <button class="btn" data-notes="${l.id}">${l.notes_count ? `Suhbatlar (${l.notes_count})` : "Suhbat"}</button>
+      ${tel ? `<a class="btn link" href="tel:+${tel}" aria-label="Qo'ng'iroq">📞</a>` : ""}
+      ${moreMenu("l" + l.id, [
+        ["Tahrirlash", `data-ledit="${l.id}"`],
+        tel && ["📞 Qo'ng'iroq qilish", `href="tel:+${tel}"`],
+        salon && ["Admin panel", `href="/${esc(salon.slug)}/admin" target="_blank" rel="noopener"`],
+        salon && !salon.telegram_bot && ["Bot ulash", `data-takebot="${salon.id}"`],
+      ])}
     </div></article>`;
 }
 function kanbanHtml(list) {
@@ -257,15 +325,15 @@ function leadsList() {
 function leadsHtml() {
   const list = leadsList();
   const chip = (k, label) => `<button class="chip" data-filter="${k}" aria-pressed="${S.filter === k}">${label}</button>`;
-  return `<div class="filters">${chip("open", "Ochiq")}${chip("due", "Bugun qilinadigan")}${STATUSES.map(([k, v]) => chip(k, v)).join("")}${chip("all", "Hammasi")}
+  return `<div class="filters"><div class="chips">${chip("open", "Ochiq")}${chip("due", "Bugun qilinadigan")}${STATUSES.map(([k, v]) => chip(k, v)).join("")}${chip("all", "Hammasi")}</div>
       <input class="search" id="q" placeholder="Nom, tuman yoki telefon" value="${esc(S.q)}" autocomplete="off"></div>
     <div class="tools">
       <select id="fkind" aria-label="Soha"><option value="">Barcha sohalar</option>${KINDS.map(([k, v]) => `<option value="${k}"${S.fkind === k ? " selected" : ""}>${esc(v)}</option>`).join("")}</select>
       ${manager() ? `<select id="fwho" aria-label="Mas'ul"><option value="">Hamma mas'ullar</option><option value="owner"${S.fwho === "owner" ? " selected" : ""}>Ega</option>${S.team.map((u) => `<option value="${u.id}"${S.fwho === String(u.id) ? " selected" : ""}>${esc(u.name)}</option>`).join("")}</select>` : ""}
       <div class="seg"><button data-view="list" aria-pressed="${S.view === "list"}">Ro'yxat</button><button data-view="board" aria-pressed="${S.view === "board"}">Bosqichlar</button></div>
-      <span class="hint" style="margin-left:auto">${list.length} ta</span>
-      <label class="btn" for="imp" style="cursor:pointer">Import (CSV)</label><input type="file" id="imp" accept=".csv,text/csv,.txt" hidden>
-      <button class="btn" data-export="1">Eksport</button></div>
+      <span class="hint count">${list.length} ta</span>
+      <label class="btn io" for="imp" style="cursor:pointer">Import (CSV)</label><input type="file" id="imp" accept=".csv,text/csv,.txt" hidden>
+      <button class="btn io" data-export="1">Eksport</button></div>
     ${!list.length ? `<div class="table-wrap"><div class="empty">${S.leads.length ? "Bu filtrda lid yo'q." : "Hali lid yo'q. Birinchi biznesni \"+ Lid\" bilan qo'shing yoki xaritadan yig'ilgan ro'yxatni \"Import\" bilan yuklang."}</div></div>`
       : S.view === "board" ? kanbanHtml(list) : `<div class="leads">${list.map(leadHtml).join("")}</div>`}`;
 }
@@ -273,25 +341,43 @@ function leadsHtml() {
 // ---------- businesses ----------
 const state = (s) => s.is_demo ? "demo" : !s.is_active ? "off" : dayDiff(s.paid_until) < 0 ? "bad" : dayDiff(s.paid_until) <= 7 ? "soon" : "ok";
 const STATE = { ok: ["ok", "Faol"], soon: ["soon", "Tugayapti"], bad: ["bad", "Muddati o'tgan"], off: ["off", "To'xtatilgan"], demo: ["soon", "Demo"] };
-function salonRow(s) {
+// The "⋯" button and its list; items are [label, attributes] (href makes it a link), false items are skipped, "-" is a divider.
+function moreMenu(key, items) {
+  const list = items.filter(Boolean);
+  if (!list.length) return "";
+  return `<div class="more-wrap"><button class="btn more" data-menu="${key}" aria-label="Boshqa amallar" aria-expanded="${S.menu === key}">⋯</button>
+    ${S.menu === key ? `<div class="menu" role="menu">${list.map((x) => x === "-" ? "<hr>" : x[1].includes("href=")
+      ? `<a role="menuitem" ${x[1]}${x[2] ? ` class="${x[2]}"` : ""}>${x[0]}</a>` : `<button role="menuitem" ${x[1]}${x[2] ? ` class="${x[2]}"` : ""}>${x[0]}</button>`).join("")}</div>` : ""}</div>`;
+}
+function salonCard(s) {
   const st = state(s), dd = dayDiff(s.paid_until);
   const left = !s.is_active ? "to'xtatilgan" : dd < 0 ? `${-dd} kun oldin tugagan` : dd === 0 ? "bugun oxirgi kun" : `${dd} kun qoldi`;
+  // The one thing to do next sits on the card: a bot first, then money; everything else is in the menu.
+  const main = !s.telegram_bot ? `<button class="btn primary main" style="font-size:13px;padding:7px 11px" data-takebot="${s.id}">Bot ulash</button>`
+    : manager() ? `<button class="btn pay main" data-pay="${s.id}">To'lov</button>` : `<a class="btn link main" href="${esc(showUrl(s))}" target="_blank" rel="noopener">Taqdimot</a>`;
   const acts = S.ask === s.id
-    ? `<span class="hint">To'xtatilsinmi?</span><button class="btn" data-keep="1">Yo'q</button><button class="btn bad" data-stop="${s.id}">Ha</button>`
-    : `<a class="btn link" href="${esc(showUrl(s))}" target="_blank" rel="noopener">Taqdimot</a>${!s.telegram_bot ? `<button class="btn" data-takebot="${s.id}">Bot ulash</button>` : ""}
-       ${manager() && !s.paid_total ? `<button class="btn" data-setdemo="${s.id}">${s.is_demo ? "Demo emas" : "Demo qilish"}</button>` : ""}
-       ${manager() ? `<button class="btn" data-mods="${s.id}">Modullar</button><button class="btn pay" data-pay="${s.id}">To'lov</button>${s.is_active ? `<button class="btn bad" data-ask="${s.id}">To'xtatish</button>` : `<button class="btn" data-resume="${s.id}">Yoqish</button>`}` : ""}`;
-  return `<tr><td class="name"><b>${bdi(s.name)}</b><a href="/${esc(s.slug)}/admin" target="_blank" rel="noopener">/${esc(s.slug)}</a> <span class="hint">· ${esc(kindLabel(s.kind))} · ${(s.modules || ["booking"]).map((m) => MODS[m] || m).join(" + ")}${s.telegram_bot ? ` · @${esc(s.telegram_bot)}` : " · bot yo'q"}</span></td>
-    <td><span class="pill ${STATE[st][0]}">${STATE[st][1]}</span></td>
-    <td class="num">${fmtDate(s.paid_until)}<span class="days">${left}</span></td>
-    <td class="num c-stats">${s.staff_count} xodim · ${s.bookings_30d} bron / 30 kun${manager() && s.paid_total ? ` · ${som(s.paid_total)}` : ""}</td>
-    <td class="c-acts"><div class="acts">${acts}</div></td></tr>`;
+    ? `<div class="confirm"><span class="hint">To'xtatilsinmi? Mijozlari bron qila olmaydi.</span><button class="btn" data-keep="1">Yo'q</button><button class="btn bad" data-stop="${s.id}">Ha, to'xtatish</button></div>`
+    : `${main}${moreMenu("s" + s.id, [
+        (s.telegram_bot) && ["Taqdimot", `href="${esc(showUrl(s))}" target="_blank" rel="noopener"`],
+        ["Admin panel", `href="/${esc(s.slug)}/admin" target="_blank" rel="noopener"`],
+        manager() && !s.telegram_bot && ["To'lov yozish", `data-pay="${s.id}"`],
+        manager() && ["Modullar", `data-mods="${s.id}"`],
+        manager() && !s.paid_total && [s.is_demo ? "Demo emas (oddiy mijoz)" : "Demo qilish", `data-setdemo="${s.id}"`],
+        manager() && "-",
+        manager() && (s.is_active ? ["To'xtatish", `data-ask="${s.id}"`, "bad"] : ["Yoqish", `data-resume="${s.id}"`]),
+      ])}`;
+  return `<article class="biz${st === "bad" || st === "soon" && !s.is_demo ? " warn" : ""}">
+    <div><h3>${bdi(s.name)}</h3>
+      <div class="sub"><a href="/${esc(s.slug)}/admin" target="_blank" rel="noopener">/${esc(s.slug)}</a><span>${esc(kindLabel(s.kind))} · ${(s.modules || ["booking"]).map((m) => MODS[m] || m).join(" + ")}</span>
+        <span>${s.telegram_bot ? `@${esc(s.telegram_bot)}` : "bot yo'q"}</span><span class="num">${s.staff_count} xodim · ${s.bookings_30d} bron / 30 kun${manager() && s.paid_total ? ` · ${som(s.paid_total)}` : ""}</span></div></div>
+    <div class="term"><span class="pill ${STATE[st][0]}">${STATE[st][1]}</span><span class="num">${fmtDate(s.paid_until)}</span><span class="days">${left}</span></div>
+    <div class="acts">${acts}</div></article>`;
 }
 function salonsHtml() {
   const q = S.q.trim().toLowerCase();
   const list = S.salons.filter((s) => !q || s.name.toLowerCase().includes(q) || s.slug.includes(q));
   return `<div class="filters"><span class="hint">Demolar 14 kunlik sinov bilan ochiladi. To'lov yozilgach demo oddiy mijozga aylanadi va boti unda qoladi.</span><input class="search" id="q" placeholder="Qidirish" value="${esc(S.q)}" autocomplete="off"></div>
-    <div class="table-wrap">${list.length ? `<table><thead><tr><th>Biznes</th><th>Holat</th><th>Obuna tugashi</th><th>Faollik</th><th></th></tr></thead><tbody>${list.map(salonRow).join("")}</tbody></table>` : `<div class="empty">Biznes yo'q.</div>`}</div>`;
+    ${list.length ? `<div class="biz-list">${list.map(salonCard).join("")}</div>` : `<div class="table-wrap"><div class="empty">Biznes yo'q.</div></div>`}`;
 }
 
 // ---------- money ----------
@@ -323,16 +409,26 @@ function statsHtml() {
 }
 function mainHtml() {
   const tabs = [["leads", "Lidlar", S.stats.due_today || 0], ["salons", "Bizneslar", 0], ...(manager() ? [["money", "To'lovlar", 0], ["team", "Jamoa", 0]] : [["team", "Jamoa", 0]])];
-  const add = S.tab === "leads" ? `<button class="primary" data-newlead="1">+ Lid</button>` : S.tab === "salons" ? `<button class="primary" data-newsalon="1">+ ${manager() ? "Biznes" : "Demo"}</button>` : S.tab === "team" && manager() ? `<button class="primary" data-newuser="1">+ Xodim</button>` : "";
+  const addKey = S.tab === "leads" ? "newlead" : S.tab === "salons" ? "newsalon" : S.tab === "team" && manager() ? "newuser" : "";
+  const addLabel = { newlead: "+ Lid", newsalon: `+ ${manager() ? "Biznes" : "Demo"}`, newuser: "+ Xodim" }[addKey];
+  const add = addKey ? `<button class="primary desk" data-${addKey}="1">${addLabel}</button>` : "";
+  const ICON = { leads: '<path d="M4 6h16M4 12h16M4 18h10"/>', salons: '<path d="M4 20V9l8-5 8 5v11M9 20v-6h6v6"/>', money: '<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>',
+    team: '<circle cx="9" cy="8" r="3"/><path d="M3 20c.6-3.4 3-5 6-5s5.4 1.6 6 5M16 5a3 3 0 0 1 0 6M18 15c1.6.6 2.6 2.2 3 5"/>' };
+  const navBtn = ([k, v, n]) => `<button data-tab="${k}" aria-current="${S.tab === k ? "page" : "false"}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg>${v}${n ? `<span class="n">${n}</span>` : ""}</button>`;
+  const fab = addKey ? `<button class="fab" data-${addKey}="1" aria-label="${addLabel}"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>` : "";
+  const half = Math.ceil(tabs.length / 2);
+  const bottom = `<nav class="bottom-nav">${tabs.slice(0, half).map(navBtn).join("")}${fab || "<span></span>"}${tabs.slice(half).map(navBtn).join("")}</nav>`;
   const view = S.tab === "salons" ? salonsHtml() : S.tab === "money" ? moneyHtml() : S.tab === "team" ? teamHtml() : leadsHtml();
   return `<div class="wrap">
     <div class="top"><h1><small>NAVBAT PLATFORMASI</small>${{ leads: "Lidlar", salons: "Bizneslar", money: "To'lovlar", team: "Jamoa" }[S.tab]}</h1>
-      <span class="who">${S.me.name !== ROLE[S.me.role] ? `${bdi(S.me.name)} · ` : ""}<b>${ROLE[S.me.role]}</b></span><a class="ghost" href="/taqdimot" target="_blank" rel="noopener" style="text-decoration:none">Taqdimot</a><button class="ghost" id="logout">Chiqish</button>${add}</div>
+      <span class="who">${S.me.name !== ROLE[S.me.role] ? `${bdi(S.me.name)} · ` : ""}<b>${ROLE[S.me.role]}</b></span><a class="ghost desk" href="/taqdimot" target="_blank" rel="noopener" style="text-decoration:none">Taqdimot</a><button class="ghost desk" id="logout">Chiqish</button>${add}
+      <div class="menu-only">${moreMenu("top", [S.tab === "leads" && ["Import (CSV)", 'data-import="1"'], S.tab === "leads" && ["Eksport (CSV)", 'data-export="1"'],
+        ["Taqdimot sahifasi", 'href="/taqdimot" target="_blank" rel="noopener"'], "-", ["Chiqish", 'id="logout"', "bad"]])}</div></div>
     ${statsHtml()}
     <nav class="tabs">${tabs.map(([k, v, n]) => `<button data-tab="${k}" aria-current="${S.tab === k ? "page" : "false"}">${v}${n ? `<span class="n">${n}</span>` : ""}</button>`).join("")}</nav>
     ${S.error ? `<div class="notice">${esc(S.error)}</div>` : ""}
     ${S.creds ? `<div class="creds"><b>${bdi(S.creds.name)} ochildi.</b><span>Admin panel <code>${esc(location.host)}/${esc(S.creds.slug)}/admin</code></span><span>Login <code>${esc(S.creds.login)}</code></span><span>Parol <code>${esc(S.creds.password)}</code></span><span class="hint">Parol keyin ko'rsatilmaydi. Endi "Bot ulash" ni bosing.</span></div>` : ""}
-    ${view}</div>`;
+    ${view}</div>${bottom}`;
 }
 function loginHtml() {
   return `<form class="login" id="lform"><h1>Platforma</h1><p class="hint">Navbat jamoasi uchun: lidlar, demolar, bizneslar va to'lovlar.</p>
@@ -496,8 +592,11 @@ document.addEventListener("click", async (e) => {
   S.busy = true;
   try {
     S.error = "";
+    if (d.menu) { S.menu = S.menu === d.menu ? null : d.menu; render(); return; }
+    if (d.import) { S.menu = null; $("#imp")?.click(); render(); return; }
+    S.menu = null;
     if (d.close) { S.drawer = null; }
-    else if (d.tab) { S.tab = d.tab; S.q = ""; S.creds = null; if (d.tab === "money") S.payments = await api.get("/payments"); }
+    else if (d.tab) { S.tab = d.tab; S.q = ""; S.creds = null; window.scrollTo(0, 0); if (d.tab === "money") S.payments = await api.get("/payments"); }
     else if (d.filter) S.filter = d.filter;
     else if (d.view) { S.view = d.view; try { localStorage.setItem("crm-view", d.view); } catch { /* storage off */ } }
     else if (d.notes) { S.drawer = { type: "notes", id: +d.notes, kind: "call", text: "", day: today(), list: null }; render(); S.drawer.list = await api.get(`/leads/${+d.notes}/notes`); }
@@ -567,7 +666,9 @@ document.addEventListener("input", (e) => {
   if (id === "f-ologin") { if (F.type === "user") F.login = v; else F.owner_login = v; }
   if (id === "f-opass") { if (F.type === "user") F.password = v; else F.owner_password = v; }
 });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.drawer) { S.drawer = null; render(); } });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && (S.drawer || S.menu)) { S.drawer = null; S.menu = null; render(); } });
+// A tap anywhere outside an open "⋯" list closes it (a link inside it closes it too).
+document.addEventListener("click", (e) => { if (S.menu && (!e.target.closest(".menu, [data-menu]") || e.target.closest(".menu a"))) { S.menu = null; setTimeout(render); } }, true);
 
 // ---------- CSV: a list from the maps or a spreadsheet in, the whole list out ----------
 // Excel saves CSV with ";" or "," and sometimes in the old Windows encoding: both are read.
