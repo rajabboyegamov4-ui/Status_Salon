@@ -88,16 +88,50 @@ h2.cat{font:600 15px/1.2 var(--f-display);margin:20px 0 10px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:30;background:var(--fg);color:var(--bg);padding:10px 14px;border-radius:10px;font-weight:600;max-width:calc(100% - 32px)}
 </style>
 <body>
-<header class="top"><div class="top-in"><h1 id="title">Buyurtma</h1><button class="btn" id="mine" type="button">Buyurtmalarim</button></div><nav class="cats" id="cats"></nav></header>
+<header class="top"><div class="top-in"><h1 id="title">Buyurtma</h1><button class="btn" id="lang" type="button" aria-label="Til / Язык">RU</button><button class="btn" id="mine" type="button">Buyurtmalarim</button></div><nav class="cats" id="cats"></nav></header>
 <main class="wrap" id="list"><div class="spinner"></div></main>
 <div class="bar" id="bar" hidden><button class="btn primary big" id="go" type="button"></button></div>
 <section class="sheet" id="sheet" hidden></section>
 <div class="toast" id="toast" hidden></div>
 <script>
+// ---------- language: O'zbekcha (default) / Русский; ?lang=ru comes from the bot ----------
+const LANGS = ["uz", "ru"];
+let LANG_CHOSEN = false;
+let LANG = (() => {
+  try {
+    const q = new URLSearchParams(location.search).get("lang");
+    if (LANGS.includes(q)) { localStorage.setItem("lang", q); LANG_CHOSEN = true; return q; }
+    const s = localStorage.getItem("lang"); if (LANGS.includes(s)) { LANG_CHOSEN = true; return s; }
+  } catch { /* storage off */ }
+  return /^(ru|uk|be|kk)/i.test(navigator.language || "") ? "ru" : "uz";
+})();
+document.documentElement.lang = LANG;
+const RU = {
+  "Buyurtma": "Заказ", "Buyurtmalarim": "Мои заказы", "Internet aloqasi yo'q. Qayta urinib ko'ring.": "Нет подключения к интернету. Попробуйте снова.",
+  "Xatolik yuz berdi. Qayta urinib ko'ring.": "Произошла ошибка. Попробуйте снова.", "Kamaytirish": "Меньше", "Ko'paytirish": "Больше",
+  "Savatga qo'shish": "В корзину", "Boshqa": "Другое", "Hozircha mahsulot yo'q.": "Товаров пока нет.", "Savat · {n} ta": "Корзина · {n}",
+  "Telegram ochildi: botda <b>Start</b> ni bosing va raqamingizni yuboring. Keyin shu sahifaga qayting.":
+    "Telegram открыт: нажмите в боте <b>Start</b> и отправьте свой номер. Затем вернитесь на эту страницу.",
+  "Telegram'ni qayta ochish": "Открыть Telegram снова", "Telegram orqali kirish": "Войти через Telegram",
+  "Buyurtma holati Telegram'ga keladi.": "Статус заказа будет приходить в Telegram.", "Orqaga": "Назад",
+  "#{n} qabul qilindi": "Заказ #{n} получен",
+  "Tez orada tasdiqlaymiz. Holati Telegram'ga keladi va \"Buyurtmalarim\" bo'limida ko'rinadi.": "Скоро подтвердим. Статус придёт в Telegram и будет виден в разделе «Мои заказы».",
+  "Katalogga qaytish": "Вернуться в каталог", "Hali buyurtma yo'q.": "Заказов пока нет.", "🏪 Olib ketish": "🏪 Самовывоз",
+  "Bekor qilish": "Отменить", "Savat": "Корзина", "Savat bo'sh.": "Корзина пуста.", "Olib ketaman": "Заберу сам", "bepul": "бесплатно",
+  "Yetkazib bering": "Доставка", "🚚 Faqat yetkazib berish": "🚚 Только доставка", "🏪 Faqat olib ketish": "🏪 Только самовывоз",
+  "Manzil": "Адрес", "Ko'cha, uy, xonadon, mo'ljal": "Улица, дом, квартира, ориентир", "Izoh (ixtiyoriy)": "Комментарий (необязательно)",
+  "Masalan, otkritkaga yozuv": "Например, текст на открытке", "Mahsulotlar": "Товары", "Yetkazish": "Доставка", "Jami": "Итого",
+  "Eng kam buyurtma {sum}.": "Минимальный заказ {sum}.", "Yuborilmoqda…": "Отправляем…", "Buyurtma berish": "Оформить заказ",
+  "Kirish muddati tugadi. Qaytadan bosing.": "Время входа истекло. Нажмите ещё раз.", "Buyurtma bekor qilindi": "Заказ отменён",
+  "Onlayn buyurtma vaqtincha ishlamayapti.": "Онлайн-заказ временно не работает.", "Bu biznes onlayn buyurtma qabul qilmaydi.": "Этот бизнес не принимает онлайн-заказы.",
+  "Yangi": "Новый", "Qabul qilindi": "Принят", "Tayyor": "Готов", "Yo'lda": "В пути", "Berildi": "Выдан", "Bekor qilindi": "Отменён",
+};
+const L = (s, v) => { const o = (LANG === "ru" && RU[s]) || s; return v ? o.replace(/\{(\w+)\}/g, (_, k) => v[k] ?? "") : o; };
+const STATUS = { new: "Yangi", accepted: "Qabul qilindi", ready: "Tayyor", delivering: "Yo'lda", done: "Berildi", cancelled: "Bekor qilindi" };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const bdi = (s) => "⁨" + esc(s) + "⁩";
-const som = (n) => Number(n || 0).toLocaleString("ru-RU").replace(/\s/g, " ") + " so'm";
+const som = (n) => Number(n || 0).toLocaleString("ru-RU").replace(/\s/g, " ") + (LANG === "ru" ? " сум" : " so'm");
 const SLUG = location.pathname.split("/").filter(Boolean)[0] || "";
 const COLORS = { dental: "#0E7C86", clinic: "#2457C5", cosmetology: "#7E57C2", barber: "#B07A1E", beauty: "#B5487A", spa: "#3D7A57", auto: "#C7621B", vet: "#4F7A23", shop: "#C2410C", other: "#3A6EA5" };
 const TG_INIT = (() => { try { return new URLSearchParams(location.hash.slice(1)).get("tgWebAppData") || ""; } catch { return ""; } })();
@@ -108,10 +142,10 @@ const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())
 
 async function call(path, opts = {}) {
   let res;
-  try { res = await fetch(`/api/s/${SLUG}` + path, { ...opts, credentials: "same-origin", headers: { "Content-Type": "application/json", ...(opts.headers || {}) } }); }
-  catch { throw Object.assign(new Error("Internet aloqasi yo'q. Qayta urinib ko'ring."), { status: 0 }); }
+  try { res = await fetch(`/api/s/${SLUG}` + path, { ...opts, credentials: "same-origin", headers: { "Content-Type": "application/json", "X-Lang": LANG, ...(opts.headers || {}) } }); }
+  catch { throw Object.assign(new Error(L("Internet aloqasi yo'q. Qayta urinib ko'ring.")), { status: 0 }); }
   const body = res.status === 204 ? null : await res.json().catch(() => null);
-  if (!res.ok) throw Object.assign(new Error(typeof body?.detail === "string" ? body.detail : "Xatolik yuz berdi. Qayta urinib ko'ring."), { status: res.status });
+  if (!res.ok) throw Object.assign(new Error(typeof body?.detail === "string" ? body.detail : L("Xatolik yuz berdi. Qayta urinib ko'ring.")), { status: res.status });
   return body;
 }
 
@@ -127,14 +161,14 @@ function toast(m) { const t = $("toast"); t.textContent = m; t.hidden = false; c
 
 function stepHtml(p) {
   const q = S.cart[p.id] || 0;
-  return q ? `<div class="step"><button data-dec="${p.id}" aria-label="Kamaytirish">−</button><span class="num">${q}</span><button data-inc="${p.id}" aria-label="Ko'paytirish">+</button></div>`
-    : `<button class="add" data-inc="${p.id}" aria-label="Savatga qo'shish">+</button>`;
+  return q ? `<div class="step"><button data-dec="${p.id}" aria-label="${L("Kamaytirish")}">−</button><span class="num">${q}</span><button data-inc="${p.id}" aria-label="${L("Ko'paytirish")}">+</button></div>`
+    : `<button class="add" data-inc="${p.id}" aria-label="${L("Savatga qo'shish")}">+</button>`;
 }
 function renderList() {
-  const cats = [...new Set(S.products.map((p) => p.category || "Boshqa"))];
+  const cats = [...new Set(S.products.map((p) => p.category || L("Boshqa")))];
   $("cats").innerHTML = cats.length > 1 ? cats.map((c) => `<button class="chip" data-cat="${esc(c)}" aria-pressed="${S.cat === c}">${esc(c)}</button>`).join("") : "";
-  if (!S.products.length) { $("list").innerHTML = `<div class="empty">Hozircha mahsulot yo'q.</div>`; return renderBar(); }
-  $("list").innerHTML = cats.map((c) => `<h2 class="cat" id="cat-${esc(c)}">${esc(c)}</h2><div class="grid">${S.products.filter((p) => (p.category || "Boshqa") === c).map((p) => `
+  if (!S.products.length) { $("list").innerHTML = `<div class="empty">${L("Hozircha mahsulot yo'q.")}</div>`; return renderBar(); }
+  $("list").innerHTML = cats.map((c) => `<h2 class="cat" id="cat-${esc(c)}">${esc(c)}</h2><div class="grid">${S.products.filter((p) => (p.category || L("Boshqa")) === c).map((p) => `
     <article class="card"><div class="ph">${p.photo_url ? `<img src="${esc(p.photo_url)}" alt="" loading="lazy">` : esc(p.name[0] || "•")}</div>
       <div class="b"><b>${bdi(p.name)}</b>${p.description ? `<small>${bdi(p.description)}</small>` : ""}
         <div class="row"><span class="price num">${som(p.price)}</span><span id="st-${p.id}">${stepHtml(p)}</span></div></div></article>`).join("")}</div>`).join("");
@@ -143,7 +177,8 @@ function renderList() {
 function renderBar() {
   const n = cartLines().reduce((a, x) => a + x.q, 0);
   $("bar").hidden = !n || !!S.mode;
-  $("go").innerHTML = `<span>Savat · ${n} ta</span><span class="num">${som(itemsTotal())} →</span>`;
+  $("lang").textContent = LANG === "ru" ? "UZ" : "RU"; $("mine").textContent = L("Buyurtmalarim");
+  $("go").innerHTML = `<span>${L("Savat · {n} ta", { n })}</span><span class="num">${som(itemsTotal())} →</span>`;
 }
 function setQty(id, q) {
   if (q > 0) S.cart[id] = Math.min(q, 99); else delete S.cart[id];
@@ -154,46 +189,46 @@ function setQty(id, q) {
 }
 
 function loginHtml() {
-  if (S.tg) return `<div class="notice" style="background:var(--accent-soft);color:var(--fg)">Telegram ochildi: botda <b>Start</b> ni bosing va raqamingizni yuboring. Keyin shu sahifaga qayting.</div>
-    <a class="btn big" style="display:block;text-align:center;margin-top:10px;text-decoration:none" href="${esc(S.tg.url)}" target="_blank" rel="noopener">Telegram'ni qayta ochish</a>`;
-  return `<button class="btn primary big" style="margin-top:14px" data-tglogin="1" ${S.salon?.telegram_bot ? "" : "disabled"}>Telegram orqali kirish</button>
-    <p class="hint" style="color:var(--muted);font-size:13px;text-align:center">Buyurtma holati Telegram'ga keladi.</p>`;
+  if (S.tg) return `<div class="notice" style="background:var(--accent-soft);color:var(--fg)">${L("Telegram ochildi: botda <b>Start</b> ni bosing va raqamingizni yuboring. Keyin shu sahifaga qayting.")}</div>
+    <a class="btn big" style="display:block;text-align:center;margin-top:10px;text-decoration:none" href="${esc(S.tg.url)}" target="_blank" rel="noopener">${L("Telegram'ni qayta ochish")}</a>`;
+  return `<button class="btn primary big" style="margin-top:14px" data-tglogin="1" ${S.salon?.telegram_bot ? "" : "disabled"}>${L("Telegram orqali kirish")}</button>
+    <p class="hint" style="color:var(--muted);font-size:13px;text-align:center">${L("Buyurtma holati Telegram'ga keladi.")}</p>`;
 }
 function renderSheet() {
   const sh = $("sheet");
   if (!S.mode) { sh.hidden = true; document.body.style.overflow = ""; renderBar(); return; }
   sh.hidden = false; document.body.style.overflow = "hidden"; renderBar();
-  const head = (t) => `<div class="head"><div class="top-in"><button class="btn" data-back="1" aria-label="Orqaga">←</button><h1>${t}</h1></div></div>`;
+  const head = (t) => `<div class="head"><div class="top-in"><button class="btn" data-back="1" aria-label="${L("Orqaga")}">←</button><h1>${t}</h1></div></div>`;
   if (S.mode === "done") {
     const o = S.done;
-    sh.innerHTML = `${head("Buyurtma")}<div class="wrap"><div class="okbox"><div style="font-size:40px">🧾</div><h2>#${o.number} qabul qilindi</h2>
-      <p>Tez orada tasdiqlaymiz. Holati Telegram'ga keladi va "Buyurtmalarim" bo'limida ko'rinadi.</p></div>
-      <button class="btn big" style="margin-top:14px" data-back="1">Katalogga qaytish</button></div>`;
+    sh.innerHTML = `${head(L("Buyurtma"))}<div class="wrap"><div class="okbox"><div style="font-size:40px">🧾</div><h2>${L("#{n} qabul qilindi", { n: o.number })}</h2>
+      <p>${L("Tez orada tasdiqlaymiz. Holati Telegram'ga keladi va \"Buyurtmalarim\" bo'limida ko'rinadi.")}</p></div>
+      <button class="btn big" style="margin-top:14px" data-back="1">${L("Katalogga qaytish")}</button></div>`;
     return;
   }
   if (S.mode === "mine") {
     const list = S.orders;
-    sh.innerHTML = `${head("Buyurtmalarim")}<div class="wrap">${!S.user ? loginHtml() : list === null ? `<div class="spinner"></div>` : !list.length ? `<div class="empty">Hali buyurtma yo'q.</div>`
-      : list.map((o) => `<div class="order"><div class="h"><b>#${o.number} · <span class="num">${som(o.total)}</span></b><span class="tag ${o.status}">${esc(o.status_label)}</span></div>
+    sh.innerHTML = `${head(L("Buyurtmalarim"))}<div class="wrap">${!S.user ? loginHtml() : list === null ? `<div class="spinner"></div>` : !list.length ? `<div class="empty">${L("Hali buyurtma yo'q.")}</div>`
+      : list.map((o) => `<div class="order"><div class="h"><b>#${o.number} · <span class="num">${som(o.total)}</span></b><span class="tag ${o.status}">${esc(L(STATUS[o.status] || o.status_label))}</span></div>
         <ul>${o.items.map((i) => `<li>${bdi(i.name)} × ${i.qty}</li>`).join("")}</ul>
-        <div style="color:var(--muted);font-size:13px">${o.fulfillment === "delivery" ? `🚚 ${bdi(o.address)}` : "🏪 Olib ketish"} · ${new Date(o.created_at).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</div>
-        ${o.status === "new" ? `<button class="btn" style="margin-top:10px" data-cancel="${o.id}">Bekor qilish</button>` : ""}</div>`).join("")}</div>`;
+        <div style="color:var(--muted);font-size:13px">${o.fulfillment === "delivery" ? `🚚 ${bdi(o.address)}` : L("🏪 Olib ketish")} · ${new Date(o.created_at).toLocaleString(LANG === "ru" ? "ru-RU" : "uz-UZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</div>
+        ${o.status === "new" ? `<button class="btn" style="margin-top:10px" data-cancel="${o.id}">${L("Bekor qilish")}</button>` : ""}</div>`).join("")}</div>`;
     return;
   }
   const lines = cartLines(), sh2 = S.shop, total = itemsTotal() + fee(), under = sh2.min_order && itemsTotal() < sh2.min_order;
-  sh.innerHTML = `${head("Savat")}<div class="wrap">
+  sh.innerHTML = `${head(L("Savat"))}<div class="wrap">
     ${lines.length ? `<div class="lines">${lines.map(({ p, q }) => `<div class="line"><div class="n">${bdi(p.name)}<small class="num">${som(p.price)}</small></div>
-      <div class="step"><button data-dec="${p.id}" aria-label="Kamaytirish">−</button><span class="num">${q}</span><button data-inc="${p.id}" aria-label="Ko'paytirish">+</button></div></div>`).join("")}</div>` : `<div class="empty">Savat bo'sh.</div>`}
-    ${sh2.delivery && sh2.pickup ? `<div class="seg"><button data-ful="pickup" aria-pressed="${S.fulfillment === "pickup"}">Olib ketaman<small>bepul</small></button><button data-ful="delivery" aria-pressed="${S.fulfillment === "delivery"}">Yetkazib bering<small>${sh2.delivery_fee ? som(sh2.delivery_fee) : "bepul"}</small></button></div>`
-      : `<p style="color:var(--muted);margin-top:14px">${sh2.delivery ? "🚚 Faqat yetkazib berish" : "🏪 Faqat olib ketish"}</p>`}
-    ${S.fulfillment === "delivery" ? `<div class="field"><label for="addr">Manzil</label><textarea id="addr" rows="2" placeholder="Ko'cha, uy, xonadon, mo'ljal">${esc(S.address)}</textarea></div>` : ""}
-    <div class="field"><label for="cmt">Izoh (ixtiyoriy)</label><input id="cmt" value="${esc(S.comment)}" placeholder="Masalan, otkritkaga yozuv"></div>
-    <div style="margin-top:16px"><div class="sum"><span>Mahsulotlar</span><span class="num">${som(itemsTotal())}</span></div>
-      ${fee() ? `<div class="sum"><span>Yetkazish</span><span class="num">${som(fee())}</span></div>` : ""}
-      <div class="sum total"><span>Jami</span><span class="num">${som(total)}</span></div></div>
-    ${under ? `<div class="notice">Eng kam buyurtma ${som(sh2.min_order)}.</div>` : ""}
+      <div class="step"><button data-dec="${p.id}" aria-label="${L("Kamaytirish")}">−</button><span class="num">${q}</span><button data-inc="${p.id}" aria-label="${L("Ko'paytirish")}">+</button></div></div>`).join("")}</div>` : `<div class="empty">${L("Savat bo'sh.")}</div>`}
+    ${sh2.delivery && sh2.pickup ? `<div class="seg"><button data-ful="pickup" aria-pressed="${S.fulfillment === "pickup"}">${L("Olib ketaman")}<small>${L("bepul")}</small></button><button data-ful="delivery" aria-pressed="${S.fulfillment === "delivery"}">${L("Yetkazib bering")}<small>${sh2.delivery_fee ? som(sh2.delivery_fee) : L("bepul")}</small></button></div>`
+      : `<p style="color:var(--muted);margin-top:14px">${sh2.delivery ? L("🚚 Faqat yetkazib berish") : L("🏪 Faqat olib ketish")}</p>`}
+    ${S.fulfillment === "delivery" ? `<div class="field"><label for="addr">${L("Manzil")}</label><textarea id="addr" rows="2" placeholder="${L("Ko'cha, uy, xonadon, mo'ljal")}">${esc(S.address)}</textarea></div>` : ""}
+    <div class="field"><label for="cmt">${L("Izoh (ixtiyoriy)")}</label><input id="cmt" value="${esc(S.comment)}" placeholder="${L("Masalan, otkritkaga yozuv")}"></div>
+    <div style="margin-top:16px"><div class="sum"><span>${L("Mahsulotlar")}</span><span class="num">${som(itemsTotal())}</span></div>
+      ${fee() ? `<div class="sum"><span>${L("Yetkazish")}</span><span class="num">${som(fee())}</span></div>` : ""}
+      <div class="sum total"><span>${L("Jami")}</span><span class="num">${som(total)}</span></div></div>
+    ${under ? `<div class="notice">${L("Eng kam buyurtma {sum}.", { sum: som(sh2.min_order) })}</div>` : ""}
     ${S.error ? `<div class="notice">${esc(S.error)}</div>` : ""}
-    ${!S.user ? loginHtml() : `<button class="btn primary big" style="margin-top:16px" data-order="1" ${!lines.length || under || S.busy ? "disabled" : ""}>${S.busy ? "Yuborilmoqda…" : "Buyurtma berish"}</button>`}
+    ${!S.user ? loginHtml() : `<button class="btn primary big" style="margin-top:16px" data-order="1" ${!lines.length || under || S.busy ? "disabled" : ""}>${S.busy ? L("Yuborilmoqda…") : L("Buyurtma berish")}</button>`}
   </div>`;
 }
 function open(mode) { S.mode = mode; S.error = ""; renderSheet(); if (mode === "mine" && S.user) loadOrders(); }
@@ -220,7 +255,7 @@ async function tgLogin() {
   for (let i = 0; i < 150 && S.tg; i++) {
     await new Promise((r) => setTimeout(r, 2000));
     try { const r = await call(`/auth/telegram/${S.tg.token}`); if (r.status === "done") { S.user = r.user; S.tg = null; renderSheet(); if (S.mode === "mine") loadOrders(); return; } }
-    catch { S.tg = null; S.error = "Kirish muddati tugadi. Qaytadan bosing."; renderSheet(); return; }
+    catch { S.tg = null; S.error = L("Kirish muddati tugadi. Qaytadan bosing."); renderSheet(); return; }
   }
 }
 
@@ -232,11 +267,12 @@ document.addEventListener("click", (e) => {
   else if (d.cat) { S.cat = d.cat; renderList(); document.getElementById(`cat-${d.cat}`)?.scrollIntoView({ behavior: "smooth", block: "start" }); }
   else if (t.id === "go") open("cart");
   else if (t.id === "mine") open("mine");
+  else if (t.id === "lang") switchLang(LANG === "ru" ? "uz" : "ru", true);
   else if (d.back) { S.mode = ""; renderSheet(); }
   else if (d.ful) { S.fulfillment = d.ful; renderSheet(); }
   else if (d.order) placeOrder();
   else if (d.tglogin) tgLogin();
-  else if (d.cancel) (async () => { try { await call(`/orders/${+d.cancel}/cancel`, { method: "POST" }); toast("Buyurtma bekor qilindi"); loadOrders(); } catch (err) { toast(err.message); } })();
+  else if (d.cancel) (async () => { try { await call(`/orders/${+d.cancel}/cancel`, { method: "POST" }); toast(L("Buyurtma bekor qilindi")); loadOrders(); } catch (err) { toast(err.message); } })();
 });
 document.addEventListener("input", (e) => { if (e.target.id === "addr") S.address = e.target.value; if (e.target.id === "cmt") S.comment = e.target.value; });
 
@@ -244,14 +280,28 @@ document.addEventListener("input", (e) => { if (e.target.id === "addr") S.addres
   try {
     S.salon = await call("");
     document.documentElement.style.setProperty("--accent", COLORS[S.salon.kind] || COLORS.other);
-    $("title").textContent = S.salon.name; document.title = `${S.salon.name} · Buyurtma`;
-    if (!S.salon.active) { $("list").innerHTML = `<div class="empty">Onlayn buyurtma vaqtincha ishlamayapti.</div>`; return; }
+    $("title").textContent = S.salon.name; document.title = `${S.salon.name} · ${L("Buyurtma")}`;
+    if (!S.salon.active) { $("list").innerHTML = `<div class="empty">${L("Onlayn buyurtma vaqtincha ishlamayapti.")}</div>`; return; }
     const c = await call("/catalog"); S.products = c.products; S.shop = c.shop;
     S.fulfillment = S.shop.pickup ? "pickup" : "delivery";
     S.user = await call("/auth/me").catch(() => null);
     if (!S.user && TG_INIT) S.user = await call("/auth/webapp", { method: "POST", body: JSON.stringify({ init_data: TG_INIT }) }).catch(() => null);
+    syncLang();
     renderList();
-  } catch (e) { $("list").innerHTML = `<div class="empty">${esc(e.status === 404 ? "Bu biznes onlayn buyurtma qabul qilmaydi." : e.message)}</div>`; }
+  } catch (e) { $("list").innerHTML = `<div class="empty">${esc(e.status === 404 ? L("Bu biznes onlayn buyurtma qabul qilmaydi.") : e.message)}</div>`; }
 })();
+// The language button redraws the page; a signed-in client's bot messages follow the choice.
+const putLang = (l) => call("/me/language", { method: "PUT", body: JSON.stringify({ language: l }) }).then((u) => { S.user.language = u.language; }).catch(() => {});
+function switchLang(l, chosen) {
+  LANG = l; document.documentElement.lang = l;
+  if (chosen) { LANG_CHOSEN = true; store.set("lang", l); if (S.user && S.user.language !== l) putLang(l); }
+  if (S.salon) document.title = `${S.salon.name} · ${L("Buyurtma")}`;
+  if (S.products.length || S.shop) renderList(); else renderBar();
+  renderSheet();
+}
+function syncLang() {
+  if (!S.user?.language || S.user.language === LANG) return;
+  if (LANG_CHOSEN) putLang(LANG); else switchLang(S.user.language, false);
+}
 </script>
 </body>

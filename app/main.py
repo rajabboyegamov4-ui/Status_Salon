@@ -7,7 +7,9 @@ import asyncpg
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.exc import DBAPIError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app import i18n
 from app.config import settings
 from app.notifications import send_due_reminders
 from app.routers import orders, platform, profile, public, schedule, staff, telegram
@@ -37,11 +39,21 @@ _prod = settings.app_env == "production"
 app = FastAPI(title="Salon bron tizimi", lifespan=lifespan,
               docs_url=None if _prod else "/docs", redoc_url=None, openapi_url=None if _prod else "/openapi.json")
 
+def _lang(request) -> str:
+    return i18n.pick(request.headers.get("x-lang"))
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_error(request, exc: StarletteHTTPException):
+    # Pages send X-Lang: ru; the messages are written in Uzbek and translated here.
+    return JSONResponse({"detail": i18n.error(exc.detail, _lang(request))}, status_code=exc.status_code, headers=exc.headers)
+
+
 @app.exception_handler(DBAPIError)
 async def bad_value(request, exc: DBAPIError):
     # e.g. an id far beyond any real row: the database rejects the value, the caller gets a plain 422
     if isinstance(exc.orig.__cause__, asyncpg.exceptions.DataError):
-        return JSONResponse({"detail": "Noto'g'ri qiymat"}, status_code=422)
+        return JSONResponse({"detail": i18n.error("Noto'g'ri qiymat", _lang(request))}, status_code=422)
     raise exc
 
 

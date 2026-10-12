@@ -184,6 +184,7 @@ class UserOut(ORM):
     id: int
     phone: str
     name: str
+    language: str = "uz"
 
 
 # ---------- salon & staff ----------
@@ -205,6 +206,7 @@ class SalonInfo(ORM):
     kind: str = "barber"  # see app/kinds.py
     modules: list[str] = ["booking"]  # booking, orders
     term: str = "Usta"  # what the specialist is called: Usta, Shifokor, Kosmetolog...
+    term_ru: list[str] = []  # the same in Russian: one, many, to whom, whom (Мастер, Мастера, мастеру, мастера)
     client_word: str = "mijoz"  # mijoz | bemor
     sms_login: bool = False  # SMS codes are switched on for this server (fallback when there is no bot)
 
@@ -241,6 +243,7 @@ class StaffOut(ORM):
     master_id: int | None
     is_active: bool
     last_login_at: datetime | None = None
+    language: str = "uz"
 
 
 class StaffMe(StaffOut):
@@ -441,3 +444,7 @@ class PaymentOut(ORM):
     months: int
     note: str
     paid_at: datetime
+
+
+class LanguageIn(BaseModel):
+    language: str = Field(pattern="^(uz|ru)$")

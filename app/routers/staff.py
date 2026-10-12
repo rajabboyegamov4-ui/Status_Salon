@@ -9,12 +9,13 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app import auth
+from app import auth, staffbot
 from app.db import get_session
 from app.models import Booking, Branch, Master, Salon, Staff, User
 from app.notifications import notify_staff, send_cancelled, send_confirmation, send_review_request
 from app.routers.public import SLOT_TAKEN_MESSAGE
 from app.schemas import (
+    LanguageIn,
     AdminBookingCreate,
     AdminBookingOut,
     PasswordChange,
@@ -81,6 +82,18 @@ async def logout(salon: Salon = Depends(get_salon)):
 
 @router.get("/me", response_model=StaffMe)
 async def me(staff: Staff = Depends(auth.current_staff), salon: Salon = Depends(get_salon), session: AsyncSession = Depends(get_session)):
+    return await _me(session, staff, salon)
+
+
+@router.put("/me/language", response_model=StaffMe)
+async def my_language(body: LanguageIn, background: BackgroundTasks, staff: Staff = Depends(auth.current_staff),
+                      salon: Salon = Depends(get_salon), session: AsyncSession = Depends(get_session)):
+    """The panel's language; the bot's messages and buttons follow it."""
+    changed = staff.language != body.language
+    staff.language = body.language
+    await session.commit()
+    if changed and staff.tg_chat_id:
+        background.add_task(staffbot.language_changed, salon.id, staff.id)
     return await _me(session, staff, salon)
 
 
