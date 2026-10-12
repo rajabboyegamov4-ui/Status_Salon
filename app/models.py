@@ -394,7 +394,7 @@ class Lead(Base):
 
     __tablename__ = "leads"
     __table_args__ = (
-        CheckConstraint("status IN ('new', 'talked', 'demo', 'trial', 'paid', 'lost')", name="leads_status_check"),
+        CheckConstraint("status IN ('new', 'talked', 'demo', 'trial', 'paid', 'lost', 'later')", name="leads_status_check"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -409,9 +409,39 @@ class Lead(Base):
     next_step_on: Mapped[date | None] = mapped_column(Date)
     next_step: Mapped[str] = mapped_column(String(200), default="")
     note: Mapped[str] = mapped_column(Text, default="")
+    district: Mapped[str] = mapped_column(String(80), default="", server_default="")  # city or district
+    size: Mapped[str] = mapped_column(String(10), default="", server_default="")  # small | medium | large
+    staff_count: Mapped[int | None] = mapped_column(SmallInteger)
+    source: Mapped[str] = mapped_column(String(40), default="", server_default="")  # where we found it: 2GIS, Instagram...
+    how_now: Mapped[str] = mapped_column(String(40), default="", server_default="")  # how they keep bookings today
+    lost_reason: Mapped[str] = mapped_column(String(200), default="", server_default="")
     created_by: Mapped[int | None] = mapped_column(ForeignKey("platform_users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class LeadNote(Base):
+    """One conversation with a lead: a call, a meeting, a message, a demo."""
+
+    __tablename__ = "lead_notes"
+    __table_args__ = (CheckConstraint("kind IN ('call', 'meeting', 'message', 'demo')", name="lead_notes_kind_check"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    lead_id: Mapped[int] = mapped_column(ForeignKey("leads.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(10), default="call")
+    text: Mapped[str] = mapped_column(Text)
+    day: Mapped[date] = mapped_column(Date)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("platform_users.id"))  # None: the owner
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PlatformSetting(Base):
+    """The team's own settings, e.g. the money goal on the dashboard."""
+
+    __tablename__ = "platform_settings"
+
+    key: Mapped[str] = mapped_column(String(40), primary_key=True)
+    value: Mapped[str] = mapped_column(String(200))
 
 
 class Payment(Base):

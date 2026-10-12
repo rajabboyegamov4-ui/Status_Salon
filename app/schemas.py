@@ -376,7 +376,8 @@ class TeamOut(ORM):
     last_login_at: datetime | None = None
 
 
-LeadStatus = Literal["new", "talked", "demo", "trial", "paid", "lost"]
+LeadStatus = Literal["new", "talked", "demo", "trial", "paid", "lost", "later"]
+LeadSize = Literal["", "small", "medium", "large"]
 
 
 class LeadIn(BaseModel):
@@ -390,6 +391,12 @@ class LeadIn(BaseModel):
     next_step_on: date | None = None
     next_step: str = Field("", max_length=200)
     note: str = Field("", max_length=4000)
+    district: str = Field("", max_length=80)
+    size: LeadSize = ""
+    staff_count: int | None = Field(None, ge=0, le=10000)
+    source: str = Field("", max_length=40)
+    how_now: str = Field("", max_length=40)
+    lost_reason: str = Field("", max_length=200)
 
     @field_validator("kind")
     @classmethod
@@ -410,6 +417,13 @@ class LeadPatch(BaseModel):
     clear_next_step_on: bool = False
     next_step: str | None = Field(None, max_length=200)
     note: str | None = Field(None, max_length=4000)
+    district: str | None = Field(None, max_length=80)
+    size: LeadSize | None = None
+    staff_count: int | None = Field(None, ge=0, le=10000)
+    clear_staff_count: bool = False
+    source: str | None = Field(None, max_length=40)
+    how_now: str | None = Field(None, max_length=40)
+    lost_reason: str | None = Field(None, max_length=200)
 
     @field_validator("kind")
     @classmethod
@@ -432,8 +446,47 @@ class LeadOut(ORM):
     next_step_on: date | None
     next_step: str
     note: str
+    district: str = ""
+    size: str = ""
+    staff_count: int | None = None
+    source: str = ""
+    how_now: str = ""
+    lost_reason: str = ""
+    notes_count: int = 0
+    last_note_on: date | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class LeadImport(BaseModel):
+    leads: list[LeadIn] = Field(min_length=1, max_length=1000)
+    assigned_to: int | None = None  # everyone imported goes to this person (owner and partner only)
+
+
+class LeadImportOut(BaseModel):
+    created: int
+    skipped: int  # already in the list (same name, or same phone)
+
+
+class LeadNoteIn(BaseModel):
+    kind: Literal["call", "meeting", "message", "demo"] = "call"
+    text: str = Field(min_length=1, max_length=2000)
+    day: date | None = None
+
+
+class LeadNoteOut(ORM):
+    id: int
+    lead_id: int
+    kind: str
+    text: str
+    day: date
+    user_id: int | None
+    user_name: str = ""
+    created_at: datetime
+
+
+class GoalIn(BaseModel):
+    goal: int = Field(ge=0, le=100_000_000_000)
 
 
 class PaymentOut(ORM):

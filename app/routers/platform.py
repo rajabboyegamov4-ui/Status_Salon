@@ -15,11 +15,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import auth
 from app.auth import PlatformPrincipal, platform_manager, platform_user
 from app.db import get_session
-from app.models import Booking, Lead, Payment, PlatformUser, Salon, Staff
+from app.models import Booking, Lead, LeadNote, Payment, PlatformSetting, PlatformUser, Salon, Staff
 from app.ratelimit import client_ip
 from app.routers.telegram import BotError, attach_bot, refresh_menu
 from app.schemas import (
+    GoalIn,
+    LeadImport,
+    LeadImportOut,
     LeadIn,
+    LeadNoteIn,
+    LeadNoteOut,
     LeadOut,
     LeadPatch,
     PaymentOut,
@@ -37,6 +42,7 @@ from app.security import hash_password
 from app.services import team
 from app.services.availability import now_utc
 from app.tenancy import salon_today, subscription_active, validate_slug
+from app.text import strip_controls
 from app.telegram import unseal
 
 router = APIRouter(prefix="/platform", tags=["platform"])
@@ -201,10 +207,28 @@ async def take_bot(salon_id: int, body: TakeBot, who: PlatformPrincipal = Depend
 
 # ---------- leads ----------
 
+async def _lead_outs(session: AsyncSession, leads: list[Lead]) -> list[LeadOut]:
+    """Names, demo addresses and conversation counts for many leads in three queries."""
+    ids = [x.id for x in leads]
+    names = dict((await session.execute(select(PlatformUser.id, PlatformUser.name))).all())
+    slugs = dict((await session.execute(select(Salon.id, Salon.slug).where(
+        Salon.id.in_([x.salon_id for x in leads if x.salon_id])))).all()) if ids else {}
+    notes = {k: (n, d) for k, n, d in (await session.execute(
+        select(LeadNote.lead_id, func.count(), func.max(LeadNote.day)).where(LeadNote.lead_id.in_(ids)).group_by(LeadNote.lead_id))).all()} if ids else {}
+    return [LeadOut.model_validate(x).model_copy(update={
+        "assigned_name": names.get(x.assigned_to, "") if x.assigned_to else "", "salon_slug": slugs.get(x.salon_id, ""),
+        "notes_count": notes.get(x.id, (0, None))[0], "last_note_on": notes.get(x.id, (0, None))[1]}) for x in leads]
+
+
 async def _lead_out(session: AsyncSession, lead: Lead) -> LeadOut:
-    name = await session.scalar(select(PlatformUser.name).where(PlatformUser.id == lead.assigned_to)) if lead.assigned_to else ""
-    slug = await session.scalar(select(Salon.slug).where(Salon.id == lead.salon_id)) if lead.salon_id else ""
-    return LeadOut.model_validate(lead).model_copy(update={"assigned_name": name or "", "salon_slug": slug or ""})
+    return (await _lead_outs(session, [lead]))[0]
+
+
+TEXT_FIELDS = ("name", "phone", "contact", "address", "next_step", "note", "district", "source", "how_now", "lost_reason")
+
+
+def _clean(data: dict) -> dict:
+    return {k: (strip_controls(v).strip() if k in TEXT_FIELDS and isinstance(v, str) else v) for k, v in data.items()}
 
 
 async def _check_assignee(session: AsyncSession, who: PlatformPrincipal, user_id: int | None) -> int | None:
@@ -222,12 +246,12 @@ async def leads(who: PlatformPrincipal = Depends(platform_user), session: AsyncS
     stmt = select(Lead).order_by(Lead.next_step_on.is_(None), Lead.next_step_on, Lead.updated_at.desc())
     if not who.manager:
         stmt = stmt.where(or_(Lead.assigned_to == who.id, Lead.created_by == who.id))
-    return [await _lead_out(session, x) for x in (await session.scalars(stmt)).all()]
+    return await _lead_outs(session, list((await session.scalars(stmt)).all()))
 
 
 @router.post("/leads", response_model=LeadOut, status_code=201)
 async def lead_create(body: LeadIn, who: PlatformPrincipal = Depends(platform_user), session: AsyncSession = Depends(get_session)):
-    data = body.model_dump()
+    data = _clean(body.model_dump())
     data["assigned_to"] = await _check_assignee(session, who, body.assigned_to)
     if data["status"] in ("trial", "paid") and not who.manager:
         data["status"] = "demo"
@@ -242,22 +266,78 @@ async def lead_create(body: LeadIn, who: PlatformPrincipal = Depends(platform_us
 async def lead_update(lead_id: int, body: LeadPatch, who: PlatformPrincipal = Depends(platform_user),
                       session: AsyncSession = Depends(get_session)):
     lead = await _my_lead(session, who, lead_id)
-    data = body.model_dump(exclude_unset=True, exclude={"clear_assignee", "clear_next_step_on"})
+    data = _clean(body.model_dump(exclude_unset=True, exclude={"clear_assignee", "clear_next_step_on", "clear_staff_count"}))
     if "assigned_to" in data:
         data["assigned_to"] = await _check_assignee(session, who, data["assigned_to"])
     if body.clear_assignee and who.manager:
         data["assigned_to"] = None
     if body.clear_next_step_on:
         data["next_step_on"] = None
+    if body.clear_staff_count:
+        data["staff_count"] = None
     if data.get("status") == "paid" and not who.manager:
         raise HTTPException(403, "To'lovni platforma egasi yoki sherigi belgilaydi")
     for key, value in data.items():
-        if value is not None or key in ("assigned_to", "next_step_on"):
+        if value is not None or key in ("assigned_to", "next_step_on", "staff_count"):
             setattr(lead, key, value)
     lead.updated_at = now_utc()
     await session.commit()
     await session.refresh(lead)
     return await _lead_out(session, lead)
+
+
+def _same(name: str) -> str:
+    return " ".join(name.lower().replace("ʻ", "'").replace("‘", "'").replace("`", "'").split())
+
+
+@router.post("/leads/import", response_model=LeadImportOut)
+async def lead_import(body: LeadImport, who: PlatformPrincipal = Depends(platform_user), session: AsyncSession = Depends(get_session)):
+    """A list from a spreadsheet or the maps: a business already in the list (same name or phone) is skipped."""
+    assignee = await _check_assignee(session, who, body.assigned_to)
+    known = (await session.execute(select(Lead.name, Lead.phone))).all()
+    digits = lambda v: "".join(ch for ch in v if ch.isdigit())  # noqa: E731
+    names, phones = {_same(n) for n, _ in known}, {digits(p)[-9:] for _, p in known if len(digits(p)) >= 9}
+    created = skipped = 0
+    for item in body.leads:
+        data = _clean(item.model_dump())
+        phone = digits(data["phone"])
+        if _same(data["name"]) in names or (len(phone) >= 9 and phone[-9:] in phones):
+            skipped += 1
+            continue
+        names.add(_same(data["name"]))
+        if len(phone) >= 9:
+            phones.add(phone[-9:])
+        if data["status"] in ("trial", "paid"):
+            data["status"] = "new"
+        data["assigned_to"] = assignee
+        session.add(Lead(**data, created_by=who.id))
+        created += 1
+    await session.commit()
+    return LeadImportOut(created=created, skipped=skipped)
+
+
+@router.get("/leads/{lead_id}/notes", response_model=list[LeadNoteOut])
+async def lead_notes(lead_id: int, who: PlatformPrincipal = Depends(platform_user), session: AsyncSession = Depends(get_session)):
+    await _my_lead(session, who, lead_id)
+    names = dict((await session.execute(select(PlatformUser.id, PlatformUser.name))).all())
+    rows = (await session.scalars(select(LeadNote).where(LeadNote.lead_id == lead_id)
+                                  .order_by(LeadNote.day.desc(), LeadNote.id.desc()))).all()
+    return [LeadNoteOut.model_validate(n).model_copy(update={"user_name": names.get(n.user_id, "") if n.user_id else "Ega"}) for n in rows]
+
+
+@router.post("/leads/{lead_id}/notes", response_model=LeadNoteOut, status_code=201)
+async def lead_note_add(lead_id: int, body: LeadNoteIn, who: PlatformPrincipal = Depends(platform_user),
+                        session: AsyncSession = Depends(get_session)):
+    """What was said; the first conversation moves a new lead to "talked"."""
+    lead = await _my_lead(session, who, lead_id)
+    note = LeadNote(lead_id=lead.id, kind=body.kind, text=strip_controls(body.text).strip(), day=body.day or salon_today(), user_id=who.id)
+    session.add(note)
+    if lead.status in ("new", "later"):
+        lead.status = "talked"
+    lead.updated_at = now_utc()
+    await session.commit()
+    await session.refresh(note)
+    return LeadNoteOut.model_validate(note).model_copy(update={"user_name": who.name if who.id else "Ega"})
 
 
 # ---------- the team ----------
@@ -328,9 +408,23 @@ async def stats(who: PlatformPrincipal = Depends(platform_user), session: AsyncS
     out = {"leads": by_status, "due_today": await session.scalar(due) or 0,
            "demos": await session.scalar(select(func.count()).select_from(Salon).where(Salon.is_demo)) or 0}
     if who.manager:
+        goal = await session.get(PlatformSetting, "goal")
+        out["goal"] = int(goal.value) if goal else 0
         month_ago = now_utc() - timedelta(days=30)
         out["paying"] = await session.scalar(select(func.count()).select_from(Salon).where(
             Salon.is_demo.is_(False), Salon.is_active, Salon.paid_until >= today)) or 0
         out["income_30d"] = int(await session.scalar(select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.paid_at > month_ago)) or 0)
         out["income_total"] = int(await session.scalar(select(func.coalesce(func.sum(Payment.amount), 0))) or 0)
     return out
+
+
+@router.put("/goal", response_model=GoalIn)
+async def set_goal(body: GoalIn, who: PlatformPrincipal = Depends(platform_manager), session: AsyncSession = Depends(get_session)):
+    """The money goal on the dashboard (0 hides it)."""
+    row = await session.get(PlatformSetting, "goal")
+    if row is None:
+        session.add(PlatformSetting(key="goal", value=str(body.goal)))
+    else:
+        row.value = str(body.goal)
+    await session.commit()
+    return body
