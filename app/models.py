@@ -419,6 +419,7 @@ class Lead(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+
 class LeadNote(Base):
     """One conversation with a lead: a call, a meeting, a message, a demo."""
 
