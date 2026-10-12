@@ -20,14 +20,15 @@ def panel_url(salon: Salon, staff: Staff) -> str:
     base = settings.public_url.rstrip("/")
     if not base.startswith("https://"):
         return ""
+    q = "?lang=ru" if staff.language == "ru" else ""  # the page opens in the staff member's language at once
     if "booking" not in _modules(salon):
-        return f"{base}/{salon.slug}/buyurtmalar"
-    return f"{base}/{salon.slug}/{'admin' if staff.role in MANAGERS else 'panel'}"
+        return f"{base}/{salon.slug}/buyurtmalar{q}"
+    return f"{base}/{salon.slug}/{'admin' if staff.role in MANAGERS else 'panel'}{q}"
 
 
-def orders_url(salon: Salon) -> str:
+def orders_url(salon: Salon, lang: str = "uz") -> str:
     base = settings.public_url.rstrip("/")
-    return f"{base}/{salon.slug}/buyurtmalar" if base.startswith("https://") else ""
+    return f"{base}/{salon.slug}/buyurtmalar" + ("?lang=ru" if lang == "ru" else "") if base.startswith("https://") else ""
 
 
 def order_buttons(salon: Salon, staff: Staff, order_id: int, status: str, fulfillment: str) -> list[list[dict]]:
@@ -42,7 +43,7 @@ def order_buttons(salon: Salon, staff: Staff, order_id: int, status: str, fulfil
         "delivering": [given],
     }.get(status, [])
     rows = [[{"text": t, "callback_data": d} for t, d in step]] if step else []
-    url = orders_url(salon)
+    url = orders_url(salon, staff.language)
     if url and staff.role in MANAGERS:
         rows.append([{"text": t(staff.language, "sk.orders"), "web_app": {"url": url}}])
     return rows

@@ -3,6 +3,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600&display=swap">
 <style>
+.lang-btn{float:right;border:1px solid currentColor;background:none;color:inherit;border-radius:99px;padding:3px 10px;font:600 12px/1.4 inherit;opacity:.75;cursor:pointer}
+
 /* Layout: the orders desk for owner and administrators. Tabs (Ochiq, Yopilgan, Mahsulotlar, Sozlamalar);
    open orders as columns by step on a wide screen and one list on a phone; each card carries its next-step button. */
 :root{
@@ -165,12 +167,12 @@ function mainHtml() {
   const tabs = [["open", "Ochiq", S.open.length], ["closed", "Yopilgan", 0], ["products", "Mahsulotlar", 0], ["settings", "Sozlamalar", 0]];
   const view = S.tab === "closed" ? closedHtml() : S.tab === "products" ? productsHtml() : S.tab === "settings" ? settingsHtml() : openHtml();
   return `<div class="wrap"><div class="top"><h1><small>Buyurtmalar</small>${bdi(S.salon?.name || "")}</h1>
-      ${S.salon?.modules?.includes("booking") ? `<a class="btn" href="/${esc(SLUG)}/admin" style="text-decoration:none">Bronlar</a>` : ""}<button class="btn" data-logout="1">Chiqish</button></div>
+      ${S.salon?.modules?.includes("booking") ? `<a class="btn" href="/${esc(SLUG)}/admin" style="text-decoration:none">Bronlar</a>` : ""}<button class="btn" data-lang-toggle="1">${window.langButtonText ? langButtonText() : "RU"}</button><button class="btn" data-logout="1">Chiqish</button></div>
     <nav class="tabs">${tabs.map(([k, l, n]) => `<button data-tab="${k}" aria-current="${S.tab === k ? "page" : "false"}">${l}${n ? `<span class="n num">${n}</span>` : ""}</button>`).join("")}</nav>
     ${S.error && !S.drawer ? `<div class="notice">${esc(S.error)}</div>` : ""}${view}</div>`;
 }
 function loginHtml() {
-  return `<form class="login" id="lform"><h1>${bdi(S.salon?.name || "Buyurtmalar")}</h1><p class="muted" style="margin:0;color:var(--muted)">Rahbar yoki administrator logini bilan kiring.</p>
+  return `<form class="login" id="lform"><button type="button" class="lang-btn" data-lang-toggle="1">${window.langButtonText ? langButtonText() : "RU"}</button><h1>${bdi(S.salon?.name || "Buyurtmalar")}</h1><p class="muted" style="margin:0;color:var(--muted)">Rahbar yoki administrator logini bilan kiring.</p>
     ${S.error ? `<div class="notice">${esc(S.error)}</div>` : ""}
     <div class="field"><label for="l1">Login</label><input id="l1" autocapitalize="none" autocomplete="username" value="${esc(S.login.login)}"></div>
     <div class="field"><label for="l2">Parol</label><input id="l2" type="password" autocomplete="current-password"></div>

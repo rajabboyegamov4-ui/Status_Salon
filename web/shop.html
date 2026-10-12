@@ -100,7 +100,11 @@ let LANG_CHOSEN = false;
 let LANG = (() => {
   try {
     const q = new URLSearchParams(location.search).get("lang");
-    if (LANGS.includes(q)) { localStorage.setItem("lang", q); LANG_CHOSEN = true; return q; }
+    if (LANGS.includes(q)) {  // from the bot's button: remembered, then dropped from the address so a later switch sticks
+      localStorage.setItem("lang", q); LANG_CHOSEN = true;
+      try { const u = new URL(location.href); u.searchParams.delete("lang"); history.replaceState(history.state, "", u); } catch { /* sandboxed */ }
+      return q;
+    }
     const s = localStorage.getItem("lang"); if (LANGS.includes(s)) { LANG_CHOSEN = true; return s; }
   } catch { /* storage off */ }
   return /^(ru|uk|be|kk)/i.test(navigator.language || "") ? "ru" : "uz";

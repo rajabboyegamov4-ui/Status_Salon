@@ -71,8 +71,13 @@ async def health():
 WEB = Path(__file__).resolve().parent.parent / "web"
 
 
+STAFF_PAGES = {"admin.html", "panel.html", "buyurtmalar.html"}
+
+
 def _page(name: str) -> str:
     body = (WEB / name).read_text(encoding="utf-8")
+    if name in STAFF_PAGES:  # Russian for the staff pages: runs before the page's own script
+        body = f"<script>{(WEB / 'staff-i18n.js').read_text(encoding='utf-8')}</script>" + body
     return f'<!doctype html><html lang="uz"><head><meta charset="utf-8">{body}</html>'
 
 
