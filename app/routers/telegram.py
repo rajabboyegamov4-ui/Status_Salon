@@ -13,8 +13,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app import auth, staffbot, telegram
+from app import auth, i18n, staffbot, telegram
 from app.config import settings
+from app.i18n import t
 from app.db import get_session
 from app.models import Booking, Salon, Staff, TgLogin, User
 from app.notifications import _when, notify_staff
@@ -49,41 +50,51 @@ class BotState(BaseModel):
     me_link: str = ""  # open it in Telegram to start getting them
 
 
-def site_url(salon: Salon) -> str:
+def site_url(salon: Salon, lang: str = "uz") -> str:
     """The booking page; Telegram opens it inside the bot as a Mini App (needs an https address)."""
     base = settings.public_url.rstrip("/")
-    return f"{base}/{salon.slug}" if base.startswith("https://") else ""
+    if not base.startswith("https://"):
+        return ""
+    return f"{base}/{salon.slug}" + ("?lang=ru" if lang == "ru" else "")
 
 
 def _mods(salon: Salon) -> list[str]:
     return (salon.modules or "booking").split(",")
 
 
-def shop_url(salon: Salon) -> str:
-    url = site_url(salon)
-    return f"{url}/shop" if url else ""
+def shop_url(salon: Salon, lang: str = "uz") -> str:
+    base = site_url(salon)
+    return f"{base}/shop" + ("?lang=ru" if lang == "ru" else "") if base else ""
 
 
-def book_button(salon: Salon) -> dict | None:
-    """What a client can do here: book, order, or both."""
+def book_button(salon: Salon, lang: str = "uz", switch: bool = False) -> dict | None:
+    """What a client can do here: book, order, or both; `switch` adds the other language underneath."""
     row = []
     if "booking" in _mods(salon) and site_url(salon):
-        row.append({"text": "📅 Bron qilish", "web_app": {"url": site_url(salon)}})
+        row.append({"text": t(lang, "btn.book"), "web_app": {"url": site_url(salon, lang)}})
     if "orders" in _mods(salon) and shop_url(salon):
-        row.append({"text": "🛍 Buyurtma berish", "web_app": {"url": shop_url(salon)}})
-    return {"inline_keyboard": [row]} if row else None
+        row.append({"text": t(lang, "btn.order"), "web_app": {"url": shop_url(salon, lang)}})
+    rows = [row] if row else []
+    if switch:
+        rows.append([lang_button(lang)])
+    return {"inline_keyboard": rows} if rows else None
 
 
-def action_word(salon: Salon) -> str:
+def lang_button(lang: str) -> dict:
+    other = "uz" if lang == "ru" else "ru"
+    return {"text": "🇺🇿 O'zbekcha" if other == "uz" else "🇷🇺 Русский", "callback_data": f"lang:{other}"}
+
+
+def action_word(salon: Salon, lang: str = "uz") -> str:
     m = _mods(salon)
-    return "Bron yoki buyurtma" if "booking" in m and "orders" in m else "Buyurtma berish" if "orders" in m else "Bron qilish"
+    return t(lang, "act.both" if "booking" in m and "orders" in m else "act.order" if "orders" in m else "act.book")
 
 
-def menu_target(salon: Salon) -> tuple[str, str]:
+def menu_target(salon: Salon, lang: str = "uz") -> tuple[str, str]:
     """The round button next to the message box: the shop for an orders-only business, else booking."""
     if "booking" not in _mods(salon) and shop_url(salon):
-        return "Buyurtma", shop_url(salon)
-    return "Bron qilish", site_url(salon)
+        return t(lang, "menu.order"), shop_url(salon, lang)
+    return t(lang, "menu.book"), site_url(salon, lang)
 
 
 # ---------- staff: get new-booking messages in the salon's bot ----------
@@ -238,7 +249,8 @@ class LoginState(BaseModel):
 
 
 @router.post("/s/{slug}/auth/telegram", response_model=LoginStart)
-async def login_start(request: Request, salon: Salon = Depends(active_salon), session: AsyncSession = Depends(get_session)):
+async def login_start(request: Request, salon: Salon = Depends(active_salon), session: AsyncSession = Depends(get_session),
+                      x_lang: str = Header("uz")):
     if not salon.tg_token_sealed:
         raise HTTPException(409, "Salon boti hali ulanmagan. Iltimos, salonga qo'ng'iroq qiling.")
     key = f"{client_ip(request)}|{salon.id}"
@@ -246,7 +258,7 @@ async def login_start(request: Request, salon: Salon = Depends(active_salon), se
         raise HTTPException(429, "Juda ko'p urinish. Birozdan keyin qayta urinib ko'ring.")
     LOGIN_PER_IP.hit(key)
     token = telegram.new_secret()[:40]
-    session.add(TgLogin(salon_id=salon.id, token=token, expires_at=now_utc() + LOGIN_TTL))
+    session.add(TgLogin(salon_id=salon.id, token=token, language=i18n.pick(x_lang), expires_at=now_utc() + LOGIN_TTL))
     await session.commit()
     return LoginStart(token=token, url=f"https://t.me/{salon.tg_bot_username}?start={token}", bot=salon.tg_bot_username)
 
@@ -330,8 +342,24 @@ async def staff_webapp_login(
 
 # ---------- webhook: what the salon's bot receives ----------
 
-def _contact_keyboard() -> dict:
-    return {"keyboard": [[{"text": "📱 Raqamni yuborish", "request_contact": True}]], "resize_keyboard": True, "one_time_keyboard": True}
+# A new client picks a language before sharing their number; kept here until the number arrives
+# (after a restart the Telegram app's language is used instead).
+_CHOSEN: dict[tuple[int, int], str] = {}
+LANG_WORDS = {"🇷🇺 русский": "ru", "русский": "ru", "/ru": "ru", "🇺🇿 o'zbekcha": "uz", "o'zbekcha": "uz", "/uz": "uz"}
+
+
+def _remember_lang(salon_id: int, chat_id: int, lang: str) -> None:
+    if len(_CHOSEN) > 50_000:
+        _CHOSEN.clear()
+    _CHOSEN[(salon_id, chat_id)] = lang
+
+
+def _contact_keyboard(lang: str = "uz") -> dict:
+    return {"keyboard": [[{"text": t(lang, "btn.contact"), "request_contact": True}]], "resize_keyboard": True, "one_time_keyboard": True}
+
+
+def _lang_choice() -> dict:
+    return {"inline_keyboard": [[{"text": "🇺🇿 O'zbekcha", "callback_data": "lang:uz"}, {"text": "🇷🇺 Русский", "callback_data": "lang:ru"}]]}
 
 
 async def _reply(token: str, chat_id: int, text: str, markup: dict | None = None) -> None:
@@ -342,6 +370,17 @@ async def _reply(token: str, chat_id: int, text: str, markup: dict | None = None
         await telegram.get_tg().call(token, "sendMessage", **params)
     except telegram.TelegramError:
         pass
+
+
+async def _chat_menu(salon: Salon, token: str, chat_id: int, lang: str) -> None:
+    """The round button of this one chat, in the client's language."""
+    label, target = menu_target(salon, lang)
+    if target:
+        try:
+            await telegram.get_tg().call(token, "setChatMenuButton", chat_id=chat_id,
+                                         menu_button={"type": "web_app", "text": label, "web_app": {"url": target}})
+        except telegram.TelegramError:
+            pass
 
 
 @router.post("/tg/{salon_id}", status_code=200, include_in_schema=False)
@@ -365,6 +404,11 @@ async def webhook(
     return {}
 
 
+def _guess(salon: Salon, chat_id: int, msg_from: dict) -> str:
+    """Before a client is known: the language they picked, else their Telegram app's language."""
+    return _CHOSEN.get((salon.id, chat_id)) or i18n.norm(msg_from.get("language_code"))
+
+
 async def _on_message(session: AsyncSession, salon: Salon, token: str, msg: dict) -> None:
     chat_id, text = msg["chat"]["id"], (msg.get("text") or "").strip()
     if msg.get("chat", {}).get("type") != "private":
@@ -373,34 +417,42 @@ async def _on_message(session: AsyncSession, salon: Salon, token: str, msg: dict
     if text.startswith("/start"):
         code = text[6:].strip()
         if STAFF_CODE_RE.match(code):
-            await _link_staff(session, salon, token, chat_id, code)
+            await _link_staff(session, salon, token, chat_id, code, msg.get("from") or {})
             return
         login = await session.scalar(
             select(TgLogin).where(TgLogin.token == code, TgLogin.salon_id == salon.id, TgLogin.status == "pending", TgLogin.expires_at > now)
         ) if code else None
         if login is None:
-            await _greet(session, salon, token, chat_id)
+            await _greet(session, salon, token, chat_id, msg.get("from") or {})
             return
         login.chat_id = chat_id
+        lang = i18n.pick(login.language)  # the language of the site they came from
         known = await session.scalar(select(User).where(User.salon_id == salon.id, User.tg_chat_id == chat_id))
         if known:  # this chat already shared its number: one tap to confirm, so a link sent by someone else can't log them in
+            known.language = lang
             await session.commit()
-            await _reply(token, chat_id, _confirm_text(salon), {"inline_keyboard": [[{"text": "✅ Ha, kirish", "callback_data": f"login:{login.token}"}]]})
+            await _reply(token, chat_id, t(lang, "login.confirm", name=html.escape(salon.name)),
+                         {"inline_keyboard": [[{"text": t(lang, "btn.login_yes"), "callback_data": f"login:{login.token}"}]]})
             return
         await session.commit()
-        await _reply(token, chat_id, f"<b>{html.escape(salon.name)}</b> saytiga kirish uchun telefon raqamingizni yuboring 👇", _contact_keyboard())
+        _remember_lang(salon.id, chat_id, lang)
+        await _reply(token, chat_id, t(lang, "login.share", name=html.escape(salon.name)), _contact_keyboard(lang))
         return
     if text and await staffbot.on_text(session, salon, token, chat_id, text):
         return
+    if text.lower() in LANG_WORDS or text.lower() in ("/til", "/lang", "/language"):
+        await _set_lang(session, salon, token, chat_id, LANG_WORDS.get(text.lower()), msg.get("from") or {})
+        return
     contact = msg.get("contact")
     if contact:
+        lang = _guess(salon, chat_id, msg.get("from") or {})
         if contact.get("user_id") != msg.get("from", {}).get("id"):
-            await _reply(token, chat_id, "Faqat o'zingizning raqamingizni yuboring: pastdagi tugmani bosing.", _contact_keyboard())
+            await _reply(token, chat_id, t(lang, "contact.own"), _contact_keyboard(lang))
             return
         try:
             phone = auth.normalize_phone(contact.get("phone_number", ""), foreign=True)
         except auth.AuthError:
-            await _reply(token, chat_id, "Telefon raqamingizni qabul qila olmadik. Iltimos, salonga qo'ng'iroq qiling.", {"remove_keyboard": True})
+            await _reply(token, chat_id, t(lang, "contact.bad"), {"remove_keyboard": True})
             return
         name = clean_name(" ".join(x for x in (contact.get("first_name"), contact.get("last_name")) if x))
         user = await session.scalar(select(User).where(User.salon_id == salon.id, User.phone == phone))
@@ -409,6 +461,7 @@ async def _on_message(session: AsyncSession, salon: Salon, token: str, msg: dict
             session.add(user)
         elif not user.name:
             user.name = name
+        user.language = lang
         # One chat belongs to one client of this salon.
         await session.execute(update(User).where(User.salon_id == salon.id, User.tg_chat_id == chat_id, User.phone != phone).values(tg_chat_id=None))
         user.tg_chat_id = chat_id
@@ -420,74 +473,97 @@ async def _on_message(session: AsyncSession, salon: Salon, token: str, msg: dict
         if login:
             login.user_id, login.status = user.id, "done"
         await session.commit()
+        _CHOSEN.pop((salon.id, chat_id), None)
+        if lang != i18n.DEFAULT:
+            await _chat_menu(salon, token, chat_id, lang)
         if login:
-            await _reply(token, chat_id, "✅ Rahmat! Saytga qayting, bron shu yerdan davom etadi.\nTasdiq va eslatmalar shu chatga keladi.", {"remove_keyboard": True})
+            await _reply(token, chat_id, t(lang, "contact.login_ok"), {"remove_keyboard": True})
             return
-        await _reply(token, chat_id, "✅ Obuna bo'ldingiz! Tasdiq va eslatmalar shu chatga keladi.", {"remove_keyboard": True})
-        await _reply(token, chat_id, f"{action_word(salon)} uchun pastdagi tugmani bosing 👇", book_button(salon))
+        await _reply(token, chat_id, t(lang, "contact.subscribed"), {"remove_keyboard": True})
+        await _reply(token, chat_id, t(lang, "press.button", act=action_word(salon, lang)), book_button(salon, lang, switch=True))
         return
-    known = await session.scalar(select(User.id).where(User.salon_id == salon.id, User.tg_chat_id == chat_id))
-    if known is None:
-        await _greet(session, salon, token, chat_id)
+    user = await session.scalar(select(User).where(User.salon_id == salon.id, User.tg_chat_id == chat_id))
+    if user is None:
+        await _greet(session, salon, token, chat_id, msg.get("from") or {})
         return
-    await _reply(token, chat_id, f"{action_word(salon)} uchun pastdagi tugmani bosing. Xabarlar shu yerga keladi.", book_button(salon))
+    lang = i18n.pick(user.language)
+    await _reply(token, chat_id, t(lang, "press.button.msgs", act=action_word(salon, lang)), book_button(salon, lang, switch=True))
 
 
-async def _greet(session: AsyncSession, salon: Salon, token: str, chat_id: int) -> None:
-    """A plain /start: a known client gets the booking button, a new one is asked for their number first."""
+async def _greet(session: AsyncSession, salon: Salon, token: str, chat_id: int, msg_from: dict, chosen: str | None = None) -> None:
+    """A plain /start: staff get their menu, a known client the booking button, a new one picks a language
+    and is asked for their number."""
     name = html.escape(salon.name)
     staff = await staffbot.staff_of_chat(session, salon, chat_id)
     if staff:
-        await staffbot.send_menu(salon, token, chat_id, staff, f"Assalomu alaykum, {html.escape(iso(staff.name))}! <b>{name}</b> boshqaruvi pastdagi tugmalarda.")
+        await staffbot.send_menu(salon, token, chat_id, staff, t(staff.language, "s.hello", who=html.escape(iso(staff.name)), name=name))
         return
     user = await session.scalar(select(User).where(User.salon_id == salon.id, User.tg_chat_id == chat_id))
     if user:
+        lang = i18n.pick(user.language)
         hello = f", {html.escape(iso(user.name))}" if user.name else ""
-        await _reply(token, chat_id, f"Assalomu alaykum{hello}! <b>{name}</b> ga xush kelibsiz.\n{action_word(salon)} uchun pastdagi tugmani bosing 👇", book_button(salon))
+        await _reply(token, chat_id, t(lang, "hello.known", hello=hello, name=name, act=action_word(salon, lang)),
+                     book_button(salon, lang, switch=True))
         return
-    await _reply(token, chat_id, f"Assalomu alaykum! Bu <b>{name}</b> boti.\nObuna bo'lish uchun telefon raqamingizni yuboring 👇", _contact_keyboard())
+    if chosen is None and (salon.id, chat_id) not in _CHOSEN:
+        await _reply(token, chat_id, f"<b>{name}</b>\n\nTilni tanlang 👇\nВыберите язык 👇", _lang_choice())
+        return
+    lang = chosen or _guess(salon, chat_id, msg_from)
+    await _reply(token, chat_id, t(lang, "hello.new", name=name), _contact_keyboard(lang))
 
 
-async def _link_staff(session: AsyncSession, salon: Salon, token: str, chat_id: int, code: str) -> None:
+async def _set_lang(session: AsyncSession, salon: Salon, token: str, chat_id: int, lang: str | None, msg_from: dict) -> None:
+    """A client (or someone about to become one) switched the language; with none given, the choice is shown."""
+    if lang is None:
+        await _reply(token, chat_id, "Tilni tanlang 👇\nВыберите язык 👇", _lang_choice())
+        return
+    _remember_lang(salon.id, chat_id, lang)
+    user = await session.scalar(select(User).where(User.salon_id == salon.id, User.tg_chat_id == chat_id))
+    if user:
+        user.language = lang
+        await session.commit()
+        await _chat_menu(salon, token, chat_id, lang)
+    await _greet(session, salon, token, chat_id, msg_from, chosen=lang)
+
+
+async def _link_staff(session: AsyncSession, salon: Salon, token: str, chat_id: int, code: str, msg_from: dict) -> None:
     head, _, sig = code[2:].partition("_")
     staff = await session.get(Staff, int(head)) if head.isdigit() else None
     if staff is None or staff.salon_id != salon.id or not staff.is_active or not hmac.compare_digest(sig, _staff_sig(staff)):
-        await _reply(token, chat_id, "Havola eskirgan. Admin paneldagi \"Telegram'da xabar olish\" tugmasini qaytadan bosing.")
+        await _reply(token, chat_id, t(i18n.norm(msg_from.get("language_code")), "s.link_old"))
         return
     staff.tg_chat_id = chat_id
     await session.commit()
     await staffbot.send_menu(salon, token, chat_id, staff,
-                             f"✅ {html.escape(iso(staff.name))}, endi <b>{html.escape(salon.name)}</b>dagi yangi, bekor qilingan va ko'chirilgan "
-                             "bronlar haqida xabar shu chatga keladi.\n\n📋 <b>Bugun</b> va <b>Ertaga</b> tugmalari kunlik ro'yxatni ko'rsatadi, "
-                             "⚙️ <b>Boshqaruv</b> panelni shu yerning o'zida ochadi.")
+                             t(staff.language, "s.linked", who=html.escape(iso(staff.name)), name=html.escape(salon.name)))
 
 
-def _confirm_text(salon: Salon) -> str:
-    return (f"<b>{html.escape(salon.name)}</b> saytiga kirish so'raldi.\n"
-            "Agar hozir saytda o'zingiz bosgan bo'lsangiz, tugmani bosing. Aks holda bu xabarga e'tibor bermang.")
-
-
-async def _confirm_login(session: AsyncSession, salon: Salon, chat_id: int, code: str) -> str:
+async def _confirm_login(session: AsyncSession, salon: Salon, chat_id: int, code: str) -> tuple[bool, str]:
     login = await session.scalar(
         select(TgLogin).where(TgLogin.token == code, TgLogin.salon_id == salon.id, TgLogin.status == "pending",
                               TgLogin.chat_id == chat_id, TgLogin.expires_at > now_utc()).with_for_update()
     )
     known = await session.scalar(select(User).where(User.salon_id == salon.id, User.tg_chat_id == chat_id))
+    lang = i18n.pick(known.language) if known else i18n.DEFAULT
     if login is None or known is None:
-        return "Kirish muddati tugagan. Saytda qaytadan bosing."
+        return False, lang
     login.user_id, login.status = known.id, "done"
     await session.commit()
-    return "✅ Kirdingiz. Saytga qayting."
+    return True, lang
 
 
 async def _on_button(session: AsyncSession, salon: Salon, token: str, cq: dict) -> None:
     chat_id = cq.get("from", {}).get("id")
     parts = (cq.get("data") or "").split(":")
+    if parts[0] == "lang" and len(parts) == 2 and parts[1] in i18n.LANGS:
+        await _answer(token, cq, t(parts[1], "lang.set"))
+        await _set_lang(session, salon, token, chat_id, parts[1], cq.get("from") or {})
+        return
     if parts[0] == "login" and len(parts) == 2:
-        answer = await _confirm_login(session, salon, chat_id, parts[1])
-        if answer.startswith("✅"):
-            await _reply(token, chat_id, "✅ Kirdingiz. Saytga qayting, bronni davom ettiring.")
-        await _answer(token, cq, answer)
+        ok, lang = await _confirm_login(session, salon, chat_id, parts[1])
+        if ok:
+            await _reply(token, chat_id, t(lang, "login.ok.long"))
+        await _answer(token, cq, t(lang, "login.ok" if ok else "login.expired"))
         return
     if parts[0] in ("sx", "sy", "sn"):
         await _answer(token, cq, await staffbot.on_button(session, salon, token, cq, parts))
@@ -495,32 +571,33 @@ async def _on_button(session: AsyncSession, salon: Salon, token: str, cq: dict) 
     if parts[0] in ("oa", "or", "ov", "od", "ox", "oy", "on"):
         await _answer(token, cq, await staffbot.on_order_button(session, salon, token, cq, parts))
         return
-    answer = "Bajarildi"
     booking = None
     if len(parts) >= 2 and parts[1].isdigit():
         booking = await session.get(Booking, int(parts[1]))
     user = await session.get(User, booking.user_id) if booking else None
+    lang = i18n.pick(user.language) if user else i18n.norm(cq.get("from", {}).get("language_code"))
+    answer = t(lang, "cq.done")
     # A button works only for this salon's booking of the client who owns this chat.
     if booking is None or booking.salon_id != salon.id or user is None or user.tg_chat_id != chat_id:
-        answer = "Bu bron topilmadi"
+        answer = t(lang, "cq.no_booking")
     elif parts[0] == "cancel":
         when, booking_id = _when(booking), booking.id
         try:
             await svc.cancel_booking(session, booking, by_staff=False)
-            answer = "Bron bekor qilindi"
-            await _reply(token, chat_id, f"❌ {when} dagi bron bekor qilindi.")
+            answer = t(lang, "cq.cancelled")
+            await _reply(token, chat_id, t(lang, "client.cancelled_by_me", when=when))
             await notify_staff(booking_id, "cancelled")
         except svc.BookingError as e:
-            answer = str(e)[:190]
+            answer = i18n.error(str(e), lang)[:190]
     elif parts[0] == "come":
-        answer = "Rahmat, sizni kutamiz!"
+        answer = t(lang, "cq.come")
     elif parts[0] == "rate" and len(parts) == 3 and parts[2] in ("1", "2", "3", "4", "5"):
         try:
             await profiles.create_review(session, user, booking, int(parts[2]), "")
-            answer = "Rahmat! Bahoyingiz qabul qilindi."
-            await _reply(token, chat_id, f"{'⭐' * int(parts[2])} Rahmat! Fikr yozmoqchi bo'lsangiz, saytdagi \"Bronlarim\" bo'limida yozishingiz mumkin.")
+            answer = t(lang, "cq.rated")
+            await _reply(token, chat_id, t(lang, "rated", stars="⭐" * int(parts[2])))
         except profiles.ReviewError as e:
-            answer = str(e)[:190]
+            answer = i18n.error(str(e), lang)[:190]
     await _answer(token, cq, answer)
 
 

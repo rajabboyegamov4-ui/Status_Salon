@@ -83,6 +83,7 @@ class Staff(Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # +1 signs out every device
     tg_chat_id: Mapped[int | None] = mapped_column(BigInteger)  # new-booking messages go here, once linked through the salon's bot
+    language: Mapped[str] = mapped_column(String(5), default="uz", server_default="uz")  # uz | ru: bot messages and panels
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -360,6 +361,7 @@ class TgLogin(Base):
     chat_id: Mapped[int | None] = mapped_column(BigInteger)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     status: Mapped[str] = mapped_column(String(10), default="pending")  # pending | done | used
+    language: Mapped[str] = mapped_column(String(5), default="uz", server_default="uz")  # the site's language
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

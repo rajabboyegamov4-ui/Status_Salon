@@ -11,8 +11,9 @@ from datetime import timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
-from app import telegram
+from app import i18n, telegram
 from app.config import settings
+from app.i18n import t
 from app.db import SessionLocal
 from app.models import Booking, Order, Reminder, Salon, Staff
 from app.services.availability import branch_tz, now_utc
@@ -34,30 +35,34 @@ def _h(s: str) -> str:
     return html.escape(iso(s))
 
 
-def _som(n: int) -> str:
-    return f"{n:,}".replace(",", " ")
+def _som(n: int, lang: str = "uz") -> str:
+    return i18n.som(n, lang)
 
 
-def confirmation_text(b: Booking, term: str = "Usta") -> str:
-    return (f"✅ <b>Bron tasdiqlandi</b>\n{_when(b)} · {_h(b.branch.name)}\n{term}: {_h(b.master.name)}\n"
-            f"Manzil: {_h(b.branch.address)}\nJami: {_som(b.total_price)} so'm")
+def _lang(b: Booking | Order) -> str:
+    return i18n.pick(b.user.language)
 
 
-def reminder_text(b: Booking, kind: str, term: str = "Usta") -> str:
-    lead = "Ertaga" if kind == "24h" else "2 soatdan keyin"
-    return f"⏰ {lead} ({_when(b)}) sizni kutamiz.\n{term}: {_h(b.master.name)} · {_h(b.branch.name)}"
+def confirmation_text(b: Booking, term: str = "Usta", lang: str = "uz") -> str:
+    return t(lang, "b.confirmed", when=_when(b), branch=_h(b.branch.name), term=i18n.term(term, lang), master=_h(b.master.name),
+             address=_h(b.branch.address), total=_som(b.total_price, lang))
 
 
-def cancellation_text(b: Booking) -> str:
-    return f"❌ {_when(b)} dagi bron bekor qilindi. {_h(b.branch.name)}"
+def reminder_text(b: Booking, kind: str, term: str = "Usta", lang: str = "uz") -> str:
+    return t(lang, "b.remind.24h" if kind == "24h" else "b.remind.2h", when=_when(b), term=i18n.term(term, lang),
+             master=_h(b.master.name), branch=_h(b.branch.name))
 
 
-def review_text(b: Booking) -> str:
-    return f"Tashrifingiz uchun rahmat! {_h(b.master.name)}ning ishini baholang:"
+def cancellation_text(b: Booking, lang: str = "uz") -> str:
+    return t(lang, "b.cancelled", when=_when(b), branch=_h(b.branch.name))
 
 
-def cancel_button(b: Booking) -> list[dict]:
-    return [{"text": "❌ Bekor qilish", "callback_data": f"cancel:{b.id}"}]
+def review_text(b: Booking, lang: str = "uz") -> str:
+    return t(lang, "b.review", master=_h(b.master.name))
+
+
+def cancel_button(b: Booking, lang: str = "uz") -> list[dict]:
+    return [{"text": t(lang, "btn.cancel"), "callback_data": f"cancel:{b.id}"}]
 
 
 def review_buttons(b: Booking) -> list[list[dict]]:
@@ -92,45 +97,47 @@ async def send_confirmation(booking_id: int) -> None:
     async with SessionLocal() as session:
         b, salon = await _load(session, booking_id)
         if b:
-            await deliver(salon, b, confirmation_text(b, kind_of(salon.kind).term), [cancel_button(b)])
+            lang = _lang(b)
+            await deliver(salon, b, confirmation_text(b, kind_of(salon.kind).term, lang), [cancel_button(b, lang)])
 
 
 async def send_cancelled(booking_id: int) -> None:
     async with SessionLocal() as session:
         b, salon = await _load(session, booking_id)
         if b:
-            await deliver(salon, b, cancellation_text(b))
+            await deliver(salon, b, cancellation_text(b, _lang(b)))
 
 
 async def send_moved(booking_id: int) -> None:
     async with SessionLocal() as session:
         b, salon = await _load(session, booking_id)
         if b:
-            text = f"🔁 <b>Bron vaqti o'zgardi</b>\nYangi vaqt: {_when(b)} · {_h(b.branch.name)}\n{kind_of(salon.kind).term}: {_h(b.master.name)}"
-            await deliver(salon, b, text, [cancel_button(b)])
+            lang = _lang(b)
+            text = t(lang, "b.moved", when=_when(b), branch=_h(b.branch.name), term=i18n.term(kind_of(salon.kind).term, lang),
+                     master=_h(b.master.name))
+            await deliver(salon, b, text, [cancel_button(b, lang)])
 
 
 # ---------- the salon's own people: new, cancelled and moved bookings ----------
 
-WEEKDAYS = ("dushanba", "seshanba", "chorshanba", "payshanba", "juma", "shanba", "yakshanba")
-STAFF_EVENTS = {"new": "🆕 <b>Yangi bron</b>", "cancelled": "❌ <b>Bron bekor qilindi</b>", "moved": "🔁 <b>Bron vaqti o'zgardi</b>"}
+WEEKDAYS = i18n.WEEKDAYS["uz"]
 
 
 _phone = phone_display
 
 
-def staff_text(b: Booking, event: str, term: str = "Usta") -> str:
+def staff_text(b: Booking, event: str, term: str = "Usta", lang: str = "uz") -> str:
     local = b.starts_at.astimezone(branch_tz(b.branch))
-    client = b.user.name or "Mijoz"
+    client = b.user.name or t(lang, "client")
     if b.user.phone == "walk-in" and b.comment:
         client = b.comment.split(". ")[0]
-    lines = [STAFF_EVENTS[event], f"👤 {_h(client)}"]
+    lines = [t(lang, "s." + event), f"👤 {_h(client)}"]
     if _phone(b.user.phone):  # its own line: next to a right-to-left name a number would read backwards
         lines.append(f"📞 {_phone(b.user.phone)}")
     lines += [f"✨ {', '.join(_h(i.service_name) for i in b.items)}",
-              f"👩‍🎨 {term}: {_h(b.master.name)}",
-              f"🕒 {local:%d.%m}, {WEEKDAYS[local.weekday()]} {local:%H:%M} · {_h(b.branch.name)}",
-              f"💰 {_som(b.total_price)} so'm"]
+              f"👩‍🎨 {i18n.term(term, lang)}: {_h(b.master.name)}",
+              f"🕒 {local:%d.%m}, {i18n.WEEKDAYS[lang][local.weekday()]} {local:%H:%M} · {_h(b.branch.name)}",
+              f"💰 {_som(b.total_price, lang)}"]
     if b.comment and b.user.phone != "walk-in":
         lines.append(f"💬 {_h(b.comment)}")
     # Telegram aligns each line by its first letter; a mark in front keeps every line left-aligned,
@@ -154,8 +161,9 @@ async def notify_staff(booking_id: int, event: str, exclude_staff_id: int | None
         for p in sorted(people, key=lambda p: rank.get(p.role, 3)):
             if p.id != exclude_staff_id and (p.role in ("owner", "admin") or p.master_id == b.master_id):
                 chats.setdefault(p.tg_chat_id, p)
-        text, sent = staff_text(b, event, kind_of(salon.kind).term), 0
+        sent, term = 0, kind_of(salon.kind).term
         for chat_id, person in sorted(chats.items()):
+            text = staff_text(b, event, term, i18n.pick(person.language))
             sent += await telegram.send(token, chat_id, text, booking_buttons(salon, person, b.id, event))
         return sent
 
@@ -166,7 +174,7 @@ async def send_review_request(booking_id: int) -> None:
         b, salon = await _load(session, booking_id)
         token = telegram.unseal(salon.tg_token_sealed) if b else None
         if b and token and b.user.tg_chat_id and b.review is None:
-            await telegram.send(token, b.user.tg_chat_id, review_text(b), review_buttons(b))
+            await telegram.send(token, b.user.tg_chat_id, review_text(b, _lang(b)), review_buttons(b))
 
 
 async def send_due_reminders(batch: int = 50) -> int:
@@ -204,8 +212,9 @@ async def send_due_reminders(batch: int = 50) -> int:
             b, salon = await _load(session, booking_id)
             if b is None or b.status != "confirmed":
                 continue
-            buttons = [[{"text": "✅ Kelaman", "callback_data": f"come:{b.id}"}, *cancel_button(b)]]
-            if await deliver(salon, b, reminder_text(b, kind, kind_of(salon.kind).term), buttons):
+            lang = _lang(b)
+            buttons = [[{"text": t(lang, "btn.come"), "callback_data": f"come:{b.id}"}, *cancel_button(b, lang)]]
+            if await deliver(salon, b, reminder_text(b, kind, kind_of(salon.kind).term, lang), buttons):
                 sent += 1
     if claimed:
         log.info("reminders: %d claimed, %d sent", len(claimed), sent)
@@ -214,33 +223,20 @@ async def send_due_reminders(batch: int = 50) -> int:
 
 # ---------- orders ----------
 
-ORDER_CLIENT = {
-    "new": "🧾 <b>Buyurtma #{n} qabul qilindi</b>\nTez orada tasdiqlaymiz. Holatini shu chatda ko'rasiz.",
-    "accepted": "👍 <b>Buyurtma #{n} tasdiqlandi</b>\nTayyorlayapmiz.",
-    "ready": "✅ <b>Buyurtma #{n} tayyor</b>\n{ready}",
-    "delivering": "🚚 <b>Buyurtma #{n} yo'lda</b>\nKuryer tez orada yetib boradi.",
-    "done": "🙏 <b>Buyurtma #{n} berildi</b>\nXaridingiz uchun rahmat!",
-    "cancelled": "❌ <b>Buyurtma #{n} bekor qilindi</b>",
-}
-ORDER_STAFF = {"new": "🆕 <b>Yangi buyurtma #{n}</b>", "cancelled": "❌ <b>Buyurtma #{n} bekor qilindi</b>",
-               "accepted": "👍 <b>Buyurtma #{n} qabul qilindi</b>", "ready": "✅ <b>Buyurtma #{n} tayyor</b>",
-               "delivering": "🚚 <b>Buyurtma #{n} yo'lda</b>", "done": "🙏 <b>Buyurtma #{n} berildi</b>"}
-
-
-def order_lines(o: Order) -> list[str]:
-    lines = [f"• {_h(i.name)} × {i.qty} = {_som(i.price * i.qty)}" for i in o.items]
+def order_lines(o: Order, lang: str = "uz") -> list[str]:
+    lines = [f"• {_h(i.name)} × {i.qty} = {_som(i.price * i.qty, lang)}" for i in o.items]
     if o.delivery_fee:
-        lines.append(f"• Yetkazish = {_som(o.delivery_fee)}")
-    lines.append(f"💰 Jami: <b>{_som(o.total)} so'm</b>")
-    lines.append(f"🚚 Yetkazish: {_h(o.address)}" if o.fulfillment == "delivery" else "🏪 Olib ketish")
+        lines.append(f"• {t(lang, 'o.fee')} = {_som(o.delivery_fee, lang)}")
+    lines.append(t(lang, "o.total", total=_som(o.total, lang)))
+    lines.append(t(lang, "o.to", address=_h(o.address)) if o.fulfillment == "delivery" else t(lang, "o.pickup"))
     return lines
 
 
-def order_staff_text(o: Order, event: str) -> str:
-    lines = [ORDER_STAFF[event].format(n=o.number), f"👤 {_h(o.user.name or 'Mijoz')}"]
+def order_staff_text(o: Order, event: str, lang: str = "uz") -> str:
+    lines = [t(lang, "so." + event, n=o.number), f"👤 {_h(o.user.name or t(lang, 'client'))}"]
     if _phone(o.user.phone):
         lines.append(f"📞 {_phone(o.user.phone)}")
-    lines += order_lines(o)
+    lines += order_lines(o, lang)
     if o.comment:
         lines.append(f"💬 {_h(o.comment)}")
     return "\n".join(LRM + line for line in lines)
@@ -261,10 +257,11 @@ async def send_order_update(order_id: int) -> None:
         token = telegram.unseal(salon.tg_token_sealed) if o else None
         if not o or not token or not o.user.tg_chat_id:
             return
-        ready = "Kuryerga topshiramiz." if o.fulfillment == "delivery" else "Olib ketishingiz mumkin."
-        text = ORDER_CLIENT[o.status].format(n=o.number, ready=ready)
+        lang = _lang(o)
+        ready = t(lang, "o.ready.delivery" if o.fulfillment == "delivery" else "o.ready.pickup")
+        text = t(lang, "o." + o.status, n=o.number, ready=ready)
         if o.status == "new":
-            text += "\n\n" + "\n".join(order_lines(o))
+            text += "\n\n" + "\n".join(order_lines(o, lang))
         await telegram.send(token, o.user.tg_chat_id, "\n".join(LRM + x for x in text.split("\n")))
 
 
@@ -282,7 +279,8 @@ async def notify_staff_order(order_id: int, event: str, exclude_staff_id: int | 
         for p in sorted(people, key=lambda p: 0 if p.role == "owner" else 1):
             if p.id != exclude_staff_id:
                 chats.setdefault(p.tg_chat_id, p)
-        text, sent = order_staff_text(o, event), 0
+        sent = 0
         for chat_id, person in sorted(chats.items()):
+            text = order_staff_text(o, event, i18n.pick(person.language))
             sent += await telegram.send(token, chat_id, text, order_buttons(salon, person, o.id, o.status, o.fulfillment))
         return sent

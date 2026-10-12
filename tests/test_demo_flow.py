@@ -123,8 +123,10 @@ async def test_client_subscribes_in_the_bot_then_books_inside_it_without_a_secon
     assert menu["menu_button"]["web_app"]["url"] == "https://bron.example.uz/premium"
     salon = await salon_row()
     async with make_client() as c:
-        # /start: a new chat is asked for its number
+        # /start: a new chat picks a language, then is asked for its number
         await hook(c, salon, msg("/start"))
+        assert [b["callback_data"] for b in get_tg().sent()[-1]["reply_markup"]["inline_keyboard"][0]] == ["lang:uz", "lang:ru"]
+        await hook(c, salon, {"update_id": 2, "callback_query": {"id": "q", "from": ME, "data": "lang:uz"}})
         assert to(ME["id"])[-1].startswith("Assalomu alaykum") and get_tg().sent()[-1]["reply_markup"]["keyboard"][0][0]["request_contact"]
         await hook(c, salon, msg(contact={"phone_number": "998901234567", "first_name": "Aziz", "user_id": ME["id"]}))
         button = get_tg().sent()[-1]["reply_markup"]["inline_keyboard"][0][0]

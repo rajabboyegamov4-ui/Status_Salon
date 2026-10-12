@@ -12,6 +12,7 @@ from app.db import get_session
 from app.models import Booking, Branch, BranchService, Master, MasterService, Salon, Service, User
 from app.notifications import notify_staff, send_confirmation
 from app.schemas import (
+    LanguageIn,
     BookingCreate,
     BookingOut,
     BranchOut,
@@ -295,6 +296,14 @@ async def verify(
 
 @router.get("/auth/me", response_model=UserOut)
 async def me(user: User = Depends(auth.current_client)):
+    return user
+
+
+@router.put("/me/language", response_model=UserOut)
+async def my_language(body: LanguageIn, user: User = Depends(auth.current_client), session: AsyncSession = Depends(get_session)):
+    """The language the client picked on the site: the bot's messages follow it."""
+    user.language = body.language
+    await session.commit()
     return user
 
 

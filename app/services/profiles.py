@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import i18n
 from app.config import settings
 from app.kinds import kind_of
 from app.models import Booking, Branch, Master, Photo, Review, Salon, User
@@ -32,7 +33,7 @@ def salon_info(salon: Salon) -> SalonInfo:
         active=subscription_active(salon), description=salon.description, instagram=salon.instagram,
         cover_url=salon.cover_url, logo_url=salon.logo_url,
         telegram_bot=salon.tg_bot_username if salon.tg_token_sealed else "", kind=salon.kind or "barber",
-        term=kind_of(salon.kind).term, client_word=kind_of(salon.kind).client, modules=(salon.modules or "booking").split(","),
+        term=kind_of(salon.kind).term, term_ru=i18n.term_ru(kind_of(salon.kind).term), client_word=kind_of(salon.kind).client, modules=(salon.modules or "booking").split(","),
         sms_login=settings.sms_backend != "none",
     )
 
