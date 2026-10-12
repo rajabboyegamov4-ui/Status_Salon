@@ -275,7 +275,7 @@ h2 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; margin: 0; }
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3.5L5.5 9l5.5 5.5"/></svg>
       </button>
       <div class="title"><b id="step-title">Onlayn bron</b><small id="step-label"></small></div>
-      <div class="right"><span class="demo-badge" id="demo-badge" hidden>Demo</span><button class="pill-btn" id="mine" hidden>Bronlarim</button></div>
+      <div class="right"><span class="demo-badge" id="demo-badge" hidden>Demo</span><button class="pill-btn" id="mine" hidden>Bronlarim</button><button class="pill-btn" id="lang" aria-label="Til / Язык">RU</button></div>
     </div>
     <div class="progress"><span id="steps" style="width:0"></span></div>
   </header>
@@ -290,12 +290,105 @@ h2 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; margin: 0; }
 </div>
 
 <script>
+// ---------- language: O'zbekcha (default) / Русский ----------
+// ?lang=ru (the bot opens the page so for Russian-speaking clients) or the visitor's own choice, kept in the browser.
+const LANGS = ["uz", "ru"];
+let LANG_CHOSEN = false;
+let LANG = (() => {
+  try {
+    const q = new URLSearchParams(location.search).get("lang");
+    if (LANGS.includes(q)) { localStorage.setItem("lang", q); LANG_CHOSEN = true; return q; }
+    const s = localStorage.getItem("lang"); if (LANGS.includes(s)) { LANG_CHOSEN = true; return s; }
+  } catch { /* storage off */ }
+  return /^(ru|uk|be|kk)/i.test(navigator.language || "") ? "ru" : "uz";
+})();
+document.documentElement.lang = LANG;
+// Russian for every Uzbek phrase on the page; {x} are filled in by L(text, {x: ...}).
+const RU = {
+  "Orqaga": "Назад", "Onlayn bron": "Онлайн-запись", "Bronlarim": "Мои записи", "Davom etish": "Продолжить",
+  "Internet aloqasi yo'q. Tarmoqni tekshirib, qayta urinib ko'ring.": "Нет подключения к интернету. Проверьте сеть и попробуйте снова.",
+  "Serverda xatolik. Birozdan keyin qayta urinib ko'ring.": "Ошибка сервера. Попробуйте чуть позже.",
+  "Xatolik yuz berdi. Qayta urinib ko'ring.": "Произошла ошибка. Попробуйте снова.",
+  "Bugun": "Сегодня", "Ertaga": "Завтра",
+  "Masalan, fade, yon tomonlari kalta": "Например, фейд, бока покороче",
+  "Masalan, sochim uzun, rangini o'zgartirmoqchiman": "Например, волосы длинные, хочу сменить цвет",
+  "Masalan, terim sezgir": "Например, у меня чувствительная кожа", "Masalan, tishim og'riyapti": "Например, болит зуб",
+  "Masalan, avval ham shu shifokorga kelganman": "Например, я уже был(а) у этого врача", "Masalan, belim og'riydi": "Например, болит поясница",
+  "Masalan, mashina rusumi va muammo": "Например, марка машины и проблема", "Masalan, it, 3 yosh": "Например, собака, 3 года",
+  "Qo'shimcha ma'lumot": "Дополнительная информация",
+  "Profil": "Профиль", "Xizmat": "Услуга", "Vaqt": "Время", "Kirish": "Вход", "Tasdiq": "Подтверждение",
+  "Istalgan {t}": "Любой {nom}",
+  "Bu {t} hozir onlayn bron qabul qilmaydi. Boshqa {t}ni tanlang.": "Этот {nom} сейчас не принимает онлайн-записи. Выберите другого {gen}.",
+  "Kirish muddati tugagan. Iltimos, qaytadan kiring.": "Время входа истекло. Пожалуйста, войдите снова.",
+  "Telefon raqamni to'liq yozing: 9 ta raqam, masalan 90 123 45 67": "Введите номер полностью: 9 цифр, например 90 123 45 67",
+  "Ismingizni yozing, usta sizni shu ism bilan kutadi.": "Напишите имя, по нему вас будут ждать.",
+  "SMS'dagi 6 xonali kodni kiriting.": "Введите 6-значный код из SMS.",
+  "{n} ta filial": "Филиалов: {n}", "{n} yil tajriba": "Стаж {y}", "{name} profili": "Профиль: {name}", "Xarita": "Карта",
+  "Yandex xarita": "Яндекс Карты", "Qo'ng'iroq": "Позвонить", "Bron": "Запись", "Bron raqami #{n}": "Запись №{n}",
+  "{n} ta mijoz bahosi": "Оценок клиентов: {n}", "Hali hech kim baho qoldirmagan.": "Пока никто не оставил оценку.",
+  "{n} daqiqa": "{n} мин", "Ish namunasi": "Пример работы", "Ish rasmlari hali joylanmagan.": "Фото работ пока не добавлены.",
+  "Kutilmoqda": "Ожидается", "Bo'ldi": "Состоялась", "Bekor qilingan": "Отменена", "Kelmadingiz": "Вы не пришли",
+  "Bahoyingiz:": "Ваша оценка:", "Rahmat!": "Спасибо!", "{name}ning ishiga baho bering": "Оцените работу: {name}",
+  "Baho": "Оценка", "{n} yulduz": "Оценка {n}", "Fikringiz (ixtiyoriy)": "Ваш отзыв (необязательно)",
+  "Yuborilmoqda…": "Отправляем…", "Yuborish": "Отправить", "Bron bekor qilinsinmi?": "Отменить запись?", "Yo'q": "Нет",
+  "Bekor qilinmoqda…": "Отменяем…", "Ha, bekor qilish": "Да, отменить", "Bekor qilish": "Отменить",
+  "O'zgartirish uchun salonga qo'ng'iroq qiling:": "Чтобы изменить, позвоните нам:", "Qayta bron": "Записаться снова",
+  "Telegram orqali kiring": "Войдите через Telegram",
+  "Telefon raqamingizni bot orqali bir marta yuborasiz. Bron tasdig'i va eslatmalar ham shu botga keladi.":
+    "Вы один раз отправляете номер через бота. Подтверждение и напоминания тоже придут в этого бота.",
+  "Pastdagi tugmani bosing, <b>@{bot}</b> ochiladi.": "Нажмите кнопку ниже, откроется <b>@{bot}</b>.",
+  "Botda <b>Start</b>, keyin <b>📱 Raqamni yuborish</b> tugmasini bosing. Avval kirgan bo'lsangiz, <b>✅ Ha, kirish</b> tugmasini bosing.":
+    "В боте нажмите <b>Start</b>, затем <b>📱 Отправить номер</b>. Если вы уже входили, нажмите <b>✅ Да, войти</b>.",
+  "Shu sahifaga qayting: o'zi davom etadi.": "Вернитесь на эту страницу: всё продолжится само.",
+  "Qaytadan urinish": "Попробовать снова", "Telegram orqali kirish": "Войти через Telegram",
+  "Demo: haqiqiy saytda shu tugma Telegram'ni ochadi.": "Демо: на настоящем сайте эта кнопка откроет Telegram.",
+  "Telegram'dan javob kutilmoqda…": "Ждём ответа из Telegram…", "Qayta urinish": "Повторить",
+  "Hammasi": "Все", "Filial": "Филиал", "{n} ta": "{n}", "⚡ Farqi yo'q": "⚡ Не важно",
+  "Eng yaqin bo'sh vaqtga istalgan {t}ga yozilish": "Запись к любому {dat} на ближайшее свободное время",
+  "Onlayn bron uchun {t}lar hali qo'shilmagan.": "{Pl} для онлайн-записи ещё не добавлены.",
+  "Salonga qo'ng'iroq qiling:": "Позвоните нам:",
+  "yil tajriba": "стаж, лет", "{n} baho": "оценок: {n}", "baho yo'q": "нет оценок", "so'mdan": "цена от", "Ochish": "Открыть",
+  "Ishlari": "Работы", "Fikrlar": "Отзывы", "Narxlar": "Цены", "Manzil": "Адрес",
+  "Xizmatni tanlang": "Выберите услугу", "Narxlar shu {t}niki. Bir nechtasini tanlash mumkin.": "Цены этого {gen}. Можно выбрать несколько.",
+  "Ertalab": "Утро", "Kunduzi": "День", "Kechqurun": "Вечер", "Kun va vaqt": "День и время",
+  "Bu {t}da 2 hafta ichida bo'sh vaqt yo'q.": "У этого {gen} нет свободного времени в ближайшие 2 недели.",
+  "Shu filialdagi boshqa {t}lar": "Другие {pl} этого филиала", "Tanlash": "Выбрать",
+  "Bugun bo'sh vaqt yo'q, eng yaqin:": "Сегодня свободного времени нет, ближайшее:", "Sana": "Дата",
+  "Bu kunda bo'sh vaqt qolmagan. Boshqa kunni tanlang.": "На этот день свободного времени нет. Выберите другой день.",
+  "Onlayn bron vaqtincha ishlamayapti. Iltimos, salonga qo'ng'iroq qiling": "Онлайн-запись временно не работает. Пожалуйста, позвоните нам",
+  "Telefon raqamingiz": "Ваш номер телефона", "Bir martalik SMS kod yuboramiz. Keyingi safar qayta so'ramaymiz.": "Отправим одноразовый SMS-код. В следующий раз спрашивать не будем.",
+  "Ismingiz": "Ваше имя", "Masalan, Aziz": "Например, Азиз", "Telefon": "Телефон", "SMS kod": "SMS-код",
+  "Demo: haqiqiy SMS yuborilmaydi. Kod": "Демо: настоящее SMS не отправляется. Код", "Kodni qo'yish": "Вставить код",
+  "Kod +998 {phone} raqamiga yuborildi.": "Код отправлен на номер +998 {phone}.", "Raqamni o'zgartirish": "Изменить номер",
+  "Kod yuborish": "Отправить код", "Hammasi to'g'rimi?": "Всё верно?", "Mijoz": "Клиент", "Jami": "Итого",
+  "{T}ga izoh (ixtiyoriy)": "Комментарий {dat} (необязательно)",
+  "Bepul bekor qilish: boshlanishidan 2 soat oldingacha. To'lov salonda.": "Бесплатная отмена: до 2 часов до начала. Оплата на месте.",
+  "Bronlaringizni ko'rish uchun Telegram orqali kiring. Kirgandan keyin shu sahifaga qaytasiz.": "Чтобы увидеть свои записи, войдите через Telegram. После входа вы вернётесь на эту страницу.",
+  "Bron qilganingizdan keyin tashriflaringiz shu yerda ko'rinadi.": "После записи ваши визиты появятся здесь.",
+  "Kelgusi": "Предстоящие", "Avvalgi tashriflar": "Прошлые визиты", "Hali bron yo'q.": "Записей пока нет.",
+  "Bron qilindi!": "Вы записаны!", "Tasdiqni Telegram'ga yubordik": "Подтверждение отправили в Telegram", "SMS orqali tasdiq yubordik": "Подтверждение отправили по SMS",
+  "Tashrifdan 24 va 2 soat oldin eslatamiz.": "Напомним за 24 и за 2 часа до визита.", "To'lov salonda": "Оплата на месте",
+  "Kalendarga qo'shish": "Добавить в календарь", "Eslatma telefoningizda ham tursin.": "Пусть напоминание будет и в телефоне.",
+  "Boshqa (.ics)": "Другой (.ics)", "Yana shu {t}ga": "Снова к этому {dat}", "Boshqa {t}ga bron": "Записаться к другому {dat}",
+  "Tasdiqlash": "Подтверждение", "Tayyor": "Готово", "Yopish": "Закрыть", "{n}-qadam, 6 tadan": "Шаг {n} из 6",
+  "{price} dan": "от {price}", "xizmat tanlang": "выберите услугу", "Bron qilish": "Записаться", "Tekshirilmoqda…": "Проверяем…",
+  "Tasdiqlandi, kuting…": "Подтверждено, подождите…", "Salon": "Бизнес", "Bunday salon topilmadi. Manzilni tekshiring.": "Такой бизнес не найден. Проверьте адрес.",
+  "Tasdiqlash ": "Подтвердить",
+};
+const L = (s, v) => { const o = (LANG === "ru" && RU[s]) || s; return v ? o.replace(/\{(\w+)\}/g, (_, k) => v[k] ?? "") : o; };
+
 // ---------- helpers ----------
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const som = (n) => n.toLocaleString("ru-RU").replace(/,/g, " ") + " so'm";
-const WEEK = ["Ya", "Du", "Se", "Ch", "Pa", "Ju", "Sh"];
-const MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr"];
+const som = (n) => n.toLocaleString("ru-RU").replace(/,/g, " ") + (LANG === "ru" ? " сум" : " so'm");
+const WEEKS = { uz: ["Ya", "Du", "Se", "Ch", "Pa", "Ju", "Sh"], ru: ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"] };
+const MONTH_NAMES = { uz: ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr"],
+  ru: ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"],
+  ruNom: ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"] };
+let WEEK = WEEKS[LANG], MONTHS = MONTH_NAMES[LANG];
+// "9-oktabr" in Uzbek, "9 октября" in Russian
+const dm = (day, month) => (LANG === "ru" ? `${day} ${month}` : `${day}-${month}`);
+const monthTitle = (m) => (LANG === "ru" ? MONTH_NAMES.ruNom[MONTH_NAMES.ru.indexOf(m)] || m : m[0].toUpperCase() + m.slice(1));
 const TZ = "Asia/Tashkent";
 const tashkentParts = (d) => {
   const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(d).map((x) => [x.type, x.value]));
@@ -306,14 +399,15 @@ const dayInfo = (ymd) => { const d = new Date(ymd + "T12:00:00+05:00"); return {
 const addDays = (ymd, n) => { const d = new Date(ymd + "T12:00:00+05:00"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const todayYmd = () => tashkentParts(new Date()).date;
 // "Bugun", "Ertaga" or "Pa, 9-oktabr"
-const dayLabel = (ymd, long) => { const i = dayInfo(ymd), t = todayYmd(), rel = ymd === t ? "Bugun" : ymd === addDays(t, 1) ? "Ertaga" : ""; return rel && !long ? rel : `${rel || i.wd}, ${i.day}-${i.month}`; };
+const dayLabel = (ymd, long) => { const i = dayInfo(ymd), t = todayYmd(), rel = ymd === t ? L("Bugun") : ymd === addDays(t, 1) ? L("Ertaga") : ""; return rel && !long ? rel : `${rel || i.wd}, ${dm(i.day, i.month)}`; };
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
 
 class ApiError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
-const NET_ERR = "Internet aloqasi yo'q. Tarmoqni tekshirib, qayta urinib ko'ring.", SERVER_ERR = "Serverda xatolik. Birozdan keyin qayta urinib ko'ring.";
+const NET_ERR = () => L("Internet aloqasi yo'q. Tarmoqni tekshirib, qayta urinib ko'ring."), SERVER_ERR = () => L("Serverda xatolik. Birozdan keyin qayta urinib ko'ring.");
 const tel = (p) => "tel:" + String(p || "").replace(/[^\d+]/g, "");
 const telLink = (p) => `<a href="${tel(p)}">${esc(p)}</a>`;
-const yearsWord = (n) => `${n} yil`;
+// "1 год", "3 года", "5 лет"
+const ruYears = (n) => { const a = n % 10, b = n % 100; return `${n} ${a === 1 && b !== 11 ? "год" : a >= 2 && a <= 4 && (b < 12 || b > 14) ? "года" : "лет"}`; };
 const mapLinks = (b) => b.lat != null && b.lng != null
   ? { yandex: `https://yandex.uz/maps/?pt=${b.lng},${b.lat}&z=17&l=map`, google: `https://www.google.com/maps/search/?api=1&query=${b.lat},${b.lng}` }
   : { yandex: `https://yandex.uz/maps/?text=${encodeURIComponent(b.address)}`, google: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.address)}` };
@@ -400,13 +494,13 @@ const realApi = {
     const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 15000);
     let res, body;
     try {
-      res = await fetch(`/api/s/${SLUG}` + path, { ...opts, signal: ctl.signal, credentials: "same-origin", headers: { "Content-Type": "application/json", ...(opts.headers || {}) } });
+      res = await fetch(`/api/s/${SLUG}` + path, { ...opts, signal: ctl.signal, credentials: "same-origin", headers: { "Content-Type": "application/json", "X-Lang": LANG, ...(opts.headers || {}) } });
       body = res.status === 204 ? null : await res.json().catch(() => undefined);
-    } catch { throw new ApiError(0, NET_ERR); }
+    } catch { throw new ApiError(0, NET_ERR()); }
     finally { clearTimeout(timer); }
     if (res.status === 204) return null;
-    if (res.status >= 500 || (res.ok && body === undefined)) throw new ApiError(res.status, SERVER_ERR);
-    if (!res.ok) throw new ApiError(res.status, typeof body?.detail === "string" ? body.detail : "Xatolik yuz berdi. Qayta urinib ko'ring.");
+    if (res.status >= 500 || (res.ok && body === undefined)) throw new ApiError(res.status, SERVER_ERR());
+    if (!res.ok) throw new ApiError(res.status, typeof body?.detail === "string" ? body.detail : L("Xatolik yuz berdi. Qayta urinib ko'ring."));
     return body;
   },
   branches() { return this.call("/branches"); },
@@ -426,6 +520,7 @@ const realApi = {
   myBookings() { return this.call("/me/bookings"); },
   cancel(id) { return this.call(`/bookings/${id}/cancel`, { method: "POST" }); },
   review(id, rating, comment) { return this.call(`/bookings/${id}/review`, { method: "POST", body: JSON.stringify({ rating, comment }) }); },
+  setLang(language) { return this.call("/me/language", { method: "PUT", body: JSON.stringify({ language }) }); },
 };
 
 // ---------- demo API (same answers, kept in the page; used when there is no server) ----------
@@ -513,6 +608,7 @@ const demoApi = (() => {
       return out;
     },
     me: () => wait(user),
+    setLang: (language) => wait(user && Object.assign(user, { language })),
     reviews: (mid) => wait(REVIEWS.slice(0, mid % 2 ? 4 : 3).map(([rating, client_name, services, comment], i) => ({ id: mid * 10 + i, rating, client_name, services, comment, created_at: new Date(Date.now() - (i * 9 + 2) * 86400e3).toISOString() }))),
     cancel(id) {
       const v = myVisits.find((x) => x.id === id);
@@ -565,6 +661,12 @@ const COMMENT_HINT = { barber: "Masalan, fade, yon tomonlari kalta", beauty: "Ma
   vet: "Masalan, it, 3 yosh", other: "Qo'shimcha ma'lumot" };
 // What the specialist is called in this kind of business (Usta, Shifokor, Kosmetolog...): TERM() for labels, term() inside sentences.
 const TERM = () => S.salon?.term || "Usta", term = () => TERM().toLowerCase();
+// Russian needs the word in several forms: one, many, to whom, whom (Мастер, Мастера, мастеру, мастера).
+const TERM_RU = () => (S.salon?.term_ru?.length === 4 ? S.salon.term_ru : ["Мастер", "Мастера", "мастеру", "мастера"]);
+const TV = () => { const r = TERM_RU(); return { t: term(), T: TERM(), nom: r[0].toLowerCase(), Nom: r[0], Pl: r[1], pl: r[1].toLowerCase(), dat: r[2], gen: r[3] }; };
+const TT = (s) => L(s, TV());  // a sentence with the specialist's word in it
+const TERM_L = () => (LANG === "ru" ? TERM_RU()[0] : TERM());
+const TERMS_L = () => (LANG === "ru" ? TERM_RU()[1] : TERM() + "lar");
 // Barber first: pick a barber, read their profile, then book with them.
 const STEPS = ["Usta", "Profil", "Xizmat", "Vaqt", "Kirish", "Tasdiq"];
 const DEMO_SALON = { name: "Premium Barber", description: "Erkaklar uchun premium barbershop: qahva, issiq sochiq va shoshilmasdan ishlaydigan ustalar.", instagram: "premiumbarber.uz", cover_url: DemoArt.cover("premium"), phone: "+998712000000", telegram_bot: "premiumbarber_bot" };
@@ -576,7 +678,7 @@ const pickedServices = () => S.services.filter((s) => S.picked.has(s.id));
 const ids = () => [...S.picked].sort((a, b) => a - b);
 // "Farqi yo'q": any free master of the branch; the server picks one when the time is chosen.
 const ANY_ID = 0;
-const anyMaster = () => { const b = (S.filter != null && S.branches.find((x) => x.id === S.filter)) || S.branches[0] || {}; return { id: ANY_ID, name: `Istalgan ${term()}`, branch_id: b.id, branch_name: b.name, any: true }; };
+const anyMaster = () => { const b = (S.filter != null && S.branches.find((x) => x.id === S.filter)) || S.branches[0] || {}; return { id: ANY_ID, name: TT("Istalgan {t}"), branch_id: b.id, branch_name: b.name, any: true }; };
 const chosenMaster = () => (S.master === ANY_ID ? anyMaster() : S.masters.find((m) => m.id === S.master));
 const phoneDigits = () => S.phone.replace(/\D/g, "");
 const slotDate = () => (S.slot ? tashkentParts(new Date(S.slot)).date : S.date);  // the day of the picked time, never a day tapped later
@@ -644,7 +746,7 @@ async function go(step, fromHistory = false) {
       await loadSlots(n);
       if (!stale(n) && keep && S.slots.some((x) => x.start === keep)) S.slot = keep;  // back from the summary: the time stays picked
     }
-  } catch (e) { if (!stale(n)) { S.error = e.message || NET_ERR; S.retry = "step"; S.slotsLoading = false; } }
+  } catch (e) { if (!stale(n)) { S.error = e.message || NET_ERR(); S.retry = "step"; S.slotsLoading = false; } }
   if (!stale(n)) render();
 }
 // ---------- log in through the salon's Telegram bot ----------
@@ -681,7 +783,7 @@ async function pickDate(ymd) {
   const n = ++seq;
   Object.assign(S, { date: ymd, slot: null, slots: [], slotsLoading: true, jumped: false, error: "", retry: null });
   render();
-  try { await loadSlots(n); } catch (e) { if (!stale(n)) { S.error = e.message || NET_ERR; S.retry = "slots"; S.slotsLoading = false; } }
+  try { await loadSlots(n); } catch (e) { if (!stale(n)) { S.error = e.message || NET_ERR(); S.retry = "slots"; S.slotsLoading = false; } }
   if (!stale(n)) render();
 }
 
@@ -693,7 +795,7 @@ async function rebook(mid, sids, btn) {
   const n = ++seq;
   try {
     if (!S.loaded) { [S.masters, S.branches] = await Promise.all([api.allMasters(), api.branches()]); S.loaded = true; }
-    if (!S.masters.some((m) => m.id === mid)) throw new ApiError(404, `Bu ${term()} hozir onlayn bron qabul qilmaydi. Boshqa ${term()}ni tanlang.`);
+    if (!S.masters.some((m) => m.id === mid)) throw new ApiError(404, TT("Bu {t} hozir onlayn bron qabul qilmaydi. Boshqa {t}ni tanlang."));
     setMaster(mid);
     await loadServices(n);
   } catch (e) { if (btn) btn.disabled = false; if (!stale(n)) { S.error = e.message; S.retry = null; render(); } return; }
@@ -733,7 +835,7 @@ async function openMine(fromHistory = false) {
   render();
 }
 // The login cookie ran out: show the login card again.
-function signedOut() { S.user = null; S.flash = "Kirish muddati tugagan. Iltimos, qaytadan kiring."; S.act = null; return openMine(true); }
+function signedOut() { S.user = null; S.flash = L("Kirish muddati tugagan. Iltimos, qaytadan kiring."); S.act = null; return openMine(true); }
 
 function canContinue() {
   return [() => false, () => true, () => S.picked.size > 0, () => !!S.slot, () => S.codeSent && !!S.slot, () => !S.busy && !!S.slot][S.step]?.() ?? false;
@@ -748,7 +850,7 @@ async function next() {
 
 async function sendCode() {
   S.error = "";
-  if (phoneDigits().length !== 9) { S.error = "Telefon raqamni to'liq yozing: 9 ta raqam, masalan 90 123 45 67"; return render(); }
+  if (phoneDigits().length !== 9) { S.error = L("Telefon raqamni to'liq yozing: 9 ta raqam, masalan 90 123 45 67"); return render(); }
   S.busy = true; render();
   try { await api.requestCode("+998" + phoneDigits()); S.codeSent = true; }
   catch (e) { S.error = e.message; }
@@ -757,8 +859,8 @@ async function sendCode() {
 }
 async function verify() {
   S.error = "";
-  if (!S.name.trim()) { S.error = "Ismingizni yozing, usta sizni shu ism bilan kutadi."; render(); return $("#name")?.focus(); }
-  if (S.code.length !== 6) { S.error = "SMS'dagi 6 xonali kodni kiriting."; render(); return $("#code")?.focus(); }
+  if (!S.name.trim()) { S.error = L("Ismingizni yozing, usta sizni shu ism bilan kutadi."); render(); return $("#name")?.focus(); }
+  if (S.code.length !== 6) { S.error = L("SMS'dagi 6 xonali kodni kiriting."); render(); return $("#code")?.focus(); }
   S.busy = true; render();
   try { S.user = await api.verify("+998" + phoneDigits(), S.code, S.name.trim()); S.busy = false; remember(5, true); go(5, true); }
   catch (e) { S.error = e.message; S.busy = false; S.code = ""; render(); $("#code")?.focus(); }
@@ -774,7 +876,7 @@ async function confirmBooking() {
     S.busy = false;
     // Slot taken: one Back press away is the time step (the entry under this one), so go there instead of stacking another.
     if (e.status === 409) { S.flash = e.message; S.slot = null; if (history.state?.step === 5) history.back(); else { remember(3, true); go(3, true); } return; }
-    if (e.status === 401) { S.user = null; S.flash = "Kirish muddati tugagan. Iltimos, qaytadan kiring."; remember(4, true); go(4, true); return; }
+    if (e.status === 401) { S.user = null; S.flash = L("Kirish muddati tugagan. Iltimos, qaytadan kiring."); remember(4, true); go(4, true); return; }
     S.error = e.message; render();
   }
 }
@@ -826,17 +928,17 @@ function salonHtml() {
   return `<section class="card salon"><div class="cover">${x.cover_url ? `<img src="${esc(x.cover_url)}" alt="">` : ""}</div>
     <div class="body"><div class="logo">${x.logo_url ? `<img src="${esc(x.logo_url)}" alt="">` : esc(x.name[0])}</div>
       <h2>${esc(x.name)}</h2>${x.description ? `<p>${esc(x.description)}</p>` : ""}
-      <div class="chips-row">${b && S.branches.length === 1 ? `<span class="chip">${PIN}${esc(b.landmark || b.address || b.name)}</span>` : S.branches.length > 1 ? `<span class="chip">${PIN}${S.branches.length} ta filial</span>` : ""}
+      <div class="chips-row">${b && S.branches.length === 1 ? `<span class="chip">${PIN}${esc(b.landmark || b.address || b.name)}</span>` : S.branches.length > 1 ? `<span class="chip">${PIN}${L("{n} ta filial", { n: S.branches.length })}</span>` : ""}
         ${b?.hours_text ? `<span class="chip">${esc(b.hours_text)}</span>` : ""}
         ${ig ? `<a class="chip" href="https://instagram.com/${encodeURIComponent(ig)}" target="_blank" rel="noopener">${IG()}@${esc(ig)}</a>` : ""}
         ${x.phone ? `<a class="chip" href="${tel(x.phone)}">${PHONE}${esc(x.phone)}</a>` : ""}</div></div></section>`;
 }
 
 function barberCardHtml(m, i, list) {
-  const sub = [m.experience_years ? `${m.experience_years} yil tajriba` : "", S.branches.length > 1 ? m.branch_name : ""].filter(Boolean).join(" · ") || (m.specialties || [])[0] || "";
+  const sub = [m.experience_years ? L("{n} yil tajriba", { n: m.experience_years, y: ruYears(m.experience_years) }) : "", S.branches.length > 1 ? m.branch_name : ""].filter(Boolean).join(" · ") || (m.specialties || [])[0] || "";
   // With an odd count the top barber gets a wide card, so the grid never ends with one lonely card.
   const wide = i === 0 && list.length % 2 === 1 && list.length > 1;
-  return `<button class="bcard${wide ? " wide" : ""}" data-open="${m.id}" aria-label="${esc(m.name)} profili">
+  return `<button class="bcard${wide ? " wide" : ""}" data-open="${m.id}" aria-label="${esc(L("{name} profili", { name: m.name }))}">
     <span class="photo">${photoHtml(m)}${m.rank ? `<span class="tag ${isTop(m) ? "top" : ""}">${esc(m.rank)}</span>` : ""}
       ${m.reviews_count ? `<span class="rate-tag"><b>★</b> ${m.rating.toFixed(1)} · ${m.reviews_count}</span>` : ""}</span>
     <span class="info"><span class="name" style="display:block">${esc(m.name)}</span><span class="meta" style="display:block">${esc(sub)}</span></span></button>`;
@@ -845,26 +947,26 @@ function barberCardHtml(m, i, list) {
 function branchHtml(b) {
   const links = mapLinks(b);
   const map = !S.demo && b.lat != null
-    ? `<iframe title="Xarita" loading="lazy" src="https://www.openstreetmap.org/export/embed.html?bbox=${b.lng - 0.006},${b.lat - 0.003},${b.lng + 0.006},${b.lat + 0.003}&layer=mapnik&marker=${b.lat},${b.lng}"></iframe>` : "";
+    ? `<iframe title="${L("Xarita")}" loading="lazy" src="https://www.openstreetmap.org/export/embed.html?bbox=${b.lng - 0.006},${b.lat - 0.003},${b.lng + 0.006},${b.lat + 0.003}&layer=mapnik&marker=${b.lat},${b.lng}"></iframe>` : "";
   return `<div class="card place"><b>${esc(b.name)}</b>${b.address ? `<span class="addr">${esc(b.address)}</span>` : ""}
     ${b.landmark ? `<span class="chip" style="align-self:flex-start">${PIN}${esc(b.landmark)}</span>` : ""}${b.hours_text ? `<span class="hint">${esc(b.hours_text)}</span>` : ""}
     ${map}${b.address || b.lat != null ? `<div class="row2">${mapBtns(links)}</div>` : ""}</div>`;
 }
-const mapBtns = (l) => `<a class="small-btn" href="${esc(l.yandex)}" target="_blank" rel="noopener">Yandex xarita</a><a class="small-btn" href="${esc(l.google)}" target="_blank" rel="noopener">Google Maps</a>`;
+const mapBtns = (l) => `<a class="small-btn" href="${esc(l.yandex)}" target="_blank" rel="noopener">${L("Yandex xarita")}</a><a class="small-btn" href="${esc(l.google)}" target="_blank" rel="noopener">Google Maps</a>`;
 // How to get there and how to reach the salon: under the ticket and each upcoming visit.
 function contactHtml(b) {
   const phone = salonPhone(b), l = b && (b.address || b.lat != null) ? mapLinks(b) : null;
   if (!phone && !l && !b?.landmark) return "";
   return `${b?.landmark ? `<span class="chip" style="align-self:flex-start">${PIN}${esc(b.landmark)}</span>` : ""}
-    <div class="acts">${phone ? `<a class="small-btn${l ? " wide" : ""}" href="${tel(phone)}">${PHONE}Qo'ng'iroq</a>` : ""}${l ? mapBtns(l) : ""}</div>`;
+    <div class="acts">${phone ? `<a class="small-btn${l ? " wide" : ""}" href="${tel(phone)}">${PHONE}${L("Qo'ng'iroq")}</a>` : ""}${l ? mapBtns(l) : ""}</div>`;
 }
 // ---------- add to calendar: a Google Calendar link and an .ics file for any phone calendar ----------
 const calStamp = (iso) => new Date(iso).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
 function calEvent(r) {
   const b = branchOf(r), items = (r.items || []).map((i) => i.service_name).join(" + ");
   const end = r.ends_at || new Date(Date.parse(r.starts_at) + (r.items || []).reduce((a, i) => a + (i.duration_min || 0), 0) * 60000 || Date.parse(r.starts_at) + 3600e3).toISOString();
-  return { title: `${S.salon?.name || "Bron"}: ${r.master_name}`, start: r.starts_at, end, where: [r.branch_name, b?.address].filter(Boolean).join(", "),
-    details: [items, `Bron raqami #${r.id}`, salonPhone(b) && `Tel: ${salonPhone(b)}`].filter(Boolean).join("\n") };
+  return { title: `${S.salon?.name || L("Bron")}: ${r.master_name}`, start: r.starts_at, end, where: [r.branch_name, b?.address].filter(Boolean).join(", "),
+    details: [items, L("Bron raqami #{n}", { n: r.id }), salonPhone(b) && `Tel: ${salonPhone(b)}`].filter(Boolean).join("\n") };
 }
 const gcalUrl = (ev) => `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(ev.title)}&dates=${calStamp(ev.start)}/${calStamp(ev.end)}&location=${encodeURIComponent(ev.where)}&details=${encodeURIComponent(ev.details)}`;
 function downloadIcs(r) {
@@ -880,7 +982,7 @@ function downloadIcs(r) {
 
 function reviewHtml(r) {
   const d = tashkentParts(new Date(r.created_at)).date.split("-");
-  return `<div class="card review"><div class="who"><span class="av">${esc((r.client_name || "?")[0])}</span><div><b>${esc(r.client_name)}</b><small>${esc(r.services)} · ${+d[2]}-${MONTHS[+d[1] - 1]}</small></div><span class="stars">${stars(r.rating)}</span></div>
+  return `<div class="card review"><div class="who"><span class="av">${esc((r.client_name || "?")[0])}</span><div><b>${esc(r.client_name)}</b><small>${esc(r.services)} · ${dm(+d[2], MONTHS[+d[1] - 1])}</small></div><span class="stars">${stars(r.rating)}</span></div>
     ${r.comment ? `<p>${esc(r.comment)}</p>` : ""}</div>`;
 }
 
@@ -888,154 +990,157 @@ function profileTab(m) {
   const rv = S.profileReviews;
   if (S.ptab === "reviews") {
     if (rv == null) return '<div class="spinner"></div>';
-    return `${m.reviews_count ? `<div class="card score"><b>${m.rating.toFixed(1)}</b><div><div class="stars">${stars(m.rating)}</div><span class="hint">${m.reviews_count} ta mijoz bahosi</span></div></div>` : ""}
-      ${rv.length ? rv.map(reviewHtml).join("") : '<div class="empty">Hali hech kim baho qoldirmagan.</div>'}`;
+    return `${m.reviews_count ? `<div class="card score"><b>${m.rating.toFixed(1)}</b><div><div class="stars">${stars(m.rating)}</div><span class="hint">${L("{n} ta mijoz bahosi", { n: m.reviews_count })}</span></div></div>` : ""}
+      ${rv.length ? rv.map(reviewHtml).join("") : `<div class="empty">${L("Hali hech kim baho qoldirmagan.")}</div>`}`;
   }
-  if (S.ptab === "prices") return S.services.length ? `<div class="card rows">${S.services.map((s) => `<div><span>${esc(s.name)}<small>${s.duration_min} daqiqa</small></span><b>${som(s.price)}</b></div>`).join("")}</div>` : '<div class="spinner"></div>';
+  if (S.ptab === "prices") return S.services.length ? `<div class="card rows">${S.services.map((s) => `<div><span>${esc(s.name)}<small>${L("{n} daqiqa", { n: s.duration_min })}</small></span><b>${som(s.price)}</b></div>`).join("")}</div>` : '<div class="spinner"></div>';
   if (S.ptab === "place") return branchHtml(S.branch);
-  return m.works?.length ? `<div class="works">${m.works.map((w) => `<button data-zoom="${esc(w.url)}" data-caption="${esc(w.caption)}"><img src="${esc(w.url)}" alt="${esc(w.caption || "Ish namunasi")}" loading="lazy"></button>`).join("")}</div>` : '<div class="empty">Ish rasmlari hali joylanmagan.</div>';
+  return m.works?.length ? `<div class="works">${m.works.map((w) => `<button data-zoom="${esc(w.url)}" data-caption="${esc(w.caption)}"><img src="${esc(w.url)}" alt="${esc(w.caption || L("Ish namunasi"))}" loading="lazy"></button>`).join("")}</div>` : `<div class="empty">${L("Ish rasmlari hali joylanmagan.")}</div>`;
 }
 
 const isUpcoming = (v) => (v.status === "confirmed" || v.status === "pending") && Date.parse(v.starts_at) >= Date.now();
 function visitHtml(v) {
   const di = dayInfo(tashkentParts(new Date(v.starts_at)).date), r = S.rating[v.id] || 0;
-  const label = { confirmed: "Kutilmoqda", completed: "Bo'ldi", cancelled: "Bekor qilingan", no_show: "Kelmadingiz", pending: "Kutilmoqda" }[v.status];
+  const label = L({ confirmed: "Kutilmoqda", completed: "Bo'ldi", cancelled: "Bekor qilingan", no_show: "Kelmadingiz", pending: "Kutilmoqda" }[v.status]);
   let more = "";
   const busy = S.act ? "disabled" : "", left = Date.parse(v.starts_at) - Date.now(), b = branchOf(v);
-  if (v.status === "completed" && v.review_rating) more = `<div class="hint">Bahoyingiz: ${stars(v.review_rating)} Rahmat!</div>`;
-  else if (v.status === "completed") more = `<div class="hint">${esc(v.master_name)}ning ishiga baho bering</div>
-    <div class="rate" role="radiogroup" aria-label="Baho">${[1, 2, 3, 4, 5].map((n) => `<button data-rate="${v.id}" data-n="${n}" aria-pressed="${n <= r}" aria-label="${n} yulduz" ${busy}>★</button>`).join("")}</div>
-    ${r ? `<div class="field"><textarea id="rv-${v.id}" rows="2" placeholder="Fikringiz (ixtiyoriy)">${esc(S.reviewText[v.id] || "")}</textarea></div><button class="big-btn" data-send-review="${v.id}" ${busy}>${S.act === "r" + v.id ? "Yuborilmoqda…" : "Yuborish"}</button>` : ""}`;
+  if (v.status === "completed" && v.review_rating) more = `<div class="hint">${L("Bahoyingiz:")} ${stars(v.review_rating)} ${L("Rahmat!")}</div>`;
+  else if (v.status === "completed") more = `<div class="hint">${esc(L("{name}ning ishiga baho bering", { name: v.master_name }))}</div>
+    <div class="rate" role="radiogroup" aria-label="${L("Baho")}">${[1, 2, 3, 4, 5].map((n) => `<button data-rate="${v.id}" data-n="${n}" aria-pressed="${n <= r}" aria-label="${L("{n} yulduz", { n })}" ${busy}>★</button>`).join("")}</div>
+    ${r ? `<div class="field"><textarea id="rv-${v.id}" rows="2" placeholder="${L("Fikringiz (ixtiyoriy)")}">${esc(S.reviewText[v.id] || "")}</textarea></div><button class="big-btn" data-send-review="${v.id}" ${busy}>${S.act === "r" + v.id ? L("Yuborilmoqda…") : L("Yuborish")}</button>` : ""}`;
   if (isUpcoming(v)) {
     more = contactHtml(b);
     if (v.status === "confirmed" && left > 2 * 3600e3)
       more += S.cancelAsk === v.id
-        ? `<div class="hint">Bron bekor qilinsinmi?</div><div class="row2"><button class="small-btn" data-cancel-keep="1" ${busy}>Yo'q</button><button class="small-btn danger" data-cancel-visit="${v.id}" ${busy}>${S.act === "c" + v.id ? "Bekor qilinmoqda…" : "Ha, bekor qilish"}</button></div>`
-        : `<div class="row2"><button class="small-btn" data-cancel-ask="${v.id}" ${busy}>Bekor qilish</button></div>`;
-    else if (salonPhone(b)) more += `<div class="hint">O'zgartirish uchun salonga qo'ng'iroq qiling: ${telLink(salonPhone(b))}</div>`;
+        ? `<div class="hint">${L("Bron bekor qilinsinmi?")}</div><div class="row2"><button class="small-btn" data-cancel-keep="1" ${busy}>${L("Yo'q")}</button><button class="small-btn danger" data-cancel-visit="${v.id}" ${busy}>${S.act === "c" + v.id ? L("Bekor qilinmoqda…") : L("Ha, bekor qilish")}</button></div>`
+        : `<div class="row2"><button class="small-btn" data-cancel-ask="${v.id}" ${busy}>${L("Bekor qilish")}</button></div>`;
+    else if (salonPhone(b)) more += `<div class="hint">${L("O'zgartirish uchun salonga qo'ng'iroq qiling:")} ${telLink(salonPhone(b))}</div>`;
   } else if (v.master_id && (!S.loaded || S.masters.some((m) => m.id === v.master_id)))
-    more += `<div class="row2"><button class="small-btn primary" data-rebook="${v.id}">Qayta bron</button></div>`;
+    more += `<div class="row2"><button class="small-btn primary" data-rebook="${v.id}">${L("Qayta bron")}</button></div>`;
   return `<div class="card visit"><div class="top"><b>${hhmm(v.starts_at)}</b><span class="status ${v.status === "confirmed" ? "ok" : ""}">${label}</span></div>
-    <div class="hint">${di.wd}, ${di.day}-${di.month}</div>
+    <div class="hint">${di.wd}, ${dm(di.day, di.month)}</div>
     <div>${esc(v.master_name)} · ${(v.items || []).map((i) => esc(i.service_name)).join(" + ")} · <b>${som(v.total_price)}</b></div>${more}</div>`;
 }
 
 const TG = (size = 20) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.4 4.3 2.9 11.4c-1.3.5-1.2 1.2-.2 1.5l4.7 1.5 1.8 5.6c.2.6.4.8.9.8.4 0 .6-.2.9-.5l2.3-2.2 4.8 3.5c.9.5 1.5.2 1.7-.8l3.1-14.6c.3-1.3-.5-1.9-1.5-1.4zM8.6 14l9.2-5.8c.4-.3.8-.1.5.2l-7.6 6.9-.3 3.3L8.6 14z"/></svg>`;
-function telegramStepHtml(title = "Telegram orqali kiring", lead = "Telefon raqamingizni bot orqali bir marta yuborasiz. Bron tasdig'i va eslatmalar ham shu botga keladi.") {
+function telegramStepHtml(title = L("Telegram orqali kiring"), lead = L("Telefon raqamingizni bot orqali bir marta yuborasiz. Bron tasdig'i va eslatmalar ham shu botga keladi.")) {
   const tg = S.tg;
   return `<h1>${title}</h1><p class="lead">${lead}</p>${notice()}
     <div class="card tg-card">
-      <ol class="tg-steps"><li>Pastdagi tugmani bosing, <b>@${esc(S.salon.telegram_bot)}</b> ochiladi.</li><li>Botda <b>Start</b>, keyin <b>📱 Raqamni yuborish</b> tugmasini bosing. Avval kirgan bo'lsangiz, <b>✅ Ha, kirish</b> tugmasini bosing.</li><li>Shu sahifaga qayting: o'zi davom etadi.</li></ol>
-      ${S.tgExpired ? `<button class="big-btn" id="tg-retry">Qaytadan urinish</button>`
+      <ol class="tg-steps"><li>${L("Pastdagi tugmani bosing, <b>@{bot}</b> ochiladi.", { bot: esc(S.salon.telegram_bot) })}</li><li>${L("Botda <b>Start</b>, keyin <b>📱 Raqamni yuborish</b> tugmasini bosing. Avval kirgan bo'lsangiz, <b>✅ Ha, kirish</b> tugmasini bosing.")}</li><li>${L("Shu sahifaga qayting: o'zi davom etadi.")}</li></ol>
+      ${S.tgExpired ? `<button class="big-btn" id="tg-retry">${L("Qaytadan urinish")}</button>`
         : !tg ? (S.error ? "" : '<div class="spinner"></div>')
-        : S.demo ? `<button class="big-btn tg" id="tg-demo">${TG()}Telegram orqali kirish</button><p class="hint center">Demo: haqiqiy saytda shu tugma Telegram'ni ochadi.</p>`
-        : `<a class="big-btn tg" href="${esc(tg.url)}" target="_blank" rel="noopener">${TG()}Telegram orqali kirish</a>`}
-      ${tg && !S.tgExpired ? `<p class="waiting"><span class="dot"></span>Telegram'dan javob kutilmoqda…</p>` : ""}</div>`;
+        : S.demo ? `<button class="big-btn tg" id="tg-demo">${TG()}${L("Telegram orqali kirish")}</button><p class="hint center">${L("Demo: haqiqiy saytda shu tugma Telegram'ni ochadi.")}</p>`
+        : `<a class="big-btn tg" href="${esc(tg.url)}" target="_blank" rel="noopener">${TG()}${L("Telegram orqali kirish")}</a>`}
+      ${tg && !S.tgExpired ? `<p class="waiting"><span class="dot"></span>${L("Telegram'dan javob kutilmoqda…")}</p>` : ""}</div>`;
 }
 
 const whoLine = (m, extra) => `<div class="card who-line">${m.photo_url ? `<img src="${esc(m.photo_url)}" alt="">` : `<span class="mini">${esc(m.name[0])}</span>`}<div><b>${esc(m.name)}</b><small>${extra}</small></div></div>`;
 
 // ---------- rendering ----------
-const notice = () => (S.error ? `<div class="notice" role="alert"><span>${esc(S.error)}</span>${S.retry ? `<button class="small-btn" id="retry">Qayta urinish</button>` : ""}</div>` : "");
+const notice = () => (S.error ? `<div class="notice" role="alert"><span>${esc(S.error)}</span>${S.retry ? `<button class="small-btn" id="retry">${L("Qayta urinish")}</button>` : ""}</div>` : "");
 
 const views = {
   0: () => {
     const list = S.masters.filter((m) => S.filter == null || m.branch_id === S.filter);
     return `${salonHtml()}${notice()}
-    <div class="section-head"><h1>${esc(TERM())}lar</h1>${S.loaded && list.length ? `<span>${list.length} ta</span>` : ""}</div>
-    ${S.branches.length > 1 ? `<div class="seg" role="group" aria-label="Filial">${[[null, "Hammasi"], ...S.branches.map((b) => [b.id, b.name])].map(([id, n]) => `<button data-filter="${id ?? ""}" aria-pressed="${S.filter === id}">${esc(n)}</button>`).join("")}</div>` : ""}
-    ${S.loaded && list.length > 1 ? `<button class="card any-card" data-open="0"><b>⚡ Farqi yo'q</b><small>Eng yaqin bo'sh vaqtga istalgan ${esc(term())}ga yozilish</small></button>` : ""}
-    ${!S.loaded ? (S.error ? "" : '<div class="spinner"></div>') : list.length ? `<div class="grid">${list.map(barberCardHtml).join("")}</div>` : `<div class="empty">Onlayn bron uchun ${esc(term())}lar hali qo'shilmagan.${S.salon?.phone ? ` Salonga qo'ng'iroq qiling: ${telLink(S.salon.phone)}` : ""}</div>`}`;
+    <div class="section-head"><h1>${esc(TERMS_L())}</h1>${S.loaded && list.length ? `<span>${L("{n} ta", { n: list.length })}</span>` : ""}</div>
+    ${S.branches.length > 1 ? `<div class="seg" role="group" aria-label="${L("Filial")}">${[[null, L("Hammasi")], ...S.branches.map((b) => [b.id, b.name])].map(([id, n]) => `<button data-filter="${id ?? ""}" aria-pressed="${S.filter === id}">${esc(n)}</button>`).join("")}</div>` : ""}
+    ${S.loaded && list.length > 1 ? `<button class="card any-card" data-open="0"><b>${L("⚡ Farqi yo'q")}</b><small>${esc(TT("Eng yaqin bo'sh vaqtga istalgan {t}ga yozilish"))}</small></button>` : ""}
+    ${!S.loaded ? (S.error ? "" : '<div class="spinner"></div>') : list.length ? `<div class="grid">${list.map(barberCardHtml).join("")}</div>` : `<div class="empty">${esc(TT("Onlayn bron uchun {t}lar hali qo'shilmagan."))}${S.salon?.phone ? ` ${L("Salonga qo'ng'iroq qiling:")} ${telLink(S.salon.phone)}` : ""}</div>`}`;
   },
   1: () => {
     const m = chosenMaster(), ig = handle(m.instagram);
     const from = S.services.length ? Math.min(...S.services.map((s) => s.price)) : null;
     const tab = (k, label) => `<button role="tab" data-ptab="${k}" aria-selected="${S.ptab === k}">${label}</button>`;
     return `${notice()}<div class="ph">${photoHtml(m)}<div class="over">${m.rank ? `<span class="tag ${isTop(m) ? "top" : ""}">${esc(m.rank)}</span>` : ""}<h2>${esc(m.name)}</h2><small>${esc(S.branch?.name || "")}</small></div></div>
-    <div class="card stats"><div><b>${m.experience_years ?? "–"}</b><small>yil tajriba</small></div><div><b>${m.reviews_count ? `<span class="star">★</span> ${m.rating.toFixed(1)}` : "–"}</b><small>${m.reviews_count ? `${m.reviews_count} baho` : "baho yo'q"}</small></div><div><b>${from != null ? Math.round(from / 1000) + "k" : "–"}</b><small>so'mdan</small></div></div>
-    ${ig ? `<a class="card ig" href="https://instagram.com/${encodeURIComponent(ig)}" target="_blank" rel="noopener"><span class="glyph">${IG(20)}</span><span><b>@${esc(ig)}</b><small>Instagram</small></span><span class="go">Ochish</span></a>` : ""}
+    <div class="card stats"><div><b>${m.experience_years ?? "–"}</b><small>${L("yil tajriba")}</small></div><div><b>${m.reviews_count ? `<span class="star">★</span> ${m.rating.toFixed(1)}` : "–"}</b><small>${m.reviews_count ? L("{n} baho", { n: m.reviews_count }) : L("baho yo'q")}</small></div><div><b>${from != null ? Math.round(from / 1000) + "k" : "–"}</b><small>${L("so'mdan")}</small></div></div>
+    ${ig ? `<a class="card ig" href="https://instagram.com/${encodeURIComponent(ig)}" target="_blank" rel="noopener"><span class="glyph">${IG(20)}</span><span><b>@${esc(ig)}</b><small>Instagram</small></span><span class="go">${L("Ochish")}</span></a>` : ""}
     ${m.bio ? `<p class="bio">${esc(m.bio)}</p>` : ""}
     ${m.specialties?.length ? `<div class="tags">${m.specialties.map((x) => `<span>${esc(x)}</span>`).join("")}</div>` : ""}
-    <div class="tabs" role="tablist">${tab("works", "Ishlari")}${tab("reviews", "Fikrlar")}${tab("prices", "Narxlar")}${tab("place", "Manzil")}</div>
+    <div class="tabs" role="tablist">${tab("works", L("Ishlari"))}${tab("reviews", L("Fikrlar"))}${tab("prices", L("Narxlar"))}${tab("place", L("Manzil"))}</div>
     ${profileTab(m)}`;
   },
   2: () => {
     const cats = [...new Set(S.services.map((s) => s.category))], m = chosenMaster();
-    return `<h1>Xizmatni tanlang</h1>${whoLine(m, `Narxlar shu ${term()}niki. Bir nechtasini tanlash mumkin.`)}${notice()}
+    return `<h1>${L("Xizmatni tanlang")}</h1>${whoLine(m, esc(TT("Narxlar shu {t}niki. Bir nechtasini tanlash mumkin.")))}${notice()}
     ${cats.map((c) => `${cats.length > 1 ? `<div class="cat">${esc(c)}</div>` : ""}<div class="list">${S.services.filter((s) => s.category === c).map((s) => `
       <button class="svc" data-service="${s.id}" aria-pressed="${S.picked.has(s.id)}">
-      <span class="main"><span class="name">${esc(s.name)}</span><span class="sub">${s.duration_min} daqiqa${s.description ? " · " + esc(s.description) : ""}</span><span class="price">${som(s.price)}</span></span>
+      <span class="main"><span class="name">${esc(s.name)}</span><span class="sub">${L("{n} daqiqa", { n: s.duration_min })}${s.description ? " · " + esc(s.description) : ""}</span><span class="price">${som(s.price)}</span></span>
       <span class="plus">${S.picked.has(s.id) ? TICK : PLUS}</span></button>`).join("")}</div>`).join("") || (S.error ? "" : '<div class="spinner"></div>')}`;
   },
   3: () => {
-    const groups = [["Ertalab", 0, 12], ["Kunduzi", 12, 17], ["Kechqurun", 17, 24]];
+    const groups = [[L("Ertalab"), 0, 12], [L("Kunduzi"), 12, 17], [L("Kechqurun"), 17, 24]];
     const di = S.date ? dayInfo(S.date) : null, t = totals(), m = chosenMaster(), t0 = todayYmd(), t1 = addDays(t0, 1);
-    const head = `<h1>Kun va vaqt</h1>${whoLine(m, `${pickedServices().map((s) => esc(s.name)).join(", ")} · ${t.dur} daqiqa`)}${notice()}`;
+    const head = `<h1>${L("Kun va vaqt")}</h1>${whoLine(m, `${pickedServices().map((s) => esc(s.name)).join(", ")} · ${L("{n} daqiqa", { n: t.dur })}`)}${notice()}`;
     if (S.dates.length && !S.dates.some((d) => d.has_slots)) {
       // Nobody likes a dead end: other barbers of the same branch, and the salon's phone.
       const alts = S.masters.filter((x) => x.branch_id === m.branch_id && x.id !== m.id), ph = salonPhone(S.branch);
-      return `${head}<div class="empty">Bu ${esc(term())}da 2 hafta ichida bo'sh vaqt yo'q.${ph ? ` Salonga qo'ng'iroq qiling: ${telLink(ph)}` : ""}</div>
-        ${alts.length ? `<div class="cat">Shu filialdagi boshqa ${esc(term())}lar</div><div class="list">${alts.map((x) => `<button class="card who-line alt" data-switch="${x.id}">${x.photo_url ? `<img src="${esc(x.photo_url)}" alt="">` : `<span class="mini">${esc(x.name[0])}</span>`}<div><b>${esc(x.name)}</b><small>${esc([x.rank, x.reviews_count ? `★ ${x.rating.toFixed(1)}` : ""].filter(Boolean).join(" · "))}</small></div><span class="go">Tanlash</span></button>`).join("")}</div>` : ""}`;
+      return `${head}<div class="empty">${esc(TT("Bu {t}da 2 hafta ichida bo'sh vaqt yo'q."))}${ph ? ` ${L("Salonga qo'ng'iroq qiling:")} ${telLink(ph)}` : ""}</div>
+        ${alts.length ? `<div class="cat">${esc(TT("Shu filialdagi boshqa {t}lar"))}</div><div class="list">${alts.map((x) => `<button class="card who-line alt" data-switch="${x.id}">${x.photo_url ? `<img src="${esc(x.photo_url)}" alt="">` : `<span class="mini">${esc(x.name[0])}</span>`}<div><b>${esc(x.name)}</b><small>${esc([x.rank, x.reviews_count ? `★ ${x.rating.toFixed(1)}` : ""].filter(Boolean).join(" · "))}</small></div><span class="go">${L("Tanlash")}</span></button>`).join("")}</div>` : ""}`;
     }
     let prevMonth = S.dates[0] && dayInfo(S.dates[0].date).month;
     const chips = S.dates.map((d) => {
       const i = dayInfo(d.date), mark = i.month !== prevMonth ? `<span class="mon" aria-hidden="true">${i.month.slice(0, 3)}</span>` : ""; prevMonth = i.month;
-      return `${mark}<button class="day" data-date="${d.date}" aria-pressed="${S.date === d.date}" aria-label="${dayLabel(d.date, true)}" ${d.has_slots ? "" : "disabled"}><small>${d.date === t0 ? "Bugun" : d.date === t1 ? "Ertaga" : i.wd}</small><b>${i.day}</b></button>`;
+      return `${mark}<button class="day" data-date="${d.date}" aria-pressed="${S.date === d.date}" aria-label="${dayLabel(d.date, true)}" ${d.has_slots ? "" : "disabled"}><small>${d.date === t0 ? L("Bugun") : d.date === t1 ? L("Ertaga") : i.wd}</small><b>${i.day}</b></button>`;
     }).join("");
     return `${head}
-    ${di ? `<div class="section-head"><h2>${di.month[0].toUpperCase() + di.month.slice(1)}</h2></div>` : ""}
-    ${S.jumped && S.date ? `<p class="info-line">Bugun bo'sh vaqt yo'q, eng yaqin: <b>${dayLabel(S.date, true)}</b></p>` : ""}
-    <div class="days" role="listbox" aria-label="Sana">${chips || (S.error ? "" : '<div class="spinner"></div>')}</div>
-    ${S.dates.length && S.slotsLoading && !S.error ? '<div class="spinner"></div>' : S.dates.length && !S.slots.length && !S.error ? '<div class="empty">Bu kunda bo\'sh vaqt qolmagan. Boshqa kunni tanlang.</div>' : ""}
+    ${di ? `<div class="section-head"><h2>${monthTitle(di.month)}</h2></div>` : ""}
+    ${S.jumped && S.date ? `<p class="info-line">${L("Bugun bo'sh vaqt yo'q, eng yaqin:")} <b>${dayLabel(S.date, true)}</b></p>` : ""}
+    <div class="days" role="listbox" aria-label="${L("Sana")}">${chips || (S.error ? "" : '<div class="spinner"></div>')}</div>
+    ${S.dates.length && S.slotsLoading && !S.error ? '<div class="spinner"></div>' : S.dates.length && !S.slots.length && !S.error ? `<div class="empty">${L("Bu kunda bo'sh vaqt qolmagan. Boshqa kunni tanlang.")}</div>` : ""}
     ${groups.map(([label, a, b]) => { const list = S.slots.filter((s) => { const h = +hhmm(s.start).slice(0, 2); return h >= a && h < b; }); return list.length ? `<div class="cat">${label}</div><div class="slots">${list.map((s) => `<button class="slot" data-slot="${s.start}" aria-pressed="${S.slot === s.start}">${hhmm(s.start)}</button>`).join("")}</div>` : ""; }).join("")}`;
   },
-  4: () => useTelegram() ? telegramStepHtml() : S.salon?.sms_login === false ? `<h1>Kirish</h1><div class="empty">Onlayn bron vaqtincha ishlamayapti. Iltimos, salonga qo'ng'iroq qiling${S.salon.phone ? `: ${telLink(S.salon.phone)}` : "."}</div>` : `<h1>Telefon raqamingiz</h1><p class="lead">Bir martalik SMS kod yuboramiz. Keyingi safar qayta so'ramaymiz.</p>${notice()}
-    <div class="field"><label for="name">Ismingiz</label><input id="name" autocomplete="given-name" value="${esc(S.name)}" placeholder="Masalan, Aziz"></div>
-    <div class="field"><label for="phone">Telefon</label><div class="phone"><span>+998</span><input id="phone" inputmode="tel" autocomplete="tel-national" value="${esc(S.phone)}" placeholder="90 123 45 67" ${S.codeSent ? "disabled" : ""}></div></div>
+  4: () => useTelegram() ? telegramStepHtml() : S.salon?.sms_login === false ? `<h1>${L("Kirish")}</h1><div class="empty">${L("Onlayn bron vaqtincha ishlamayapti. Iltimos, salonga qo'ng'iroq qiling")}${S.salon.phone ? `: ${telLink(S.salon.phone)}` : "."}</div>` : `<h1>${L("Telefon raqamingiz")}</h1><p class="lead">${L("Bir martalik SMS kod yuboramiz. Keyingi safar qayta so'ramaymiz.")}</p>${notice()}
+    <div class="field"><label for="name">${L("Ismingiz")}</label><input id="name" autocomplete="given-name" value="${esc(S.name)}" placeholder="${L("Masalan, Aziz")}"></div>
+    <div class="field"><label for="phone">${L("Telefon")}</label><div class="phone"><span>+998</span><input id="phone" inputmode="tel" autocomplete="tel-national" value="${esc(S.phone)}" placeholder="90 123 45 67" ${S.codeSent ? "disabled" : ""}></div></div>
     ${S.codeSent
-      ? `<div class="field"><label for="code">SMS kod</label><input id="code" class="code-input" inputmode="numeric" maxlength="6" autocomplete="one-time-code" value="${esc(S.code)}" placeholder="••••••"></div>
-         ${S.demo ? `<p class="demo-code">Demo: haqiqiy SMS yuborilmaydi. Kod <b>123456</b> <button class="link" id="fill-code">Kodni qo'yish</button></p>` : ""}
-         <p class="hint">Kod +998 ${esc(S.phone)} raqamiga yuborildi. <button class="link" id="change-phone">Raqamni o'zgartirish</button></p>`
-      : `<button class="big-btn" id="send-code" ${S.busy ? "disabled" : ""}>${S.busy ? "Yuborilmoqda…" : "Kod yuborish"}</button>`}`,
+      ? `<div class="field"><label for="code">${L("SMS kod")}</label><input id="code" class="code-input" inputmode="numeric" maxlength="6" autocomplete="one-time-code" value="${esc(S.code)}" placeholder="••••••"></div>
+         ${S.demo ? `<p class="demo-code">${L("Demo: haqiqiy SMS yuborilmaydi. Kod")} <b>123456</b> <button class="link" id="fill-code">${L("Kodni qo'yish")}</button></p>` : ""}
+         <p class="hint">${L("Kod +998 {phone} raqamiga yuborildi.", { phone: esc(S.phone) })} <button class="link" id="change-phone">${L("Raqamni o'zgartirish")}</button></p>`
+      : `<button class="big-btn" id="send-code" ${S.busy ? "disabled" : ""}>${S.busy ? L("Yuborilmoqda…") : L("Kod yuborish")}</button>`}`,
   5: () => {
     const t = totals(), m = chosenMaster(), di = dayInfo(slotDate());
-    return `<h1>Hammasi to'g'rimi?</h1>${notice()}
-    <div class="card ticket"><div class="when"><span class="clock">${hhmm(S.slot)}</span><div><b>${di.wd}, ${di.day}-${di.month}</b><small>${t.dur} daqiqa</small></div></div>
-      <div class="rows"><div><span>${esc(TERM())}</span><b>${esc(m.name)}</b></div><div><span>Filial</span><b>${esc(S.branch.name)}</b></div>
-      ${pickedServices().map((s) => `<div><span>${esc(s.name)}</span><b>${som(s.price)}</b></div>`).join("")}<div><span>Mijoz</span><b>${esc(S.user?.name || S.name)}</b></div></div>
-      <div class="total"><span>Jami</span><span>${som(t.price)}</span></div></div>
-    <div class="field"><label for="comment">${esc(TERM())}ga izoh (ixtiyoriy)</label><textarea id="comment" rows="2" placeholder="${esc(COMMENT_HINT[S.salon?.kind] || COMMENT_HINT.barber)}">${esc(S.comment)}</textarea></div>
-    <p class="hint">Bepul bekor qilish: boshlanishidan 2 soat oldingacha. To'lov salonda.</p>`;
+    return `<h1>${L("Hammasi to'g'rimi?")}</h1>${notice()}
+    <div class="card ticket"><div class="when"><span class="clock">${hhmm(S.slot)}</span><div><b>${di.wd}, ${dm(di.day, di.month)}</b><small>${L("{n} daqiqa", { n: t.dur })}</small></div></div>
+      <div class="rows"><div><span>${esc(TERM_L())}</span><b>${esc(m.name)}</b></div><div><span>${L("Filial")}</span><b>${esc(S.branch.name)}</b></div>
+      ${pickedServices().map((s) => `<div><span>${esc(s.name)}</span><b>${som(s.price)}</b></div>`).join("")}<div><span>${L("Mijoz")}</span><b>${esc(S.user?.name || S.name)}</b></div></div>
+      <div class="total"><span>${L("Jami")}</span><span>${som(t.price)}</span></div></div>
+    <div class="field"><label for="comment">${esc(TT("{T}ga izoh (ixtiyoriy)"))}</label><textarea id="comment" rows="2" placeholder="${esc(L(COMMENT_HINT[S.salon?.kind] || COMMENT_HINT.barber))}">${esc(S.comment)}</textarea></div>
+    <p class="hint">${L("Bepul bekor qilish: boshlanishidan 2 soat oldingacha. To'lov salonda.")}</p>`;
   },
   7: () => {
-    if (!S.user) return useTelegram() ? telegramStepHtml("Bronlarim", "Bronlaringizni ko'rish uchun Telegram orqali kiring. Kirgandan keyin shu sahifaga qaytasiz.")
-      : `<h1>Bronlarim</h1>${notice()}<div class="empty">Bron qilganingizdan keyin tashriflaringiz shu yerda ko'rinadi.</div>`;
-    if (!S.visits) return `<h1>Bronlarim</h1>${notice()}${S.error ? "" : '<div class="spinner"></div>'}`;
+    if (!S.user) return useTelegram() ? telegramStepHtml(L("Bronlarim"), L("Bronlaringizni ko'rish uchun Telegram orqali kiring. Kirgandan keyin shu sahifaga qaytasiz."))
+      : `<h1>${L("Bronlarim")}</h1>${notice()}<div class="empty">${L("Bron qilganingizdan keyin tashriflaringiz shu yerda ko'rinadi.")}</div>`;
+    if (!S.visits) return `<h1>${L("Bronlarim")}</h1>${notice()}${S.error ? "" : '<div class="spinner"></div>'}`;
     const up = S.visits.filter(isUpcoming).sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at)), past = S.visits.filter((v) => !up.includes(v));
-    return `<h1>Bronlarim</h1>${notice()}
-      ${up.length ? `<div class="cat">Kelgusi</div>${up.map(visitHtml).join("")}` : ""}
-      ${past.length ? `<div class="cat">Avvalgi tashriflar</div>${past.map(visitHtml).join("")}` : ""}
-      ${S.visits.length || S.error ? "" : '<div class="empty">Hali bron yo\'q.</div>'}`;
+    return `<h1>${L("Bronlarim")}</h1>${notice()}
+      ${up.length ? `<div class="cat">${L("Kelgusi")}</div>${up.map(visitHtml).join("")}` : ""}
+      ${past.length ? `<div class="cat">${L("Avvalgi tashriflar")}</div>${past.map(visitHtml).join("")}` : ""}
+      ${S.visits.length || S.error ? "" : `<div class="empty">${L("Hali bron yo'q.")}</div>`}`;
   },
   6: () => { const r = S.result, di = dayInfo(tashkentParts(new Date(r.starts_at)).date), b = branchOf(r) || S.branch, ev = calEvent(r); return `<div class="done-mark"><svg width="34" height="34" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 7.5l3 3 6-7"/></svg></div>
-    <div class="center"><h1>Bron qilindi!</h1><p class="hint">${useTelegram() ? "Tasdiqni Telegram'ga yubordik" : "SMS orqali tasdiq yubordik"}. Tashrifdan 24 va 2 soat oldin eslatamiz.</p></div>
-    <div class="card ticket"><div class="when"><span class="clock">${hhmm(r.starts_at)}</span><div><b>${di.wd}, ${di.day}-${di.month}</b><small>Bron raqami #${r.id}</small></div></div>
-      <div class="rows"><div><span>${esc(TERM())}</span><b>${esc(r.master_name)}</b></div><div><span>Filial</span><b>${esc(r.branch_name)}</b></div></div>
-      <div class="total"><span>To'lov salonda</span><span>${som(r.total_price)}</span></div></div>
+    <div class="center"><h1>${L("Bron qilindi!")}</h1><p class="hint">${useTelegram() ? L("Tasdiqni Telegram'ga yubordik") : L("SMS orqali tasdiq yubordik")}. ${L("Tashrifdan 24 va 2 soat oldin eslatamiz.")}</p></div>
+    <div class="card ticket"><div class="when"><span class="clock">${hhmm(r.starts_at)}</span><div><b>${di.wd}, ${dm(di.day, di.month)}</b><small>${L("Bron raqami #{n}", { n: r.id })}</small></div></div>
+      <div class="rows"><div><span>${esc(TERM_L())}</span><b>${esc(r.master_name)}</b></div><div><span>${L("Filial")}</span><b>${esc(r.branch_name)}</b></div></div>
+      <div class="total"><span>${L("To'lov salonda")}</span><span>${som(r.total_price)}</span></div></div>
     ${b ? `<div class="card place"><b>${esc(b.name || r.branch_name)}</b>${b.address ? `<span class="addr">${esc(b.address)}</span>` : ""}${contactHtml(b)}</div>` : ""}
-    <div class="card place"><b>Kalendarga qo'shish</b><span class="hint">Eslatma telefoningizda ham tursin.</span>
-      <div class="acts"><a class="small-btn" href="${esc(gcalUrl(ev))}" target="_blank" rel="noopener">Google Calendar</a><button class="small-btn" id="ics">Boshqa (.ics)</button></div></div>
-    <button class="big-btn" id="rebook-last">Yana shu ${esc(term())}ga</button>
-    <button class="big-btn ghost" id="again">Boshqa ${esc(term())}ga bron</button>`; },
+    <div class="card place"><b>${L("Kalendarga qo'shish")}</b><span class="hint">${L("Eslatma telefoningizda ham tursin.")}</span>
+      <div class="acts"><a class="small-btn" href="${esc(gcalUrl(ev))}" target="_blank" rel="noopener">Google Calendar</a><button class="small-btn" id="ics">${L("Boshqa (.ics)")}</button></div></div>
+    <button class="big-btn" id="rebook-last">${esc(TT("Yana shu {t}ga"))}</button>
+    <button class="big-btn ghost" id="again">${esc(TT("Boshqa {t}ga bron"))}</button>`; },
 };
 
 const TITLES = ["", "Usta", "Xizmat", "Vaqt", "Kirish", "Tasdiqlash", "Tayyor", "Bronlarim"];
 function render() {
-  $("#layer").innerHTML = S.zoom ? `<button class="lightbox" data-unzoom="1" aria-label="Yopish"><span style="display:flex;flex-direction:column;align-items:center"><img src="${esc(S.zoom.url)}" alt=""><span>${esc(S.zoom.caption || "")}</span></span></button>` : "";
+  $("#lang").textContent = LANG === "ru" ? "UZ" : "RU";
+  $("#mine").textContent = L("Bronlarim");
+  $("#back").setAttribute("aria-label", L("Orqaga"));
+  $("#layer").innerHTML = S.zoom ? `<button class="lightbox" data-unzoom="1" aria-label="${L("Yopish")}"><span style="display:flex;flex-direction:column;align-items:center"><img src="${esc(S.zoom.url)}" alt=""><span>${esc(S.zoom.caption || "")}</span></span></button>` : "";
   $("#mine").hidden = S.step === 7;
   $("#demo-badge").hidden = !S.demo || !!S.user;
-  $("#step-title").textContent = S.step === 0 ? (S.salon?.name || "Onlayn bron") : S.step === 1 && chosenMaster() ? chosenMaster().name : TITLES[S.step];
-  $("#step-label").textContent = S.step === 0 ? "Onlayn bron" : S.step >= 1 && S.step <= 5 ? `${S.step + 1}-qadam, 6 tadan` : "";
+  $("#step-title").textContent = S.step === 0 ? (S.salon?.name || L("Onlayn bron")) : S.step === 1 && chosenMaster() ? chosenMaster().name : S.step === 1 ? TERM_L() : L(TITLES[S.step]);
+  $("#step-label").textContent = S.step === 0 ? L("Onlayn bron") : S.step >= 1 && S.step <= 5 ? L("{n}-qadam, 6 tadan", { n: S.step + 1 }) : "";
   $("#steps").style.width = S.step === 7 ? "0" : `${Math.min(S.step + 1, 6) / 6 * 100}%`;
   persist();
   if (S.step === 7) { $("#back").disabled = false; $("#view").innerHTML = views[7](); $("#bar").hidden = true; return; }
@@ -1043,10 +1148,10 @@ function render() {
   $("#back").disabled = S.step === 0 || done;
   $("#view").innerHTML = views[S.step]();
   const t = totals(), m = chosenMaster();
-  $("#summary").innerHTML = S.step === 1 && m ? `<b>${esc(m.name)}</b>${S.services.length ? `${som(Math.min(...S.services.map((s) => s.price)))} dan` : esc(S.branch?.name || "")}`
-    : S.picked.size ? `<b>${som(t.price)}</b>${t.dur} daqiqa${S.slot && S.step >= 3 ? " · " + hhmm(S.slot) : ""}` : m ? `<b>${esc(m.name)}</b>xizmat tanlang` : "";
+  $("#summary").innerHTML = S.step === 1 && m ? `<b>${esc(m.name)}</b>${S.services.length ? L("{price} dan", { price: som(Math.min(...S.services.map((s) => s.price))) }) : esc(S.branch?.name || "")}`
+    : S.picked.size ? `<b>${som(t.price)}</b>${L("{n} daqiqa", { n: t.dur })}${S.slot && S.step >= 3 ? " · " + hhmm(S.slot) : ""}` : m ? `<b>${esc(m.name)}</b>${L("xizmat tanlang")}` : "";
   const cta = $("#cta");
-  cta.textContent = S.step === 1 ? "Bron qilish" : S.step === 5 ? (S.busy ? "Yuborilmoqda…" : "Tasdiqlash") : S.step === 4 ? (S.busy ? "Tekshirilmoqda…" : "Kirish") : "Davom etish";
+  cta.textContent = S.step === 1 ? L("Bron qilish") : S.step === 5 ? (S.busy ? L("Yuborilmoqda…") : L("Tasdiqlash ")) : S.step === 4 ? (S.busy ? L("Tekshirilmoqda…") : L("Kirish")) : L("Davom etish");
   cta.disabled = !canContinue() || S.busy;
   $("#bar").hidden = done || S.step === 0 || (S.step === 4 && (useTelegram() || !S.codeSent)) || (S.step === 1 && !m);
   if (S.step === 3) {  // keep the picked day in sight (innerHTML resets the row's scroll)
@@ -1063,6 +1168,7 @@ document.addEventListener("click", async (e) => {
   if (d.ptab) { S.ptab = d.ptab; render(); return; }
   if (d.zoom) { S.zoom = { url: d.zoom, caption: d.caption }; render(); return; }
   if (t.id === "mine") return openMine();
+  if (t.id === "lang") return switchLang(LANG === "ru" ? "uz" : "ru", true);
   if (d.cancelAsk) { S.cancelAsk = +d.cancelAsk; render(); return; }
   if (d.cancelKeep) { S.cancelAsk = null; render(); return; }
   // One request at a time: the buttons stay disabled until the answer comes.
@@ -1095,7 +1201,7 @@ document.addEventListener("click", async (e) => {
   else if (t.id === "retry") { const r = S.retry; S.retry = null; r === "slots" ? pickDate(S.date) : S.step === 7 ? openMine(true) : go(S.step, true); }
   else if (t.id === "ics") downloadIcs(S.result);
   else if (t.id === "rebook-last") { const r = S.result; rebook(r.master_id, r.items?.length ? r.items.map((i) => i.service_id) : ids(), t); }
-  else if (t.id === "tg-demo") { api.tgConfirm(); t.textContent = "Tasdiqlandi, kuting…"; t.disabled = true; }
+  else if (t.id === "tg-demo") { api.tgConfirm(); t.textContent = L("Tasdiqlandi, kuting…"); t.disabled = true; }
   else if (t.id === "fill-code") { S.code = "123456"; if (S.name.trim()) verify(); else { render(); $("#name")?.focus(); } }
   else if (t.id === "change-phone") { S.codeSent = false; S.code = ""; S.error = ""; render(); }
   else if (t.id === "again") restart();
@@ -1124,17 +1230,33 @@ document.addEventListener("input", (e) => {
   const cta = $("#cta"); cta.disabled = !canContinue() || S.busy;
 });
 
+// The language button: the page redraws at once; a signed-in client's bot messages follow the choice.
+function switchLang(l, chosen) {
+  LANG = l; WEEK = WEEKS[l]; MONTHS = MONTH_NAMES[l]; document.documentElement.lang = l;
+  if (chosen) { LANG_CHOSEN = true; try { localStorage.setItem("lang", l); } catch { /* storage off */ } }
+  if (chosen && S.user && S.user.language !== l) api.setLang(l).then((u) => { if (u) S.user.language = u.language; }).catch(() => {});
+  if (S.salon) document.title = `${S.salon.name} · ${L("Bron")}`;
+  if (S.booted) render();
+}
+// After sign-in: a choice made on this device wins (and reaches the bot); otherwise the client's language from the bot.
+function syncLang() {
+  if (!S.user?.language) return;
+  if (LANG_CHOSEN) { if (S.user.language !== LANG) api.setLang(LANG).then((u) => { if (u) S.user.language = u.language; }).catch(() => {}); }
+  else if (S.user.language !== LANG) switchLang(S.user.language, false);
+}
+
 // Use the real server when the page is served by it; otherwise run the built-in demo.
 (async () => {
   try {
     const r = await fetch("/api/health"); if (!r.ok || !(await r.json()).ok) throw 0;
     const info = await fetch(`/api/s/${SLUG}`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
-    const closed = (msg) => { $("#bar").hidden = true; $("#back").disabled = true; $("#view").innerHTML = `<h1>${esc(info?.name || "Salon")}</h1><p class="lead">${msg}</p>`; };
-    if (!info) return closed("Bunday salon topilmadi. Manzilni tekshiring.");
-    document.title = `${info.name} · Bron`; S.salon = info; STEPS[0] = TITLES[1] = TERM();
-    if (!info.active) return closed(`Onlayn bron vaqtincha ishlamayapti. Iltimos, salonga qo'ng'iroq qiling${info.phone ? `: <a href="tel:${esc(info.phone)}">${esc(info.phone)}</a>` : "."}`);
+    const closed = (msg) => { $("#bar").hidden = true; $("#back").disabled = true; $("#view").innerHTML = `<h1>${esc(info?.name || L("Salon"))}</h1><p class="lead">${msg}</p>`; };
+    if (!info) return closed(L("Bunday salon topilmadi. Manzilni tekshiring."));
+    document.title = `${info.name} · ${L("Bron")}`; S.salon = info; STEPS[0] = TITLES[1] = TERM();
+    if (!info.active) return closed(`${L("Onlayn bron vaqtincha ishlamayapti. Iltimos, salonga qo'ng'iroq qiling")}${info.phone ? `: <a href="tel:${esc(info.phone)}">${esc(info.phone)}</a>` : "."}`);
     S.user = await realApi.me();
     if (!S.user && TG_INIT) S.user = await realApi.webapp(TG_INIT).catch(() => null);
+    syncLang();
   }
   catch { S.demo = true; api = demoApi; S.salon = DEMO_SALON; }
   boot();

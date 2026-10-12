@@ -213,7 +213,7 @@ async def on_button(session, salon: Salon, token: str, cq: dict, parts: list[str
         await _send(token, chat_id, LRM + t(lang, "s.cancelled_told"))
         await send_cancelled(booking_id)
         await notify_staff(booking_id, "cancelled", actor)
-        return t(lang, "s.cancelled")
+        return t(lang, "s.cancelled_ok")
     return t(lang, "cq.done")
 
 

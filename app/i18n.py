@@ -192,7 +192,7 @@ M: dict[str, tuple[str, str]] = {
     "s.not_yours": ("Bu sizning broningiz emas", "Это не ваша запись"),
     "s.not_active": ("Bu bron allaqachon faol emas", "Эта запись уже не активна"),
     "s.cancelled_told": ("❌ Bron bekor qilindi. Mijozga xabar yuborildi.", "❌ Запись отменена. Клиенту отправлено сообщение."),
-    "s.cancelled": ("Bekor qilindi", "Отменено"),
+    "s.cancelled_ok": ("Bekor qilindi", "Отменено"),
 }
 
 

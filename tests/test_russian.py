@@ -60,7 +60,7 @@ async def test_a_russian_client_subscribes_books_and_hears_in_russian(monkeypatc
                                                   "starts_at": local(tomorrow(), 15).isoformat()})
         assert r.status_code == 201, r.text
     sent = [p for p in get_tg().sent() if p["chat_id"] == OLGA["id"]][-1]
-    assert "Запись подтверждена" in sent["text"] and "Мастер: Bekzod" in sent["text"] and "сум" in sent["text"]
+    assert "Запись подтверждена" in sent["text"] and "Мастер: \u2068Bekzod" in sent["text"] and "сум" in sent["text"]
     assert sent["reply_markup"]["inline_keyboard"][0][0]["text"] == "❌ Отменить"
     assert "Yangi bron" in to(OWNER_CHAT)[-1]  # the owner still reads Uzbek
 
@@ -87,7 +87,7 @@ async def test_staff_switch_to_russian_in_the_bot_and_in_the_panel(client):
                                                     "starts_at": local(tomorrow(), 16).isoformat()})
     assert r.status_code == 201
     news = [p for p in get_tg().sent() if p["chat_id"] == OWNER_CHAT][-1]
-    assert "Новая запись" in news["text"] and "Мастер: Bekzod" in news["text"] and "сум" in news["text"]
+    assert "Новая запись" in news["text"] and "Мастер: \u2068Bekzod" in news["text"] and "сум" in news["text"]
     assert re.search(r"понедельник|вторник|среда|четверг|пятница|суббота|воскресенье", news["text"])
     assert news["reply_markup"]["inline_keyboard"][0][0]["text"] == "❌ Отменить"
 
