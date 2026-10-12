@@ -128,6 +128,28 @@ select.mini { width: auto; padding: 6px 8px; font-size: 13px; font-weight: 700; 
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .btn.link { text-decoration: none; color: inherit; display: inline-flex; align-items: center; }
 .steps { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13.5px; display: grid; gap: 4px; }
+.st-later { background: var(--sunken); color: var(--muted); }
+.goal { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; align-items: center; }
+.goal b { font: 800 22px/1.1 var(--display); font-variant-numeric: tabular-nums; }
+.goal .hint { display: block; }
+.goal .bar { grid-column: 1 / -1; height: 8px; background: var(--sunken); border-radius: 99px; overflow: hidden; }
+.goal .bar i { display: block; height: 100%; background: var(--brass); border-radius: 99px; }
+.tools { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.tools select { width: auto; padding: 7px 10px; font-size: 13px; font-weight: 700; background: var(--panel); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { border: 0; background: var(--panel); padding: 7px 12px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.kanban { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(230px, 1fr); gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+.kcol { background: var(--sunken); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.kcol h3 { margin: 0; font-size: 13px; font-weight: 800; display: flex; justify-content: space-between; gap: 8px; }
+.kcard { text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: grid; gap: 3px; font-size: 12.5px; color: var(--muted); }
+.kcard b { font-size: 14px; color: var(--fg); }
+.kcard.due { border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn); }
+.notes { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.notes li { border-left: 2px solid var(--line); padding-left: 12px; display: grid; gap: 2px; white-space: pre-line; }
+.notes small { color: var(--muted); font-size: 12px; }
+.lead .talk { font-size: 12.5px; color: var(--muted); }
+.lead .lost { grid-column: 1 / -1; color: var(--bad); font-size: 13px; }
 @media (max-width: 760px) { .stat b { font-size: 24px; } .lead { grid-template-columns: minmax(0, 1fr); } .lead .side { align-items: flex-start; flex-direction: row; flex-wrap: wrap; } .row2 { grid-template-columns: 1fr; } }
 </style>
 
@@ -151,7 +173,13 @@ class ApiError extends Error { constructor(s, m) { super(m); this.status = s; } 
 
 const KINDS = [["shop", "Buyurtma (gul, tort, do'kon)"], ["beauty", "Ayollar saloni"], ["barber", "Barbershop"], ["cosmetology", "Kosmetologiya"], ["dental", "Stomatologiya"], ["clinic", "Klinika"], ["spa", "SPA va massaj"], ["auto", "Avtoservis"], ["vet", "Veterinariya"], ["other", "Boshqa"]];
 const kindLabel = (k) => (KINDS.find((x) => x[0] === k) || ["", "Boshqa"])[1];
-const STATUSES = [["new", "Yangi"], ["talked", "Gaplashildi"], ["demo", "Demo"], ["trial", "Sinovda"], ["paid", "To'ladi"], ["lost", "Rad etdi"]];
+const STATUSES = [["new", "Yangi"], ["talked", "Gaplashildi"], ["demo", "Demo"], ["trial", "Sinovda"], ["paid", "To'ladi"], ["later", "Keyinroq"], ["lost", "Rad etdi"]];
+const OPEN_ST = ["new", "talked", "demo", "trial"];
+const SIZES = [["small", "Kichik"], ["medium", "O'rta"], ["large", "Yirik"]];
+const SOURCES = ["2GIS", "Yandex xarita", "Google Maps", "Instagram", "Telegram", "Tanish orqali", "Yurib topildi", "Boshqa"];
+const HOW_NOW = ["Daftar", "Excel / Sheets", "Telegram chat", "Telefon orqali", "Boshqa tizim", "Noma'lum"];
+const NOTE_KINDS = [["call", "Qo'ng'iroq"], ["meeting", "Uchrashuv"], ["message", "Xabar"], ["demo", "Demo"]];
+const sizeLabel = (k) => (SIZES.find((x) => x[0] === k) || ["", ""])[1];
 const stLabel = (k) => (STATUSES.find((x) => x[0] === k) || ["", k])[1];
 const ROLE = { owner: "Ega", partner: "Sherik", sales: "Sotuvchi" };
 // The presentation page set up for a business: its kind, its name and its live demo bot.
@@ -173,9 +201,11 @@ const api = {
   get(p) { return this.call(p); },
   post(p, b) { return this.call(p, { method: "POST", body: JSON.stringify(b) }); },
   patch(p, b) { return this.call(p, { method: "PATCH", body: JSON.stringify(b) }); },
+  put(p, b) { return this.call(p, { method: "PUT", body: JSON.stringify(b) }); },
 };
 
-const S = { me: null, tab: "leads", leads: [], salons: [], team: [], payments: [], stats: {}, filter: "open", q: "", drawer: null, creds: null, error: "", login: { login: "", password: "" }, ask: null, busy: false };
+const S = { me: null, tab: "leads", leads: [], salons: [], team: [], payments: [], stats: {}, filter: "open", q: "", drawer: null, creds: null, error: "", login: { login: "", password: "" }, ask: null, busy: false,
+  view: (() => { try { return localStorage.getItem("crm-view") || "list"; } catch { return "list"; } })(), fkind: "", fwho: "" };
 const manager = () => ["owner", "partner"].includes(S.me?.role);
 function toast(msg) { $("#toast-slot").innerHTML = `<div class="toast" role="status">${esc(msg)}</div>`; clearTimeout(toast.t); toast.t = setTimeout(() => { $("#toast-slot").innerHTML = ""; }, 2600); }
 
@@ -189,33 +219,55 @@ async function refreshStats() { S.stats = await api.get("/stats").catch(() => S.
 
 // ---------- leads ----------
 const isDue = (l) => l.next_step_on && dayDiff(l.next_step_on) <= 0 && !["paid", "lost"].includes(l.status);
+const whenHtml = (l) => { const d = l.next_step_on ? dayDiff(l.next_step_on) : null; return d === null ? "" : d < 0 ? `<b>${-d} kun kechikdi</b>` : d === 0 ? "<b>bugun</b>" : d === 1 ? "ertaga" : fmtDate(l.next_step_on); };
 function leadHtml(l) {
-  const d = l.next_step_on ? dayDiff(l.next_step_on) : null;
-  const when = d === null ? "" : d < 0 ? `<b>${-d} kun kechikdi</b>` : d === 0 ? "<b>bugun</b>" : d === 1 ? "ertaga" : fmtDate(l.next_step_on);
+  const when = whenHtml(l);
   const salon = l.salon_id ? S.salons.find((s) => s.id === l.salon_id) : null;
   const tel = digits(l.phone);
   return `<article class="lead${isDue(l) ? " due" : ""}">
     <div><h3>${bdi(l.name)}</h3>
-      <div class="meta"><span>${esc(kindLabel(l.kind))}</span>${l.contact ? `<span>${bdi(l.contact)}</span>` : ""}${l.phone ? `<a href="tel:+${tel}">⁦${esc(l.phone)}⁩</a>` : ""}${l.address ? `<span>${bdi(l.address)}</span>` : ""}${manager() ? `<span>· ${esc(l.assigned_name || "Ega")}</span>` : ""}</div>
-      ${l.next_step || when ? `<div class="next">Keyingi qadam: ${bdi(l.next_step || "—")}${when ? ` · ${when}` : ""}</div>` : ""}</div>
+      <div class="meta"><span>${esc(kindLabel(l.kind))}${l.size ? ` · ${esc(sizeLabel(l.size))}` : ""}${l.staff_count ? ` · ${l.staff_count} xodim` : ""}</span>${l.contact ? `<span>${bdi(l.contact)}</span>` : ""}${l.phone ? `<a href="tel:+${tel}">⁦${esc(l.phone)}⁩</a>` : ""}${l.district ? `<span>${bdi(l.district)}</span>` : ""}${l.address ? `<span>${bdi(l.address)}</span>` : ""}${manager() ? `<span>· ${esc(l.assigned_name || "Ega")}</span>` : ""}</div>
+      ${l.next_step || when ? `<div class="next">Keyingi qadam: ${bdi(l.next_step || "—")}${when ? ` · ${when}` : ""}</div>` : ""}
+      ${l.notes_count ? `<div class="talk">💬 ${l.notes_count} ta suhbat · oxirgisi ${fmtDate(l.last_note_on)}</div>` : ""}</div>
     <div class="side"><select class="mini" data-lstatus="${l.id}" aria-label="Holat">${STATUSES.filter(([k]) => k !== "paid" || manager() || l.status === "paid").map(([k, v]) => `<option value="${k}"${k === l.status ? " selected" : ""}>${v}</option>`).join("")}</select></div>
+    ${l.status === "lost" && l.lost_reason ? `<div class="lost">Sababi: ${bdi(l.lost_reason)}</div>` : ""}
     ${l.note ? `<div class="note">${bdi(l.note)}</div>` : ""}
     <div class="acts">
+      <button class="btn" data-notes="${l.id}">${l.notes_count ? `Suhbatlar (${l.notes_count})` : "Suhbat yozish"}</button>
       ${tel ? `<a class="btn link" href="tel:+${tel}">Qo'ng'iroq</a>` : ""}
       ${salon ? `<a class="btn link" href="${esc(showUrl(salon))}" target="_blank" rel="noopener">Taqdimot</a><a class="btn link" href="/${esc(salon.slug)}/admin" target="_blank" rel="noopener">Admin panel</a>${salon.telegram_bot ? "" : `<button class="btn" data-takebot="${salon.id}">Bot ulash</button>`}`
         : `<button class="btn primary" style="font-size:13px;padding:7px 11px" data-demo="${l.id}">Demo ochish</button>`}
       <button class="btn" data-ledit="${l.id}">Tahrirlash</button>
     </div></article>`;
 }
-function leadsHtml() {
+function kanbanHtml(list) {
+  const cols = STATUSES.filter(([k]) => S.filter === "all" || S.filter === "due" || S.filter === k || (S.filter === "open" && OPEN_ST.includes(k)));
+  return `<div class="kanban">${cols.map(([k, v]) => { const items = list.filter((l) => l.status === k);
+    return `<section class="kcol"><h3><span class="pill st-${k}">${v}</span><span class="hint">${items.length}</span></h3>${items.map((l) => `<button class="kcard${isDue(l) ? " due" : ""}" data-ledit="${l.id}"><b>${bdi(l.name)}</b>
+      <span>${esc(kindLabel(l.kind))}${l.district ? ` · ${bdi(l.district)}` : ""}</span>${l.next_step || l.next_step_on ? `<span>${bdi(l.next_step || "—")}${l.next_step_on ? ` · ${whenHtml(l)}` : ""}</span>` : ""}
+      ${manager() ? `<span>${esc(l.assigned_name || "Ega")}</span>` : ""}</button>`).join("") || `<span class="hint">—</span>`}</section>`; }).join("")}</div>`;
+}
+function leadsList() {
   const q = S.q.trim().toLowerCase();
-  const pass = (l) => (S.filter === "all" || (S.filter === "open" && !["paid", "lost"].includes(l.status)) || (S.filter === "due" && isDue(l)) || l.status === S.filter)
-    && (!q || l.name.toLowerCase().includes(q) || digits(l.phone).includes(digits(q) || "§"));
-  const list = S.leads.filter(pass).sort((a, b) => (isDue(b) - isDue(a)) || String(a.next_step_on || "9").localeCompare(String(b.next_step_on || "9")));
+  const pass = (l) => (S.filter === "all" || (S.filter === "open" && OPEN_ST.includes(l.status)) || (S.filter === "due" && isDue(l)) || l.status === S.filter)
+    && (!S.fkind || l.kind === S.fkind) && (!S.fwho || (S.fwho === "owner" ? !l.assigned_to : l.assigned_to === +S.fwho))
+    && (!q || [l.name, l.district, l.address, l.contact].join(" ").toLowerCase().includes(q) || digits(l.phone).includes(digits(q) || "§"));
+  return S.leads.filter(pass).sort((a, b) => (isDue(b) - isDue(a)) || String(a.next_step_on || "9").localeCompare(String(b.next_step_on || "9")));
+}
+function leadsHtml() {
+  const list = leadsList();
   const chip = (k, label) => `<button class="chip" data-filter="${k}" aria-pressed="${S.filter === k}">${label}</button>`;
   return `<div class="filters">${chip("open", "Ochiq")}${chip("due", "Bugun qilinadigan")}${STATUSES.map(([k, v]) => chip(k, v)).join("")}${chip("all", "Hammasi")}
-      <input class="search" id="q" placeholder="Nom yoki telefon" value="${esc(S.q)}" autocomplete="off"></div>
-    ${list.length ? `<div class="leads">${list.map(leadHtml).join("")}</div>` : `<div class="table-wrap"><div class="empty">${S.leads.length ? "Bu filtrda lid yo'q." : "Hali lid yo'q. Birinchi biznesni \"+ Lid\" bilan qo'shing."}</div></div>`}`;
+      <input class="search" id="q" placeholder="Nom, tuman yoki telefon" value="${esc(S.q)}" autocomplete="off"></div>
+    <div class="tools">
+      <select id="fkind" aria-label="Soha"><option value="">Barcha sohalar</option>${KINDS.map(([k, v]) => `<option value="${k}"${S.fkind === k ? " selected" : ""}>${esc(v)}</option>`).join("")}</select>
+      ${manager() ? `<select id="fwho" aria-label="Mas'ul"><option value="">Hamma mas'ullar</option><option value="owner"${S.fwho === "owner" ? " selected" : ""}>Ega</option>${S.team.map((u) => `<option value="${u.id}"${S.fwho === String(u.id) ? " selected" : ""}>${esc(u.name)}</option>`).join("")}</select>` : ""}
+      <div class="seg"><button data-view="list" aria-pressed="${S.view === "list"}">Ro'yxat</button><button data-view="board" aria-pressed="${S.view === "board"}">Bosqichlar</button></div>
+      <span class="hint" style="margin-left:auto">${list.length} ta</span>
+      <label class="btn" for="imp" style="cursor:pointer">Import (CSV)</label><input type="file" id="imp" accept=".csv,text/csv,.txt" hidden>
+      <button class="btn" data-export="1">Eksport</button></div>
+    ${!list.length ? `<div class="table-wrap"><div class="empty">${S.leads.length ? "Bu filtrda lid yo'q." : "Hali lid yo'q. Birinchi biznesni \"+ Lid\" bilan qo'shing yoki xaritadan yig'ilgan ro'yxatni \"Import\" bilan yuklang."}</div></div>`
+      : S.view === "board" ? kanbanHtml(list) : `<div class="leads">${list.map(leadHtml).join("")}</div>`}`;
 }
 
 // ---------- businesses ----------
@@ -263,7 +315,11 @@ function statsHtml() {
   const cards = manager()
     ? [["To'layotgan bizneslar", st.paying ?? 0], ["Tushum, 30 kun", som(st.income_30d)], ["Ochiq lidlar", open], ["Bugun qilinadigan", st.due_today ?? 0]]
     : [["Mening ochiq lidlarim", open], ["Demo va sinovda", (L.demo || 0) + (L.trial || 0)], ["To'lovga o'tganlar", L.paid || 0], ["Bugun qilinadigan", st.due_today ?? 0]];
-  return `<div class="stats">${cards.map(([k, v]) => `<div class="stat"><span>${k}</span><b>${v}</b></div>`).join("")}</div>`;
+  const goal = manager() ? (st.goal
+    ? `<div class="goal"><div><span class="hint">Maqsad: ${som(st.goal)} · yig'ildi ${som(st.income_total)}</span><b>${st.income_total >= st.goal ? "Maqsadga yetdingiz 🎉" : `${som(st.goal - st.income_total)} qoldi`}</b></div>
+        <button class="btn" data-goal="1">O'zgartirish</button><div class="bar"><i style="width:${Math.min(100, Math.round((st.income_total || 0) / st.goal * 100))}%"></i></div></div>`
+    : `<div class="filters"><button class="btn" data-goal="1">+ Pul maqsadi qo'yish</button><span class="hint">Masalan, birinchi 3 oyda qancha yig'moqchisiz: bosh sahifada qancha qolgani ko'rinib turadi.</span></div>`) : "";
+  return `<div class="stats">${cards.map(([k, v]) => `<div class="stat"><span>${k}</span><b>${v}</b></div>`).join("")}</div>${goal}`;
 }
 function mainHtml() {
   const tabs = [["leads", "Lidlar", S.stats.due_today || 0], ["salons", "Bizneslar", 0], ...(manager() ? [["money", "To'lovlar", 0], ["team", "Jamoa", 0]] : [["team", "Jamoa", 0]])];
@@ -300,7 +356,14 @@ function drawerHtml() {
   if (F.type === "lead") return drawer(F.id ? "Lidni tahrirlash" : "Yangi lid", "Biznes bilan ish", `
     ${field("f-name", "Biznes nomi", F.name, 'placeholder="Masalan, Gulnoza Beauty"')}${kindChips(F.kind)}
     <div class="row2">${field("f-phone", "Telefon", F.phone, 'inputmode="tel" placeholder="+998 90 123 45 67"')}${field("f-contact", "Kim bilan gaplashamiz", F.contact, 'placeholder="Egasi, Gulnoza opa"')}</div>
-    ${field("f-address", "Manzil yoki tuman", F.address)}
+    <div class="row2">${field("f-district", "Shahar / tuman", F.district, 'placeholder="Chilonzor"')}${field("f-address", "Manzil", F.address)}</div>
+    <div class="field"><label>Hajmi</label><div class="months">${SIZES.map(([k, v]) => `<button class="chip" type="button" data-fsize="${k}" aria-pressed="${F.size === k}">${v}</button>`).join("")}</div></div>
+    <div class="row2">${field("f-staff", "Xodimlar soni", F.staff_count ?? "", 'inputmode="numeric" placeholder="6"')}
+      <div class="field"><label for="f-source">Qayerdan topildi</label><select id="f-source"><option value="">—</option>${SOURCES.map((x) => `<option${F.source === x ? " selected" : ""}>${esc(x)}</option>`).join("")}</select></div></div>
+    <div class="field"><label for="f-hownow">Hozir yozuvni qanday yuritadi</label><select id="f-hownow"><option value="">—</option>${HOW_NOW.map((x) => `<option${F.how_now === x ? " selected" : ""}>${esc(x)}</option>`).join("")}</select></div>
+    <div class="group">Sotuv</div>
+    <div class="field"><label for="f-status">Bosqich</label><select id="f-status">${STATUSES.filter(([k]) => k !== "paid" || manager() || F.status === "paid").map(([k, v]) => `<option value="${k}"${F.status === k ? " selected" : ""}>${v}</option>`).join("")}</select></div>
+    ${F.status === "lost" ? field("f-lost", "Rad etish sababi", F.lost_reason, 'placeholder="Qimmat dedi, hozir kerak emas..."') : ""}
     <div class="row2">${field("f-next", "Keyingi qadam", F.next_step, 'placeholder="Demo ko\'rsatish"')}<div class="field"><label for="f-date">Qachon</label><input id="f-date" type="date" value="${esc(F.next_step_on || "")}"></div></div>
     ${manager() ? `<div class="field"><label for="f-who">Mas'ul</label><select id="f-who"><option value="">Ega</option>${S.team.filter((u) => u.is_active).map((u) => `<option value="${u.id}"${F.assigned_to === u.id ? " selected" : ""}>${esc(u.name)} · ${ROLE[u.role]}</option>`).join("")}</select></div>` : ""}
     <div class="field"><label for="f-note">Izoh</label><textarea id="f-note" placeholder="Nimaga qiziqdi, qancha usta, qaysi muammo">${esc(F.note)}</textarea></div>`,
@@ -331,6 +394,23 @@ function drawerHtml() {
     <div class="field"><label>Bu biznes nimadan foydalanadi</label><div class="months">${Object.entries(MODS).map(([k, l]) => `<button class="chip" type="button" data-fmod="${k}" aria-pressed="${F.mods.includes(k)}">${l}</button>`).join("")}</div></div>
     <p class="hint">Bron: mijoz vaqtga yoziladi (sartarosh, klinika). Buyurtma: mijoz katalogdan buyurtma beradi (gul, tort, do'kon). Ikkalasi ham bo'lishi mumkin. Bot tugmasi o'zi moslashadi.</p>`,
     `<button class="btn primary" id="f-save">Saqlash</button>`); }
+  if (F.type === "notes") { const l = S.leads.find((x) => x.id === F.id) || { name: "" }; return drawer("Suhbatlar", l.name, `
+    <div class="field"><label>Turi</label><div class="months">${NOTE_KINDS.map(([k, v]) => `<button class="chip" type="button" data-nkind="${k}" aria-pressed="${F.kind === k}">${v}</button>`).join("")}</div></div>
+    <div class="field"><label for="f-ntext">Nima deyildi</label><textarea id="f-ntext" placeholder="Yozuvni qanday yuritishadi, nima qiziqtirdi, qanday e'tiroz bildirishdi, keyingi qadam">${esc(F.text)}</textarea></div>
+    <div class="field"><label for="f-nday">Sana</label><input id="f-nday" type="date" value="${esc(F.day)}" max="${today()}"></div>
+    <div class="group">Tarix</div>
+    ${F.list == null ? `<p class="hint">Yuklanmoqda…</p>` : F.list.length ? `<ul class="notes">${F.list.map((n) => `<li><small>${fmtDate(n.day)} · ${esc((NOTE_KINDS.find((x) => x[0] === n.kind) || ["", ""])[1])} · ${bdi(n.user_name || "Ega")}</small>${bdi(n.text)}</li>`).join("")}</ul>` : `<p class="hint">Hali suhbat yozilmagan. Birinchi suhbat yozilganda lid "Gaplashildi" bosqichiga o'tadi.</p>`}`,
+    `<button class="btn primary" id="f-save">Suhbatni yozish</button>`); }
+  if (F.type === "import") return drawer("Import", F.file, `
+    <p><b>${F.rows.length} ta biznes</b> topildi${F.bad ? `, ${F.bad} ta qatorda nom yo'q (o'tkazib yuboriladi)` : ""}.</p>
+    <ul class="steps">${F.rows.slice(0, 6).map((x) => `<li>${bdi(x.name)}${x.district ? ` · ${bdi(x.district)}` : ""}${x.phone ? ` · ⁦${esc(x.phone)}⁩` : ""}</li>`).join("")}${F.rows.length > 6 ? `<li>… yana ${F.rows.length - 6} ta</li>` : ""}</ul>
+    ${manager() ? `<div class="field"><label for="f-who">Kimga biriktiriladi</label><select id="f-who"><option value="">Ega</option>${S.team.filter((u) => u.is_active).map((u) => `<option value="${u.id}"${F.assigned_to === u.id ? " selected" : ""}>${esc(u.name)} · ${ROLE[u.role]}</option>`).join("")}</select></div>` : ""}
+    <p class="hint">Ro'yxatda allaqachon bor biznes (nomi yoki telefoni bir xil) qayta qo'shilmaydi. Hammasi "Yangi" bosqichida qo'shiladi.</p>`,
+    `<button class="btn primary" id="f-save">${F.rows.length} tasini qo'shish</button>`);
+  if (F.type === "goal") return drawer("Pul maqsadi", "Bosh sahifadagi chiziq", `
+    ${field("f-goal", "Maqsad, so'm", F.goal, 'inputmode="numeric" placeholder="21 600 000"')}
+    <p class="hint">Barcha yozilgan to'lovlar yig'indisi shu maqsad bilan solishtiriladi. 0 yozsangiz, maqsad yashiriladi.</p>`,
+    `<button class="btn primary" id="f-save">Saqlash</button>`);
   if (F.type === "user") return drawer("Yangi xodim", "Jamoa", `
     ${field("f-name", "Ismi", F.name)}${field("f-ologin", "Login", F.login, 'autocapitalize="none" spellcheck="false"')}${field("f-opass", "Parol", F.password, 'autocomplete="off"')}
     <div class="field"><label>Rol</label><div class="months"><button class="chip" type="button" data-frole="sales" aria-pressed="${F.role === "sales"}">Sotuvchi</button>${S.me.role === "owner" ? `<button class="chip" type="button" data-frole="partner" aria-pressed="${F.role === "partner"}">Sherik</button>` : ""}</div></div>
@@ -344,8 +424,9 @@ function render() {
 
 // ---------- actions ----------
 function openLead(l) {
-  S.drawer = l ? { type: "lead", id: l.id, name: l.name, kind: l.kind, phone: l.phone, contact: l.contact, address: l.address, next_step: l.next_step, next_step_on: l.next_step_on, assigned_to: l.assigned_to, note: l.note }
-    : { type: "lead", name: "", kind: "beauty", phone: "", contact: "", address: "", next_step: "", next_step_on: today(), assigned_to: S.me.role === "sales" ? S.me.id : null, note: "" };
+  const more = (x) => ({ district: x?.district || "", size: x?.size || "", staff_count: x?.staff_count ?? null, source: x?.source || "", how_now: x?.how_now || "", lost_reason: x?.lost_reason || "", status: x?.status || "new" });
+  S.drawer = l ? { type: "lead", id: l.id, name: l.name, kind: l.kind, phone: l.phone, contact: l.contact, address: l.address, next_step: l.next_step, next_step_on: l.next_step_on, assigned_to: l.assigned_to, note: l.note, ...more(l) }
+    : { type: "lead", name: "", kind: "beauty", phone: "", contact: "", address: "", next_step: "", next_step_on: today(), assigned_to: S.me.role === "sales" ? S.me.id : null, note: "", ...more(null) };
 }
 function openSalon(lead) {
   const demo = !manager() || !!lead;
@@ -356,9 +437,11 @@ async function save() {
   const F = S.drawer;
   if (F.type === "lead") {
     if (!F.name.trim()) throw new Error("Biznes nomini yozing");
-    const body = { name: F.name.trim(), kind: F.kind, phone: F.phone.trim(), contact: F.contact.trim(), address: F.address.trim(), next_step: F.next_step.trim(), next_step_on: F.next_step_on || null, note: F.note };
+    const staff = String(F.staff_count ?? "").trim() === "" ? null : +digits(F.staff_count);
+    const body = { name: F.name.trim(), kind: F.kind, phone: F.phone.trim(), contact: F.contact.trim(), address: F.address.trim(), next_step: F.next_step.trim(), next_step_on: F.next_step_on || null, note: F.note,
+      district: F.district.trim(), size: F.size, staff_count: staff, source: F.source, how_now: F.how_now, status: F.status, lost_reason: F.status === "lost" ? F.lost_reason.trim() : "" };
     if (manager()) body.assigned_to = F.assigned_to;
-    const l = F.id ? await api.patch(`/leads/${F.id}`, { ...body, clear_next_step_on: !F.next_step_on }) : await api.post("/leads", body);
+    const l = F.id ? await api.patch(`/leads/${F.id}`, { ...body, clear_next_step_on: !F.next_step_on, clear_staff_count: staff === null }) : await api.post("/leads", body);
     S.leads = F.id ? S.leads.map((x) => (x.id === l.id ? l : x)) : [l, ...S.leads];
     S.drawer = null; toast(F.id ? "Saqlandi" : "Lid qo'shildi"); await refreshStats(); return;
   }
@@ -381,6 +464,25 @@ async function save() {
     const s = await api.patch(`/salons/${F.id}`, { modules: F.mods });
     S.salons = S.salons.map((x) => (x.id === s.id ? s : x)); S.drawer = null; toast(`${s.name}: ${s.modules.map((m) => MODS[m]).join(" + ")}`); return;
   }
+  if (F.type === "notes") {
+    if (!F.text.trim()) throw new Error("Nima deyilganini yozing");
+    await api.post(`/leads/${F.id}/notes`, { kind: F.kind, text: F.text.trim(), day: F.day || null });
+    F.text = ""; F.list = null; render();
+    [F.list, S.leads] = await Promise.all([api.get(`/leads/${F.id}/notes`), api.get("/leads")]);
+    await refreshStats(); toast("Suhbat yozildi"); return;
+  }
+  if (F.type === "import") {
+    let created = 0, skipped = 0;
+    for (let i = 0; i < F.rows.length; i += 500) {
+      const r = await api.post("/leads/import", { leads: F.rows.slice(i, i + 500), assigned_to: manager() ? F.assigned_to : null });
+      created += r.created; skipped += r.skipped;
+    }
+    S.drawer = null; S.leads = await api.get("/leads"); await refreshStats(); S.filter = "open";
+    toast(`${created} ta qo'shildi${skipped ? `, ${skipped} tasi ro'yxatda bor edi` : ""}`); return;
+  }
+  if (F.type === "goal") {
+    await api.put("/goal", { goal: +digits(F.goal) || 0 }); S.drawer = null; await refreshStats(); toast("Maqsad saqlandi"); return;
+  }
   if (F.type === "user") {
     const u = await api.post("/team", { name: F.name.trim(), login: F.login.trim().toLowerCase(), password: F.password, role: F.role });
     S.team = [...S.team, u]; S.creds = null; S.drawer = null; toast(`${u.name} qo'shildi. Login: ${u.login}, parol: ${F.password}`); return;
@@ -397,6 +499,12 @@ document.addEventListener("click", async (e) => {
     if (d.close) { S.drawer = null; }
     else if (d.tab) { S.tab = d.tab; S.q = ""; S.creds = null; if (d.tab === "money") S.payments = await api.get("/payments"); }
     else if (d.filter) S.filter = d.filter;
+    else if (d.view) { S.view = d.view; try { localStorage.setItem("crm-view", d.view); } catch { /* storage off */ } }
+    else if (d.notes) { S.drawer = { type: "notes", id: +d.notes, kind: "call", text: "", day: today(), list: null }; render(); S.drawer.list = await api.get(`/leads/${+d.notes}/notes`); }
+    else if (d.nkind) S.drawer.kind = d.nkind;
+    else if (d.fsize) S.drawer.size = S.drawer.size === d.fsize ? "" : d.fsize;
+    else if (d.export) exportLeads();
+    else if (d.goal) S.drawer = { type: "goal", goal: S.stats.goal ? String(S.stats.goal) : "" };
     else if (d.newlead) openLead(null);
     else if (d.ledit) openLead(S.leads.find((x) => x.id === +d.ledit));
     else if (d.demo) openSalon(S.leads.find((x) => x.id === +d.demo));
@@ -429,6 +537,13 @@ document.addEventListener("change", async (e) => {
   const el = e.target, d = el.dataset, F = S.drawer;
   try {
     if (d.lstatus) { const l = await api.patch(`/leads/${+d.lstatus}`, { status: el.value }); S.leads = S.leads.map((x) => (x.id === l.id ? l : x)); await refreshStats(); toast(`${l.name}: ${stLabel(l.status)}`); render(); }
+    else if (el.id === "imp" && el.files[0]) { const f = el.files[0]; el.value = ""; S.drawer = await readImport(f); render(); }
+    else if (el.id === "fkind") { S.fkind = el.value; render(); }
+    else if (el.id === "fwho") { S.fwho = el.value; render(); }
+    else if (F && el.id === "f-status") { F.status = el.value; render(); }
+    else if (F && el.id === "f-source") F.source = el.value;
+    else if (F && el.id === "f-hownow") F.how_now = el.value;
+    else if (F && el.id === "f-nday") F.day = el.value;
     else if (F && el.id === "f-who") F.assigned_to = el.value ? +el.value : null;
     else if (F && el.id === "f-date") F.next_step_on = el.value;
   } catch (err) { S.error = err.message; render(); }
@@ -444,7 +559,8 @@ document.addEventListener("input", (e) => {
   if (id === "llogin") S.login.login = v; if (id === "lpass") S.login.password = v;
   if (id === "q") { S.q = v; const pos = e.target.selectionStart; render(); const q = $("#q"); q.focus(); q.setSelectionRange(pos, pos); }
   if (!F) return;
-  const map = { "f-name": "name", "f-phone": "phone", "f-contact": "contact", "f-address": "address", "f-next": "next_step", "f-note": "note", "f-oname": "owner_name", "f-amount": "amount" };
+  const map = { "f-name": "name", "f-phone": "phone", "f-contact": "contact", "f-address": "address", "f-next": "next_step", "f-note": "note", "f-oname": "owner_name", "f-amount": "amount",
+    "f-district": "district", "f-staff": "staff_count", "f-lost": "lost_reason", "f-ntext": "text", "f-goal": "goal" };
   if (map[id]) F[map[id]] = v;
   if (id === "f-name" && F.type === "salon" && !F.slugTouched) { F.slug = slugify(v); const sl = $("#f-slug"); if (sl) sl.value = F.slug; }
   if (id === "f-slug") { F.slug = v; F.slugTouched = true; }
@@ -452,6 +568,67 @@ document.addEventListener("input", (e) => {
   if (id === "f-opass") { if (F.type === "user") F.password = v; else F.owner_password = v; }
 });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.drawer) { S.drawer = null; render(); } });
+
+// ---------- CSV: a list from the maps or a spreadsheet in, the whole list out ----------
+// Excel saves CSV with ";" or "," and sometimes in the old Windows encoding: both are read.
+function parseCsv(text) {
+  const first = text.split("\n")[0], sep = (first.match(/;/g) || []).length > (first.match(/,/g) || []).length ? ";" : (first.includes("\t") && !first.includes(",") ? "\t" : ",");
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === sep) { row.push(cell); cell = ""; }
+    else if (ch === "\n") { row.push(cell); rows.push(row); row = []; cell = ""; }
+    else if (ch !== "\r") cell += ch;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter((r) => r.some((c) => c.trim()));
+}
+const COLS = { name: ["nomi", "nom", "name", "biznes", "biznes nomi", "название", "компания"], kind: ["soha", "kind", "turi", "sohasi", "категория"], phone: ["telefon", "phone", "tel", "телефон"],
+  contact: ["kim", "kim bilan", "contact", "egasi", "aloqa", "контакт"], address: ["manzil", "address", "адрес"], district: ["tuman", "shahar", "district", "район", "город"],
+  size: ["hajm", "hajmi", "size"], staff_count: ["xodimlar", "xodimlar soni", "staff", "staff_count"], source: ["manba", "qayerdan", "source", "qayerdan topildi"],
+  status: ["bosqich", "holat", "status"], next_step: ["keyingi qadam", "next_step"], note: ["izoh", "note", "комментарий"] };
+const LIMITS = { name: 120, phone: 20, contact: 120, address: 255, district: 80, source: 40, next_step: 200, note: 4000 };
+function kindOf(v) {
+  const x = v.toLowerCase();
+  const hit = KINDS.find(([k, l]) => k === x || l.toLowerCase() === x);
+  if (hit) return hit[0];
+  const rules = [["dental", /stomat|tish|dent|стомат/], ["clinic", /klinik|clinic|шифо|клиник|medic/], ["cosmetology", /kosmet|космет/], ["barber", /barber|sartarosh|барбер/],
+    ["beauty", /salon|go'zal|gozal|ayollar|beauty|салон|красот|nail|tirnoq/], ["spa", /spa|massaj|массаж/], ["auto", /avto|auto|авто/], ["vet", /vet|вет/], ["shop", /gul|tort|do'kon|dokon|shop|магазин|цвет/]];
+  return (rules.find(([, rx]) => rx.test(x)) || ["other"])[0];
+}
+function sizeOf(v) { const x = v.toLowerCase(); return /^kich|^small|^мал/.test(x) ? "small" : /^o.?rta|^medium|^сред/.test(x) ? "medium" : /^yirik|^katta|^large|^круп/.test(x) ? "large" : ""; }
+function statusOf(v) { const x = v.toLowerCase(); const hit = STATUSES.find(([k, l]) => k === x || l.toLowerCase() === x); return hit && !["trial", "paid"].includes(hit[0]) ? hit[0] : "new"; }
+async function readImport(file) {
+  const buf = await file.arrayBuffer();
+  let text = new TextDecoder("utf-8").decode(buf);
+  if (text.includes("\uFFFD")) text = new TextDecoder("windows-1251").decode(buf);
+  const rows = parseCsv(text.replace(/^\uFEFF/, ""));
+  if (rows.length < 2) throw new Error("Faylda sarlavha qatori va kamida bitta biznes bo'lishi kerak");
+  const head = rows[0].map((h) => h.trim().toLowerCase().replace(/[ʻʼ‘`]/g, "'"));
+  const at = Object.fromEntries(Object.entries(COLS).map(([k, names]) => [k, head.findIndex((h) => names.includes(h))]));
+  if (at.name < 0) throw new Error("\"nomi\" ustuni topilmadi. Birinchi qatorda ustun nomlari bo'lsin: nomi, soha, telefon, tuman, manzil, izoh");
+  let bad = 0; const out = [];
+  for (const r of rows.slice(1)) {
+    const g = (k) => (at[k] >= 0 ? String(r[at[k]] || "").trim() : "").slice(0, LIMITS[k] || 200);
+    if (!g("name")) { bad++; continue; }
+    const staff = +digits(g("staff_count"));
+    out.push({ name: g("name"), kind: g("kind") ? kindOf(g("kind")) : "other", phone: g("phone"), contact: g("contact"), address: g("address"), district: g("district"),
+      size: sizeOf(g("size")), staff_count: staff > 0 && staff <= 10000 ? staff : null, source: g("source"), status: statusOf(g("status")), next_step: g("next_step"), note: g("note") });
+  }
+  if (!out.length) throw new Error("Faylda nomi yozilgan biznes topilmadi");
+  return { type: "import", file: file.name, rows: out, bad, assigned_to: null };
+}
+function exportLeads() {
+  const head = ["nomi", "soha", "bosqich", "telefon", "kim", "tuman", "manzil", "hajm", "xodimlar", "qayerdan", "hozir qanday", "keyingi qadam", "sana", "mas'ul", "suhbatlar", "rad sababi", "izoh"];
+  const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const lines = [head.join(";")].concat(leadsList().map((l) => [l.name, kindLabel(l.kind), stLabel(l.status), l.phone, l.contact, l.district, l.address, sizeLabel(l.size), l.staff_count ?? "", l.source, l.how_now,
+    l.next_step, l.next_step_on || "", l.assigned_name || "Ega", l.notes_count || 0, l.lost_reason, l.note].map(q).join(";")));
+  const url = URL.createObjectURL(new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" })), a = document.createElement("a");
+  a.href = url; a.download = `lidlar-${today()}.csv`; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+  toast("Ro'yxat yuklab olindi");
+}
 
 (async () => {
   try { S.me = await api.get("/me").catch(() => null); if (S.me) { S.tab = "leads"; await load(); } else render(); }

@@ -419,8 +419,6 @@ class Lead(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-
-
 class LeadNote(Base):
     """One conversation with a lead: a call, a meeting, a message, a demo."""
 
@@ -443,6 +441,7 @@ class PlatformSetting(Base):
 
     key: Mapped[str] = mapped_column(String(40), primary_key=True)
     value: Mapped[str] = mapped_column(String(200))
+
 
 class Payment(Base):
     """Money a business paid us for its subscription."""
