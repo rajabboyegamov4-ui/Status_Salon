@@ -124,3 +124,20 @@ async def test_pages_get_errors_in_russian_and_the_site_language_reaches_the_bot
         await hook(site, salon, msg(f"/start {start['token']}", chat=stranger))
         assert "Чтобы войти на сайт" in to(7171)[-1]
         assert get_tg().sent()[-1]["reply_markup"]["keyboard"][0][0]["text"] == "📱 Отправить номер"
+
+
+async def test_staff_pages_carry_the_russian_layer_and_open_in_the_staff_language(monkeypatch):
+    monkeypatch.setattr(settings, "public_url", "https://bron.example.uz")
+    async with make_client() as c:
+        for page in ("admin", "panel", "buyurtmalar"):
+            html = (await c.get(f"/premium/{page}")).text
+            assert "window.STAFF_LANG" in html and html.index("window.STAFF_LANG") < html.index("const $ =")
+        assert "window.STAFF_LANG" not in (await c.get("/premium")).text
+
+    await connect_bot()
+    await link_staff("owner", "owner123", OWNER_CHAT)
+    salon = await salon_row()
+    async with make_client() as c:
+        await hook(c, salon, msg("🌐 Русский", chat={"id": OWNER_CHAT, "first_name": "O"}))
+    panel = [b for row in get_tg().sent()[-1]["reply_markup"]["keyboard"] for b in row if "web_app" in b][0]
+    assert panel["web_app"]["url"] == "https://bron.example.uz/premium/admin?lang=ru" and panel["text"] == "⚙️ Управление"

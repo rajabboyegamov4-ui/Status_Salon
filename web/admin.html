@@ -4,6 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
 <style>
+.lang-btn{float:right;border:1px solid currentColor;background:none;color:inherit;border-radius:99px;padding:3px 10px;font:600 12px/1.4 inherit;opacity:.75;cursor:pointer}
 /* Layout: desktop salon front-desk board. Sidebar | (toolbar, stats, schedule grid with one column per master). Detail opens as a right drawer (bottom sheet on phones). */
 :root {
   --bg: #f3f1ee;
@@ -1120,7 +1121,7 @@ function shellHtml() {
     ${S.branches.length > 1 ? `<label class="branch-pick multi"><small>Filial</small><select id="branch">${S.branches.map((b) => `<option value="${b.id}" ${b.id === S.branch.id ? "selected" : ""}>${esc(b.name)}</option>`).join("")}</select></label>`
       : `<div class="branch-pick"><small>Filial</small><b>${esc(S.branch?.name || "")}</b></div>`}
     <nav id="nav">${tabs.map(([v, ic, l]) => `<button data-view="${v}" aria-current="${S.view === v ? "page" : "false"}">${ic}<span>${l}</span></button>`).join("")}</nav>
-    <div class="me"><span class="av">${esc((S.user.name || "A")[0])}</span><span><b>${esc(S.user.name)}</b>${S.demo ? '<span class="demo">DEMO</span>' : ""}<small>${ROLE[S.user.role] || ""}</small></span>${S.orders ? `<a class="out" href="/${esc(SLUG)}/buyurtmalar" style="text-decoration:none">Buyurtmalar</a>` : ""}<button class="out" id="logout">Chiqish</button></div>
+    <div class="me"><span class="av">${esc((S.user.name || "A")[0])}</span><span><b>${esc(S.user.name)}</b>${S.demo ? '<span class="demo">DEMO</span>' : ""}<small>${ROLE[S.user.role] || ""}</small></span>${S.orders ? `<a class="out" href="/${esc(SLUG)}/buyurtmalar" style="text-decoration:none">Buyurtmalar</a>` : ""}<button class="out" data-lang-toggle="1">${window.langButtonText ? langButtonText() : "RU"}</button><button class="out" id="logout">Chiqish</button></div>
   </aside>
   <section class="content">
     ${ro() ? `<div class="sub-warn">${S.user.salon.paid_until >= today() ? "Salon platforma tomonidan to'xtatilgan" : "Salon obunasi tugagan"}: mijozlar bron qila olmaydi, panel faqat ko'rish rejimida. To'lov uchun platforma bilan bog'laning.</div>` : ""}
@@ -1130,7 +1131,7 @@ function shellHtml() {
 
 function loginHtml() {
   const L = S.login;
-  return `<form class="login" id="lform"><span class="salon-name">${esc(S.salonName || SLUG)}</span><h1>Panelga kirish</h1><p class="hint">Salon rahbari yoki administrator login va paroli bilan kiring.</p>${S.error ? `<div class="notice" role="alert">${esc(S.error)}</div>` : ""}
+  return `<form class="login" id="lform"><button type="button" class="lang-btn" data-lang-toggle="1">${window.langButtonText ? langButtonText() : "RU"}</button><span class="salon-name">${esc(S.salonName || SLUG)}</span><h1>Panelga kirish</h1><p class="hint">Salon rahbari yoki administrator login va paroli bilan kiring.</p>${S.error ? `<div class="notice" role="alert">${esc(S.error)}</div>` : ""}
     <div class="field"><label for="llogin">Login</label><input id="llogin" autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(L.login)}"></div>
     <div class="field"><label for="lpass">Parol</label><input id="lpass" type="password" autocomplete="current-password" value="${esc(L.password)}"></div>
     <button class="btn primary" type="submit" ${S.loggingIn ? "disabled" : ""}>Kirish</button>

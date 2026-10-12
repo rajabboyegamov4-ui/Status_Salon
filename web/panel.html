@@ -4,6 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
 <style>
+.lang-btn{float:right;border:1px solid currentColor;background:none;color:inherit;border-radius:99px;padding:3px 10px;font:600 12px/1.4 inherit;opacity:.75;cursor:pointer}
 /* Layout: the barber's day as one phone column of client cards in time order; the next client is lifted to the top; actions sit on the card itself. */
 :root {
   --bg: #f3f1ee;
@@ -735,7 +736,7 @@ function headerHtml() {
   const name = S.user.name || (isAdmin() ? "Admin" : m?.name || "Usta");
   const days = Array.from({ length: 8 }, (_, i) => addDays(t, i - 1));
   const label = (d) => (d === t ? "Bugun" : d === addDays(t, 1) ? "Ertaga" : d === addDays(t, -1) ? "Kecha" : `${dinfo(d).wd} ${dinfo(d).day}`);
-  return `<div class="hello"><span class="av">${esc(name[0])}</span><span class="hi"><b>Salom, ${esc(name)}</b><small>${esc(S.user.salon?.name || "")} · ${isAdmin() ? "admin ko'rinishi" : "mijozlaringiz"}</small></span>${S.demo ? '<span class="badge">DEMO</span>' : ""}<button class="out" id="logout">Chiqish</button></div>
+  return `<div class="hello"><span class="av">${esc(name[0])}</span><span class="hi"><b>Salom, ${esc(name)}</b><small>${esc(S.user.salon?.name || "")} · ${isAdmin() ? "admin ko'rinishi" : "mijozlaringiz"}</small></span>${S.demo ? '<span class="badge">DEMO</span>' : ""}<button class="out" data-lang-toggle="1">${window.langButtonText ? langButtonText() : "RU"}</button><button class="out" id="logout">Chiqish</button></div>
     ${ro() ? `<div class="notice">${S.user.salon.paid_until && S.user.salon.paid_until >= today() ? "Salon vaqtincha to'xtatilgan" : "Salon obunasi tugagan"}. Panel faqat ko'rish rejimida.</div>` : ""}
     ${isAdmin() ? `<div class="tabs">${S.masters.map((x) => `<button class="tab" data-m="${x.id}" aria-pressed="${S.master === x.id}">${esc(x.name)}</button>`).join("")}</div>` : ""}
     <div class="seg" role="tablist"><button data-tab="day" aria-pressed="${S.tab === "day"}">Jadval</button><button data-tab="profile" aria-pressed="${S.tab === "profile"}">Profilim</button><button data-tab="reviews" aria-pressed="${S.tab === "reviews"}">Baholar</button></div>
@@ -991,7 +992,7 @@ function passwordHtml() {
 
 function loginHtml() {
   const L = S.login;
-  return `<form class="login" id="lform"><span class="salon-name">${esc(S.salonName || SLUG)}</span><h1>Usta paneli</h1>
+  return `<form class="login" id="lform"><button type="button" class="lang-btn" data-lang-toggle="1">${window.langButtonText ? langButtonText() : "RU"}</button><span class="salon-name">${esc(S.salonName || SLUG)}</span><h1>Usta paneli</h1>
     <p class="hint">Salon rahbari bergan login va parol bilan kiring.</p>${S.error ? `<div class="notice">${esc(S.error)}</div>` : ""}
     <div class="field"><label for="llogin">Login</label><input id="llogin" autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(L.login)}" placeholder="masalan, jasur"></div>
     <div class="field"><label for="lpass">Parol</label><input id="lpass" type="password" autocomplete="current-password" value="${esc(L.password)}"></div>
