@@ -159,7 +159,8 @@ select.mini { width: auto; padding: 6px 8px; font-size: 13px; font-weight: 700; 
 .goal .bar { grid-column: 1 / -1; height: 8px; background: var(--sunken); border-radius: 99px; overflow: hidden; }
 .goal .bar i { display: block; height: 100%; background: var(--brass); border-radius: 99px; }
 .tools { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.tools .count { margin-left: auto; }
+.tools .search { margin-left: 0; flex: 1 1 200px; width: auto; max-width: 320px; }
+.tools .io-group { display: flex; gap: 6px; align-items: center; margin-left: auto; }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .tools select { width: auto; padding: 7px 10px; font-size: 13px; font-weight: 700; background: var(--panel); }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
@@ -192,7 +193,8 @@ select.mini { width: auto; padding: 6px 8px; font-size: 13px; font-weight: 700; 
   .tools { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .tools select { width: 100%; }
   .tools .seg { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .tools .count, .tools .io { display: none; }
+  .tools .io-group { display: none; }
+  .tools .search { grid-column: 1 / -1; max-width: none; width: 100%; }
   .tools select:only-of-type { grid-column: 1 / -1; }
   .stat b { font-size: 21px !important; white-space: nowrap; }
   .stat span { font-size: 11.5px; }
@@ -325,15 +327,15 @@ function leadsList() {
 function leadsHtml() {
   const list = leadsList();
   const chip = (k, label) => `<button class="chip" data-filter="${k}" aria-pressed="${S.filter === k}">${label}</button>`;
-  return `<div class="filters"><div class="chips">${chip("open", "Ochiq")}${chip("due", "Bugun qilinadigan")}${STATUSES.map(([k, v]) => chip(k, v)).join("")}${chip("all", "Hammasi")}</div>
-      <input class="search" id="q" placeholder="Nom, tuman yoki telefon" value="${esc(S.q)}" autocomplete="off"></div>
+  return `<div class="filters"><div class="chips">${chip("open", "Ochiq")}${chip("due", "Bugun qilinadigan")}${STATUSES.map(([k, v]) => chip(k, v)).join("")}${chip("all", "Hammasi")}</div></div>
     <div class="tools">
+      <input class="search" id="q" placeholder="Nom, tuman yoki telefon" value="${esc(S.q)}" autocomplete="off">
       <select id="fkind" aria-label="Soha"><option value="">Barcha sohalar</option>${KINDS.map(([k, v]) => `<option value="${k}"${S.fkind === k ? " selected" : ""}>${esc(v)}</option>`).join("")}</select>
       ${manager() ? `<select id="fwho" aria-label="Mas'ul"><option value="">Hamma mas'ullar</option><option value="owner"${S.fwho === "owner" ? " selected" : ""}>Ega</option>${S.team.map((u) => `<option value="${u.id}"${S.fwho === String(u.id) ? " selected" : ""}>${esc(u.name)}</option>`).join("")}</select>` : ""}
       <div class="seg"><button data-view="list" aria-pressed="${S.view === "list"}">Ro'yxat</button><button data-view="board" aria-pressed="${S.view === "board"}">Bosqichlar</button></div>
-      <span class="hint count">${list.length} ta</span>
+      <span class="io-group"><span class="hint count">${list.length} ta</span>
       <label class="btn io" for="imp" style="cursor:pointer">Import (CSV)</label><input type="file" id="imp" accept=".csv,text/csv,.txt" hidden>
-      <button class="btn io" data-export="1">Eksport</button></div>
+      <button class="btn io" data-export="1">Eksport</button></span></div>
     ${!list.length ? `<div class="table-wrap"><div class="empty">${S.leads.length ? "Bu filtrda lid yo'q." : "Hali lid yo'q. Birinchi biznesni \"+ Lid\" bilan qo'shing yoki xaritadan yig'ilgan ro'yxatni \"Import\" bilan yuklang."}</div></div>`
       : S.view === "board" ? kanbanHtml(list) : `<div class="leads">${list.map(leadHtml).join("")}</div>`}`;
 }
